@@ -7,6 +7,13 @@ import { MeshyProp } from './MeshyProp'
 import { Obstacles } from './Obstacles'
 import { Terrain } from './Terrain'
 import { Decor } from './Decor'
+import { PavedPlaza } from './PavedPlaza'
+import { CampHearth } from './CampHearth'
+import { MetricsPlaza } from './MetricsPlaza'
+import { CampFlora } from './CampFlora'
+import { CampSignposts } from './CampSignposts'
+import { RetrievalVista } from './RetrievalVista'
+import { Ambiance } from './Ambiance'
 
 // Bold double-chevron arrow (points +Y in shape space) for the route.
 const CHEVRON_GEO = (() => {
@@ -29,8 +36,8 @@ export function Environment() {
       <TwilightBackground />
 
       {/* dusk lighting — brighter than pitch-black, still moody */}
-      <ambientLight intensity={0.62} color="#8a76e0" />
-      <hemisphereLight args={['#b9a3ff', '#2a1a4a', 0.95]} />
+      <ambientLight intensity={0.7} color="#8f7ce6" />
+      <hemisphereLight args={['#c2adff', '#2a1a4a', 1.02]} />
       <directionalLight
         position={[12, 20, 10]}
         intensity={1.7}
@@ -48,13 +55,25 @@ export function Environment() {
       <pointLight position={[-10, 8, -12]} intensity={45} color="#4f7bff" distance={44} />
       {/* soft violet fill over the camp */}
       <pointLight position={[3, 8, 0]} intensity={38} color="#a878ff" distance={30} />
-      {/* warm campfire */}
-      <pointLight position={[-6, 3, 4]} intensity={22} color="#ff8a3c" distance={12} />
+      {/* warm key on Guide Astra so she reads in the explore view (the lesson adds its own) */}
+      <pointLight position={[6.2, 3.0, 5.2]} intensity={17} color="#ffd9b4" distance={13} />
+      {/* cool violet fill from her tent side to shape the face */}
+      <pointLight position={[1.6, 2.6, 2.4]} intensity={7} color="#b98cff" distance={9} />
 
       <Terrain />
+      <PavedPlaza />
       <Boundaries />
       <Decor />
       <Obstacles />
+      <CampFlora />
+      {/* Foundations Camp hub: Astra's tent + campfire, the Metrics Plaza signboard, and framing signs */}
+      <CampHearth />
+      <MetricsPlaza />
+      <CampSignposts />
+      {/* distant Retrieval Valley (rope bridge + castle) the path leads toward */}
+      <RetrievalVista />
+      {/* living atmosphere: fireflies, embers, drifting motes */}
+      <Ambiance />
       {/* Meshy-generated ornate landmark structures (textured) */}
       <MeshyProp url="/models/props/crystal-shrine-textured.glb" position={[-12, 0, 3]} targetHeight={3} rotationY={0.5} emissiveBoost={0.5} solid colliderScale={0.7} />
       <MeshyProp url="/models/props/rune-arch.glb" position={[7, 0, 10]} targetHeight={5.2} rotationY={0.9} emissiveBoost={0.35} solid colliderScale={0.85} />

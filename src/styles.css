@@ -68,6 +68,38 @@ body {
 .step-link { width: 34px; height: 2px; background: var(--stroke); margin: 0 2px; margin-bottom: 22px; }
 .step-link.done { background: var(--good); }
 
+/* 5-world course rail (matches reference concept art) */
+.wstep { display: flex; flex-direction: column; align-items: center; gap: 7px; position: relative; padding: 0 3px; }
+.wdot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--stroke); background: rgba(10,6,24,0.6); }
+.wstep.active .wdot {
+  border-color: var(--accent-2);
+  background: radial-gradient(circle at 50% 38%, #ff9ed6, var(--accent-2));
+  box-shadow: 0 0 16px rgba(255,79,163,0.75);
+}
+.wstep.done .wdot { border-color: var(--good); background: var(--good); box-shadow: 0 0 10px rgba(75,227,160,0.4); }
+.wcap { font-size: 10.5px; color: var(--muted); max-width: 82px; text-align: center; line-height: 1.2; }
+.wstep.active .wcap { color: var(--text); }
+.wnum { color: var(--muted); font-weight: 700; }
+.wstep.active .wnum { color: var(--accent-2); }
+.crown {
+  margin-left: 14px; margin-bottom: 20px;
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 15px; color: #ffd36b; border: 1px solid rgba(255,211,107,0.4);
+  background: rgba(40,28,12,0.5); box-shadow: 0 0 14px rgba(255,211,107,0.25);
+}
+
+/* Top-right world badge */
+.world-badge { position: absolute; top: 18px; right: 18px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+.wb-text { text-align: right; }
+.wb-kicker { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.wb-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.wb-emblem {
+  width: 34px; height: 34px; flex: none;
+  background: conic-gradient(from 210deg, #7ad0ff, var(--accent), var(--accent-2));
+  clip-path: polygon(50% 0, 100% 30%, 82% 100%, 18% 100%, 0 30%);
+  filter: drop-shadow(0 0 8px rgba(160,110,255,0.7));
+}
+
 .artifacts {
   position: absolute; right: 18px; bottom: 18px;
   padding: 12px 16px; display: flex; align-items: center; gap: 12px;
@@ -90,7 +122,7 @@ body {
 }
 .controls .grp { display: flex; gap: 6px; align-items: center; }
 
-.hud-buttons { position: absolute; right: 18px; top: 18px; display: flex; gap: 8px; }
+.hud-buttons { position: absolute; right: 18px; top: 84px; display: flex; gap: 8px; }
 .btn {
   pointer-events: auto; cursor: pointer;
   background: var(--panel); border: 1px solid var(--stroke); color: var(--text);
@@ -344,14 +376,15 @@ body {
 
   .hud-buttons { top: 8px; right: 8px; gap: 6px; flex-direction: column; align-items: flex-end; }
   .hud-buttons .btn { padding: 6px 9px; font-size: 10px; }
+  .world-badge { display: none; }
 
   .progress-track {
     top: 60px; left: 8px; right: 8px; transform: none;
     justify-content: center; padding: 6px 8px; gap: 0;
   }
   .progress-track .title { display: none; }
-  .step .cap { display: none; }
-  .step .dot { width: 18px; height: 18px; font-size: 10px; }
+  .wcap, .crown { display: none; }
+  .wdot { width: 16px; height: 16px; }
   .step-link { width: 20px; margin: 0 1px 0; }
 
   .artifacts { right: 8px; top: 104px; bottom: auto; padding: 6px 10px; gap: 8px; }

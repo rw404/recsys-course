@@ -116,36 +116,13 @@ function StationBody({
   const emissive = locked ? 0.15 : 0.9
   switch (node.kind) {
     case 'npc':
-      return <GuideNPC color={color} />
+      // The guide is now the rigged Guide Astra (rendered by <LessonStage/> at the lesson node);
+      // this node stays only as an invisible entry waypoint for the route path.
+      return null
     case 'lesson':
-      // offset behind Guide Astra (who stands at the node origin) so the board reads as the
-      // theory station she presents at, not a statue you interact with instead of her.
-      return (
-        <RigidBody type="fixed" colliders={false} position={[-0.4, 0, -1.25]}>
-          <CuboidCollider args={[0.6, 1, 0.6]} position={[0, 1, 0]} />
-          {/* pedestal */}
-          <mesh position={[0, 0.15, 0]} castShadow>
-            <cylinderGeometry args={[0.9, 1.1, 0.3, 8]} />
-            <meshStandardMaterial color="#241833" />
-          </mesh>
-          {/* holo board */}
-          <mesh position={[0, 1.5, 0]} castShadow>
-            <boxGeometry args={[1.3, 1.7, 0.12]} />
-            <meshStandardMaterial
-              color={color}
-              emissive={color}
-              emissiveIntensity={emissive}
-              transparent
-              opacity={0.85}
-              toneMapped={false}
-            />
-          </mesh>
-          <mesh position={[0, 2.7, 0]}>
-            <octahedronGeometry args={[0.25]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.4} toneMapped={false} />
-          </mesh>
-        </RigidBody>
-      )
+      // The lesson station's visual IS the Metrics Plaza signboard (rendered by <MetricsPlaza/>
+      // in Environment, standing behind Guide Astra who is the interactable). No separate statue.
+      return null
     case 'widget':
       return (
         <RigidBody type="fixed" colliders={false}>
@@ -208,63 +185,6 @@ function StationBody({
   }
 }
 
-function GuideNPC({ color }: { color: string }) {
-  const g = useRef<THREE.Group>(null)
-  const arm = useRef<THREE.Group>(null)
-  const nearby = useProgress((s) => s.nearbyNodeId === 'npc-guide')
-  useFrame(() => {
-    const t = performance.now()
-    if (g.current) g.current.position.y = 0.9 + Math.sin(t * 0.002) * 0.04
-    // wave hello when the player is close, otherwise arm rests at the side
-    if (arm.current) {
-      const targetZ = nearby ? -2.3 + Math.sin(t * 0.012) * 0.4 : -0.15
-      arm.current.rotation.z += (targetZ - arm.current.rotation.z) * 0.12
-    }
-  })
-  return (
-    <group>
-      {/* campfire */}
-      <mesh position={[1.4, 0.15, 0.6]}>
-        <coneGeometry args={[0.3, 0.5, 6]} />
-        <meshStandardMaterial color="#ff8a3c" emissive="#ff5a1c" emissiveIntensity={1.4} toneMapped={false} />
-      </mesh>
-      <pointLight position={[1.4, 0.6, 0.6]} intensity={6} color="#ff8a3c" distance={6} />
-      <group ref={g}>
-        {/* body */}
-        <mesh castShadow position={[0, 0, 0]}>
-          <boxGeometry args={[0.42, 0.5, 0.3]} />
-          <meshStandardMaterial color="#3a2b5c" />
-        </mesh>
-        <mesh position={[0, 0.5, 0]} castShadow>
-          <boxGeometry args={[0.4, 0.38, 0.38]} />
-          <meshStandardMaterial color="#e7b58c" />
-        </mesh>
-        {/* goggles */}
-        <mesh position={[0, 0.62, 0.18]}>
-          <boxGeometry args={[0.42, 0.1, 0.06]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} toneMapped={false} />
-        </mesh>
-        {/* tablet */}
-        <mesh position={[-0.26, 0.05, 0.2]} rotation={[0.3, 0, -0.2]}>
-          <boxGeometry args={[0.24, 0.32, 0.03]} />
-          <meshStandardMaterial color="#7b2ff7" emissive="#7b2ff7" emissiveIntensity={0.6} toneMapped={false} />
-        </mesh>
-        {/* waving arm (pivots at the shoulder) */}
-        <group ref={arm} position={[0.26, 0.34, 0.04]}>
-          <mesh position={[0, -0.16, 0]} castShadow>
-            <boxGeometry args={[0.09, 0.34, 0.09]} />
-            <meshStandardMaterial color="#3a2b5c" />
-          </mesh>
-          <mesh position={[0, -0.36, 0]}>
-            <sphereGeometry args={[0.07, 10, 10]} />
-            <meshStandardMaterial color="#e7b58c" />
-          </mesh>
-        </group>
-      </group>
-    </group>
-  )
-}
-
 function BridgeBody({ state, color }: { state: ProgressNodeState; color: string }) {
   const unlocked = state !== 'locked_for_credit'
   const planks = 7
@@ -313,11 +233,13 @@ function FloatingLabel({
   color: string
   highlight: boolean
 }) {
-  if (node.kind === 'bridge') return null
+  // bridge has its own banner; the npc waypoint is invisible; the lesson's title is carried by the
+  // Metrics Plaza signboard + HUD, so it would only clutter the plaza banner.
+  if (node.kind === 'bridge' || node.kind === 'npc' || node.kind === 'lesson') return null
   const badge =
     state === 'completed' ? '✓ ' : state === 'locked_for_credit' ? '🔒 ' : state === 'next_required' ? '★ ' : ''
   return (
-    <Billboard position={[0, node.kind === 'quiz' ? 3.6 : node.kind === 'npc' ? 1.7 : 3.3, 0]}>
+    <Billboard position={[0, node.kind === 'quiz' ? 3.6 : 3.3, 0]}>
       <Text fontSize={0.3} color="#f2e9ff" anchorX="center" outlineWidth={0.012} outlineColor="#0b0618">
         {badge + node.title}
       </Text>

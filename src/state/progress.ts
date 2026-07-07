@@ -75,7 +75,7 @@ export const NODES: Record<NodeId, CourseNode> = {
     weekId: 'week-01',
     // co-located with Guide Astra (LESSON_STAGE.astra.pos): she IS the station marker, so E is
     // pressed at the narrator, not at a separate statue. The holo-board renders behind her.
-    position: [4.4, 0, 0.6],
+    position: [3.9, 0, 2.0],
     requires: [],
     requiredAction: true,
     interactionRadius: 3.0,

@@ -24,7 +24,9 @@ const CHAT = 'CHAT' // renamed on load (its authored name varies); used in study
 const SCALE = 1
 const FEET_LOCAL_Y = -0.6 // model foot plant in the RigidBody's local space (raised so feet sit on the floor, not sunk in)
 const YAW_OFFSET = Math.PI // Meshy character faces +Z; camera sits behind, so flip
-const RUN_THRESHOLD = 5.9
+// Player RUN_SPEED is 4.2 (Player.tsx), so the run clip must trigger below that. 3.4 sits
+// between WALK_SPEED (2.2) and RUN_SPEED (4.2): walking → walk clip, Shift-running → run clip.
+const RUN_THRESHOLD = 3.4
 
 export function PorterGLB() {
   const base = useGLTF(WALK_URL)

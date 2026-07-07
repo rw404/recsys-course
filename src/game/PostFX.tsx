@@ -6,17 +6,17 @@ import { ToneMappingMode } from 'postprocessing'
  * and ACES tone mapping. Renderer tone mapping is disabled (set on the Canvas) so the
  * ToneMapping effect owns the final grade — otherwise it double-applies.
  */
-export function PostFX({ bloom = 0.85 }: { bloom?: number }) {
+export function PostFX({ bloom = 0.98 }: { bloom?: number }) {
   return (
     <EffectComposer multisampling={0}>
       <Bloom
         intensity={bloom}
-        luminanceThreshold={0.55}
-        luminanceSmoothing={0.32}
+        luminanceThreshold={0.5}
+        luminanceSmoothing={0.34}
         mipmapBlur
-        radius={0.62}
+        radius={0.72}
       />
-      <Vignette offset={0.28} darkness={0.62} />
+      <Vignette offset={0.26} darkness={0.58} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
     </EffectComposer>
   )
