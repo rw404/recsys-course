@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 
 /**
@@ -22,78 +23,109 @@ export function CampHearth() {
 
 // Screen-left of the plaza (reference photo 1); the lit entrance is turned toward the campfire.
 const TENT_POS: [number, number, number] = [-4.6, 0, 1.0]
-const CANVAS = '#5b4a86'
-const CANVAS_LIGHT = '#6f5ca6'
+// Warm canvas so the tent reads as SOLID fabric and stands apart from the violet night.
+// The old #5b4a86 purple melted into the background, so the tent looked ghostly/"transparent";
+// warm clay + a physical collider (below) make it feel like a real, cosy dwelling.
+const CANVAS = '#b07d54' // walls — warm clay canvas
+const CANVAS_LIGHT = '#caa06e' // roof — sun-warmed canvas
+const CANVAS_SEAM = '#e6bd8d' // light seam where wall meets roof
 
 export function AstraTent() {
   return (
     <group position={TENT_POS} rotation={[0, 0.5, 0]}>
-      {/* canvas wall (octagonal bell tent) */}
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <cylinderGeometry args={[2.0, 2.15, 1.2, 8, 1, true]} />
-        <meshStandardMaterial color={CANVAS} emissive="#2e1d55" emissiveIntensity={0.28} roughness={0.9} side={THREE.DoubleSide} flatShading />
+      {/* SOLID collider — the player bumps the tent instead of walking through it (that
+          walk-through ghosting is the main reason it read as "transparent"). Radius stops
+          you at the canvas wall; the doorway stays approachable from the front. */}
+      <RigidBody type="fixed" colliders={false}>
+        <CylinderCollider args={[0.85, 1.9]} position={[0, 0.85, 0]} />
+      </RigidBody>
+
+      {/* groundcloth plinth so the tent sits planted and reads solid at its base */}
+      <mesh position={[0, 0.08, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[2.16, 2.3, 0.18, 8]} />
+        <meshStandardMaterial color="#5f4128" roughness={1} flatShading />
       </mesh>
-      {/* peaked canvas roof */}
-      <mesh position={[0, 2.0, 0]} castShadow>
-        <coneGeometry args={[2.5, 1.8, 8]} />
-        <meshStandardMaterial color={CANVAS_LIGHT} emissive="#3a2568" emissiveIntensity={0.32} roughness={0.85} flatShading />
+
+      {/* canvas wall (octagonal bell tent) — taller & warm so it reads as solid fabric */}
+      <mesh position={[0, 0.85, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[1.98, 2.12, 1.5, 8, 1, true]} />
+        <meshStandardMaterial color={CANVAS} emissive="#2a160a" emissiveIntensity={0.16} roughness={0.95} side={THREE.DoubleSide} flatShading />
       </mesh>
-      {/* roof seam ring (lighter band where wall meets roof) */}
-      <mesh position={[0, 1.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[2.02, 2.16, 8]} />
-        <meshBasicMaterial color="#8a75c8" transparent opacity={0.5} side={THREE.DoubleSide} toneMapped={false} />
+      {/* peaked canvas roof, seated on the wall top */}
+      <mesh position={[0, 2.4, 0]} castShadow>
+        <coneGeometry args={[2.45, 1.7, 8]} />
+        <meshStandardMaterial color={CANVAS_LIGHT} emissive="#341c0d" emissiveIntensity={0.2} roughness={0.9} flatShading />
+      </mesh>
+      {/* solid light seam band where wall meets roof (was a see-through ring) */}
+      <mesh position={[0, 1.55, 0]}>
+        <cylinderGeometry args={[2.0, 2.14, 0.18, 8, 1, true]} />
+        <meshStandardMaterial color={CANVAS_SEAM} emissive="#3a2210" emissiveIntensity={0.24} roughness={0.85} side={THREE.DoubleSide} flatShading />
       </mesh>
 
       {/* dark interior for entrance depth */}
-      <mesh position={[0, 0.9, 0]}>
-        <sphereGeometry args={[1.55, 12, 10]} />
-        <meshBasicMaterial color="#150a24" side={THREE.BackSide} />
+      <mesh position={[0, 1.0, 0]}>
+        <sphereGeometry args={[1.6, 12, 10]} />
+        <meshBasicMaterial color="#1a0f08" side={THREE.BackSide} />
       </mesh>
 
-      {/* ENTRANCE facing +z: doorway posts + dark opening + warm interior glow + tied-back flaps */}
+      {/* ENTRANCE facing +z: posts + dark opening + strong warm interior glow + tied-back flaps */}
       {[-0.72, 0.72].map((x) => (
-        <mesh key={x} position={[x, 0.85, 1.95]} castShadow>
-          <cylinderGeometry args={[0.07, 0.08, 1.7, 6]} />
+        <mesh key={x} position={[x, 0.95, 1.92]} castShadow>
+          <cylinderGeometry args={[0.08, 0.09, 1.9, 6]} />
           <meshStandardMaterial color="#3a2416" roughness={0.95} />
         </mesh>
       ))}
-      <mesh position={[0, 0.8, 1.9]}>
-        <planeGeometry args={[1.3, 1.6]} />
-        <meshBasicMaterial color="#1a0f2c" />
+      <mesh position={[0, 0.9, 1.88]}>
+        <planeGeometry args={[1.35, 1.8]} />
+        <meshBasicMaterial color="#20120a" />
       </mesh>
-      <mesh position={[0, 0.8, 1.94]}>
-        <planeGeometry args={[1.0, 1.3]} />
-        <meshBasicMaterial color="#ffb15a" transparent opacity={0.28} toneMapped={false} depthWrite={false} />
+      {/* warm interior glow — clearly a lived-in, cosy home, not an empty portal */}
+      <mesh position={[0, 0.85, 1.9]}>
+        <planeGeometry args={[1.05, 1.5]} />
+        <meshBasicMaterial color="#ffb662" transparent opacity={0.5} toneMapped={false} depthWrite={false} />
       </mesh>
-      {/* tied-back canvas flaps on each side of the doorway */}
+      {/* tied-back canvas flaps framing the doorway */}
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 1.05, 0.85, 1.8]} rotation={[0, s * 0.5, 0]}>
-          <planeGeometry args={[0.7, 1.6]} />
-          <meshStandardMaterial color={CANVAS} emissive="#2e1d55" emissiveIntensity={0.2} roughness={0.9} side={THREE.DoubleSide} flatShading />
+        <mesh key={s} position={[s * 1.02, 0.95, 1.82]} rotation={[0, s * 0.55, 0]} castShadow>
+          <planeGeometry args={[0.72, 1.75]} />
+          <meshStandardMaterial color={CANVAS} emissive="#2a160a" emissiveIntensity={0.14} roughness={0.95} side={THREE.DoubleSide} flatShading />
         </mesh>
       ))}
-      <pointLight position={[0, 1.0, 1.2]} intensity={6} color="#ffbf7a" distance={5} />
+      <pointLight position={[0, 1.05, 1.25]} intensity={8} color="#ffbf7a" distance={5.5} />
 
-      {/* awning canopy over the entrance on two poles */}
-      <mesh position={[0, 1.55, 3.0]} rotation={[-0.62, 0, 0]} castShadow>
-        <planeGeometry args={[2.6, 1.5]} />
-        <meshStandardMaterial color={CANVAS_LIGHT} emissive="#3a2568" emissiveIntensity={0.26} roughness={0.85} side={THREE.DoubleSide} flatShading />
+      {/* pitched awning over the entrance — a THIN BOX (real thickness) so it reads as a
+          solid shade, not the old flat see-through sheet */}
+      <mesh position={[0, 1.62, 2.95]} rotation={[-0.6, 0, 0]} castShadow>
+        <boxGeometry args={[2.5, 0.07, 1.5]} />
+        <meshStandardMaterial color={CANVAS_LIGHT} emissive="#341c0d" emissiveIntensity={0.18} roughness={0.9} flatShading />
       </mesh>
       {[-1.15, 1.15].map((x) => (
-        <mesh key={x} position={[x, 0.9, 3.55]} castShadow>
-          <cylinderGeometry args={[0.055, 0.065, 1.8, 6]} />
+        <mesh key={x} position={[x, 0.95, 3.5]} castShadow>
+          <cylinderGeometry args={[0.06, 0.07, 1.9, 6]} />
           <meshStandardMaterial color="#3a2416" roughness={0.95} />
         </mesh>
       ))}
+      {/* warm hanging lantern under the awning — a clear cosy focal point at the door */}
+      <group position={[0, 1.4, 2.35]}>
+        <mesh position={[0, 0.2, 0]}>
+          <cylinderGeometry args={[0.008, 0.008, 0.4, 4]} />
+          <meshBasicMaterial color="#2a1d12" />
+        </mesh>
+        <mesh>
+          <sphereGeometry args={[0.12, 12, 12]} />
+          <meshBasicMaterial color="#ffbf7a" toneMapped={false} />
+        </mesh>
+        <pointLight intensity={3.5} color="#ffcf8a" distance={3.5} />
+      </group>
 
       {/* apex finial + banner */}
-      <mesh position={[0, 3.05, 0]}>
+      <mesh position={[0, 3.15, 0]}>
         <cylinderGeometry args={[0.03, 0.03, 0.7, 6]} />
         <meshStandardMaterial color="#241832" />
       </mesh>
-      <mesh position={[0, 3.5, 0]}>
+      <mesh position={[0, 3.6, 0]}>
         <octahedronGeometry args={[0.17]} />
-        <meshBasicMaterial color="#c86bff" toneMapped={false} />
+        <meshBasicMaterial color="#ffd07a" toneMapped={false} />
       </mesh>
       <Banner />
 
