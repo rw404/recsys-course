@@ -33,6 +33,14 @@ export function LessonStage() {
           {/* warm key light on Astra's face + cool rim, only while lecturing */}
           <pointLight position={[5.2, 2.6, 4.2]} intensity={16} color="#ffd9b0" distance={11} />
           <pointLight position={[0.5, 2.4, -1.5]} intensity={10} color="#8ab4ff" distance={12} />
+          {/* HERO over-the-shoulder read. His back is to us (PorterGLB flips itself 180°), so a
+              flat wash just turns him into a pale smear. Instead: a crisp cool rim high and to
+              his camera-right carves the top edge of his head + shoulder against the dark scene,
+              and a second cooler rim from the far (Astra) side haloes the other edge — together
+              they read as a distinct over-the-shoulder silhouette. Both are short-range so they
+              die before reaching Astra and never flatten his body into a blob. */}
+          <pointLight position={[8.8, 3.7, 5.0]} intensity={30} color="#aecaff" distance={5.2} decay={2} />
+          <pointLight position={[7.0, 3.2, 2.4]} intensity={14} color="#c9b8ff" distance={3.4} decay={2} />
         </>
       )}
     </>

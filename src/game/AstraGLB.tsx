@@ -31,12 +31,15 @@ const CLIP_URLS = CLIP_FILES.map(([, url]) => url)
 
 // per-page gesture sequences (index = slide). Astra cycles through each list while the page
 // is open, giving varied, non-repetitive narration. Falls back to the last list.
+// Only calm, natural talking poses (arms low/relaxed) — the earlier raised-arm gestures
+// (wave/leftRaise/cheer) and the arm-near-head ones (agree/handOnHip/shrug) read as awkward
+// mid-motion, so they're intentionally excluded.
 const PAGE_GESTURES: string[][] = [
-  ['wave', 'talkOpen', 'talkLeftRaise'],       // 0 welcome
-  ['talkPassion', 'talkRight', 'agree'],       // 1 emphasis
-  ['talkLeftHip', 'talkOpen', 'handOnHip'],    // 2 explain
-  ['think', 'shrug', 'talkRight'],             // 3 weighing options
-  ['talkLeftRaise', 'cheer', 'agree'],         // 4 finale
+  ['talkOpen', 'talkRight', 'talkLeftHip'],    // 0 welcome
+  ['talkPassion', 'talkRight', 'talkOpen'],    // 1 emphasis
+  ['talkLeftHip', 'talkOpen', 'talkPassion'],  // 2 explain
+  ['think', 'talkRight', 'talkLeftHip'],       // 3 weighing options
+  ['talkPassion', 'talkOpen', 'talkRight'],    // 4 finale
 ]
 const CYCLE_SEC = 4.5
 
