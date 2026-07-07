@@ -11,7 +11,9 @@ import { PavedPlaza } from './PavedPlaza'
 import { CampHearth } from './CampHearth'
 import { MetricsPlaza } from './MetricsPlaza'
 import { CampFlora } from './CampFlora'
+import { Pines } from './Pines'
 import { CampSignposts } from './CampSignposts'
+import { CampBridge } from './CampBridge'
 import { RetrievalVista } from './RetrievalVista'
 import { Ambiance } from './Ambiance'
 
@@ -66,18 +68,26 @@ export function Environment() {
       <Decor />
       <Obstacles />
       <CampFlora />
+      {/* dark-green conifer pines framing the camp (forest-edge silhouette) */}
+      <Pines />
       {/* Foundations Camp hub: Astra's tent + campfire, the Metrics Plaza signboard, and framing signs */}
       <CampHearth />
       <MetricsPlaza />
       <CampSignposts />
+      {/* near hero rope bridge on the right (replaces the old dark rune-arch), leading
+          toward the distant Retrieval Valley the path continues to */}
+      <CampBridge />
       {/* distant Retrieval Valley (rope bridge + castle) the path leads toward */}
       <RetrievalVista />
       {/* living atmosphere: fireflies, embers, drifting motes */}
       <Ambiance />
       {/* Meshy-generated ornate landmark structures (textured) */}
       <MeshyProp url="/models/props/crystal-shrine-textured.glb" position={[-12, 0, 3]} targetHeight={3} rotationY={0.5} emissiveBoost={0.5} solid colliderScale={0.7} />
-      <MeshyProp url="/models/props/rune-arch.glb" position={[7, 0, 10]} targetHeight={5.2} rotationY={0.9} emissiveBoost={0.35} solid colliderScale={0.85} />
       <MeshyProp url="/models/props/hero-tree.glb" position={[-9, 0, -4]} targetHeight={5.5} rotationY={0.6} emissiveBoost={0.25} solid colliderScale={0.45} />
+      {/* detailed Meshy conifer hero pines anchoring the framing grove — tinted dark green
+          (the raw model is frosty/light) so they match the "тёмно-зелёные сосны" brief */}
+      <MeshyProp url="/models/props/pine-conifer.glb" position={[-12.5, 0, 7]} targetHeight={6.5} rotationY={0.3} tint="#20482f" tintAmount={0.62} solid colliderScale={0.3} />
+      <MeshyProp url="/models/props/pine-conifer.glb" position={[17, 0, 4]} targetHeight={6.0} rotationY={-1.2} tint="#20482f" tintAmount={0.62} solid colliderScale={0.3} />
       <MeshyProp url="/models/props/pavilion.glb" position={[14, 1.6, -12]} targetHeight={3.8} rotationY={-0.4} emissiveBoost={0.3} solid colliderScale={0.7} />
       {/* Guide Astra is rendered by <LessonStage/> (she doubles as the lecture narrator). */}
       <RoutePath />

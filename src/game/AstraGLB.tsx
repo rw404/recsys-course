@@ -41,7 +41,9 @@ const PAGE_GESTURES: string[][] = [
   ['think', 'talkRight', 'talkLeftHip'],       // 3 weighing options
   ['talkPassion', 'talkOpen', 'talkRight'],    // 4 finale
 ]
-const CYCLE_SEC = 4.5
+const CYCLE_SEC = 5.2 // hold each gesture a touch longer so it reads calm, not busy
+const GESTURE_SPEED = 0.88 // slow the Meshy talk clips slightly → graceful, deliberate narrator
+const CROSSFADE = 0.55 // smoother pose-to-pose blend
 
 // ?ac=<key> forces a single clip (used to vet each gesture during capture)
 const FORCE_CLIP =
@@ -121,8 +123,13 @@ export function AstraGLB() {
     }
 
     if (want !== current.current && actions[want]) {
-      actions[current.current]?.fadeOut(0.4)
-      actions[want]?.reset().fadeIn(0.4).play()
+      actions[current.current]?.fadeOut(CROSSFADE)
+      const next = actions[want]
+      if (next) {
+        next.reset()
+        next.timeScale = want === 'idle' ? 1 : GESTURE_SPEED
+        next.fadeIn(CROSSFADE).play()
+      }
       current.current = want
     }
   })

@@ -18,6 +18,8 @@ export function MeshyProp({
   solid = false,
   colliderScale = 0.8,
   idleMotion = false,
+  tint,
+  tintAmount = 0.5,
 }: {
   url: string
   position: [number, number, number]
@@ -27,6 +29,8 @@ export function MeshyProp({
   solid?: boolean
   colliderScale?: number
   idleMotion?: boolean
+  tint?: string
+  tintAmount?: number
 }) {
   const { scene } = useGLTF(url)
   const cloned = useMemo(() => scene.clone(true), [scene])
@@ -52,11 +56,15 @@ export function MeshyProp({
       if (m.isMesh) {
         m.castShadow = true
         m.receiveShadow = true
-        if (emissiveBoost > 0) {
-          const mat = m.material as THREE.MeshStandardMaterial
-          if (mat && 'emissive' in mat) {
+        const mat = m.material as THREE.MeshStandardMaterial
+        if (mat && 'emissive' in mat) {
+          if (emissiveBoost > 0) {
             mat.emissive = new THREE.Color('#7b3ff7')
             mat.emissiveIntensity = emissiveBoost
+          }
+          // blend the baked base colour toward `tint` (e.g. push a frosty conifer to dark green)
+          if (tint) {
+            mat.color = mat.color.clone().lerp(new THREE.Color(tint), tintAmount)
           }
         }
       }
@@ -73,7 +81,7 @@ export function MeshyProp({
       hz: (size.z * s * colliderScale) / 2,
       cy: (size.y * s) / 2, // collider center (feet at 0)
     })
-  }, [cloned, targetHeight, emissiveBoost, colliderScale])
+  }, [cloned, targetHeight, emissiveBoost, colliderScale, tint, tintAmount])
 
   const visual = (
     <group ref={animRef} scale={fit.scale} position={[0, fit.y, 0]}>

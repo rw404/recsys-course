@@ -23,7 +23,6 @@ export function Obstacles() {
 const CRYSTAL_SPOTS: [number, number, number, number][] = [
   [-9, 0, 9, 0.6],
   [4, 0, 8, 0.5],
-  [11, 0, 6, 0.55],
   [16, 0, -3, 0.5],
   [-8, 0, -6, 0.6],
   [2, 0, -10, 0.5],
@@ -31,7 +30,6 @@ const CRYSTAL_SPOTS: [number, number, number, number][] = [
   [-12, 0, 2, 0.55],
   [20, 0, -12, 0.6],
   [-2, 0, -4, 0.45],
-  [9, 0, 12, 0.5],
   [-14, 0, -3, 0.55],
 ]
 

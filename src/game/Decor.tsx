@@ -63,8 +63,10 @@ function Lantern({ position, color, seed }: { position: [number, number, number]
   )
 }
 
+// Note: the trees formerly at (10,10) and (16,2) were removed — they occluded the new
+// rope bridge on the camp's front-right. Framing greenery there is now the pine grove.
 const TREE_SPOTS: [number, number, number, number][] = [
-  [-8, 0, 8, 1], [10, 0, 10, 1.2], [-12, 0, -1, 0.9], [16, 0, 2, 1.1],
+  [-8, 0, 8, 1], [-12, 0, -1, 0.9],
   [-4, 0, -6, 0.85], [21, 0, -14, 1], [6, 0, -12, 0.95],
 ]
 
