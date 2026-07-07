@@ -3,6 +3,7 @@ import { World } from './game/World'
 import { HUD } from './ui/HUD'
 import { StudyMode } from './ui/StudyMode'
 import { LabMode } from './ui/LabMode'
+import { RetrievalLab } from './ui/RetrievalLab'
 import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
@@ -10,6 +11,7 @@ import { MobileControls } from './ui/MobileControls'
 import { useProgress } from './state/progress'
 import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
+import { GlbViewer } from './game/GlbViewer'
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
 
@@ -18,6 +20,13 @@ export function App() {
     return (
       <div className="canvas-wrap">
         <CharacterViewer />
+      </div>
+    )
+  }
+  if (VIEW === 'glb') {
+    return (
+      <div className="canvas-wrap">
+        <GlbViewer />
       </div>
     )
   }
@@ -30,6 +39,7 @@ function Game() {
   const closeNode = useProgress((s) => s.closeNode)
   const collected = useProgress((s) => s.collectedArtifacts())
   const bridgeUnlocked = useProgress((s) => s.completed['quiz-gate'])
+  const vectorCore = useProgress((s) => s.artifacts['vector-core'])
 
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -37,12 +47,15 @@ function Game() {
   // toast when a new artifact is forged or the bridge lights up
   const prevCollected = useRef(collected)
   const prevBridge = useRef(bridgeUnlocked)
+  const prevCore = useRef(vectorCore)
   useEffect(() => {
     if (collected > prevCollected.current) {
-      showToast('★ Artifact forged: Metric Compass — check your backpack')
+      const name = vectorCore && !prevCore.current ? 'Vector Core' : 'Metric Compass'
+      showToast(`★ Artifact forged: ${name} — check your backpack`)
     }
     prevCollected.current = collected
-  }, [collected])
+    prevCore.current = vectorCore
+  }, [collected, vectorCore])
   useEffect(() => {
     if (bridgeUnlocked && !prevBridge.current) {
       showToast('🌉 The Retrieval Bridge is now lit')
@@ -86,7 +99,7 @@ function Game() {
       {toast && <div className="toast panel">{toast}</div>}
 
       {activeNodeId && mode === 'study' && <StudyMode />}
-      {activeNodeId && mode === 'lab' && <LabMode />}
+      {activeNodeId && mode === 'lab' && (activeNodeId === 'retrieval-sandbox' ? <RetrievalLab /> : <LabMode />)}
       {activeNodeId && mode === 'quiz' && <QuizMode />}
       {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
 

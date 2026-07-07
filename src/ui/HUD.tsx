@@ -1,16 +1,18 @@
-import { NODES, useProgress, type NodeId } from '../state/progress'
+import { NODES, useProgress, type NodeId, type WorldId } from '../state/progress'
 
-/**
- * The world map of the whole course. The vertical slice plays inside World 01 (Foundations Camp);
- * later worlds are shown locked so the HUD reads like the reference concept art.
- */
-const WORLDS: { n: string; name: string; state: 'active' | 'locked' | 'done' }[] = [
-  { n: '01', name: 'Foundations Camp', state: 'active' },
-  { n: '02', name: 'Flash Attention Lab', state: 'locked' },
-  { n: '03', name: 'Retrieval Bridge', state: 'locked' },
-  { n: '04', name: 'Policy Tower', state: 'locked' },
-  { n: '05', name: 'Ecosystem Garden', state: 'locked' },
+/** Static course map; live state (done/active/locked) is derived from progress below. */
+const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
+  { n: '01', id: 'foundations-camp', name: 'Foundations Camp' },
+  { n: '02', id: 'retrieval-valley', name: 'Retrieval Valley' },
+  { n: '03', id: null, name: 'Flash Attention Lab' },
+  { n: '04', id: null, name: 'Policy Tower' },
+  { n: '05', id: null, name: 'Ecosystem Garden' },
 ]
+
+const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
+  'foundations-camp': { kicker: 'World 01', name: 'Foundations Camp' },
+  'retrieval-valley': { kicker: 'World 02', name: 'Retrieval Valley' },
+}
 
 // Reference shows the full-course artifact goal, not just this slice's four.
 const COURSE_ARTIFACTS = 24
@@ -22,6 +24,19 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const collected = useProgress((s) => s.collectedArtifacts())
   const reduced = useProgress((s) => s.reducedMotion)
   const setReduced = useProgress((s) => s.setReducedMotion)
+  const currentWorld = useProgress((s) => s.currentWorld)
+  const campDone = useProgress((s) => s.completed['retrieval-bridge'])
+  const valleyDone = useProgress((s) => s.completed['world3-gate'])
+
+  const worlds = WORLD_MAP.map((w) => {
+    let state: 'active' | 'locked' | 'done' = 'locked'
+    if (w.id === 'foundations-camp') state = campDone ? 'done' : 'active'
+    else if (w.id === 'retrieval-valley') {
+      state = valleyDone ? 'done' : currentWorld === 'retrieval-valley' ? 'active' : campDone ? 'active' : 'locked'
+    }
+    return { ...w, state }
+  })
+  const badge = WORLD_BADGE[currentWorld]
 
   const showPressE = mode === 'explore' && nearbyId !== null
 
@@ -37,7 +52,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
       <div className="progress-track panel">
         <span className="title">Course Progress</span>
-        {WORLDS.map((w, i) => (
+        {worlds.map((w, i) => (
           <div key={w.n} style={{ display: 'flex', alignItems: 'center' }}>
             {i > 0 && <div className={`step-link ${w.state === 'done' ? 'done' : ''}`} />}
             <div className={`wstep ${w.state}`}>
@@ -53,8 +68,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
       <div className="world-badge panel">
         <div className="wb-text">
-          <div className="wb-kicker">World 01</div>
-          <div className="wb-name">Foundations Camp</div>
+          <div className="wb-kicker">{badge.kicker}</div>
+          <div className="wb-name">{badge.name}</div>
         </div>
         <div className="wb-emblem" />
       </div>
@@ -102,7 +117,7 @@ function promptFor(id: NodeId): string {
     case 'open_lesson': return `Open lesson · ${node.title}`
     case 'open_lab': return `Enter lab · ${node.title}`
     case 'open_quiz': return `Attempt · ${node.title}`
-    case 'unlock_bridge': return `Cross to Retrieval Valley`
+    case 'unlock_bridge': return id === 'world3-gate' ? 'Pass the Two-Tower Gate' : 'Cross to Retrieval Valley'
     default: return 'Interact'
   }
 }

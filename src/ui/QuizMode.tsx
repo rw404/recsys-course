@@ -1,15 +1,35 @@
-import { useState } from 'react'
-import { METRICS_QUIZ } from '../data/course'
-import { useProgress } from '../state/progress'
+import { useMemo, useState } from 'react'
+import { METRICS_QUIZ, NEGATIVES_QUIZ, type QuizQuestion } from '../data/course'
+import { useProgress, type NodeId } from '../state/progress'
+
+const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; lead: string; questions: QuizQuestion[] }> = {
+  'quiz-gate': {
+    nodeId: 'quiz-gate',
+    kicker: 'Quiz Gate · Checkpoint',
+    title: 'Metrics Quiz',
+    lead: 'Answer all three correctly to light the bridge to Retrieval Valley.',
+    questions: METRICS_QUIZ,
+  },
+  'negatives-quiz': {
+    nodeId: 'negatives-quiz',
+    kicker: 'Two-Tower Gate · Checkpoint',
+    title: 'Retrieval & Negatives Quiz',
+    lead: 'Answer all three correctly to open the Two-Tower Gate onward.',
+    questions: NEGATIVES_QUIZ,
+  },
+}
 
 export function QuizMode() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const activeNodeId = useProgress((s) => s.activeNodeId)
+  const quiz = useMemo(() => QUIZZES[activeNodeId ?? 'quiz-gate'] ?? QUIZZES['quiz-gate'], [activeNodeId])
+  const QS = quiz.questions
 
   const [answers, setAnswers] = useState<Record<string, number>>({})
 
-  const answeredAll = METRICS_QUIZ.every((q) => answers[q.id] !== undefined)
-  const allCorrect = METRICS_QUIZ.every((q) => answers[q.id] === q.answer)
+  const answeredAll = QS.every((q) => answers[q.id] !== undefined)
+  const allCorrect = QS.every((q) => answers[q.id] === q.answer)
   const passed = answeredAll && allCorrect
 
   const choose = (qid: string, idx: number) => {
@@ -17,7 +37,7 @@ export function QuizMode() {
   }
 
   const submit = () => {
-    completeNode('quiz-gate')
+    completeNode(quiz.nodeId)
     closeNode()
   }
 
@@ -25,11 +45,11 @@ export function QuizMode() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Quiz Gate · Checkpoint</div>
-        <h1>Metrics Quiz</h1>
-        <p className="lead">Answer all three correctly to light the bridge to Retrieval Valley.</p>
+        <div className="kicker">{quiz.kicker}</div>
+        <h1>{quiz.title}</h1>
+        <p className="lead">{quiz.lead}</p>
 
-        {METRICS_QUIZ.map((q) => {
+        {QS.map((q) => {
           const picked = answers[q.id]
           return (
             <div className="q" key={q.id}>
@@ -56,7 +76,13 @@ export function QuizMode() {
         <div className="modal-actions">
           <button className="btn ghost" onClick={() => setAnswers({})}>Clear</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {passed ? 'Light the bridge →' : answeredAll ? 'Fix the wrong answers' : 'Answer all to continue'}
+            {passed
+              ? quiz.nodeId === 'negatives-quiz'
+                ? 'Open the gate →'
+                : 'Light the bridge →'
+              : answeredAll
+              ? 'Fix the wrong answers'
+              : 'Answer all to continue'}
           </button>
         </div>
       </div>

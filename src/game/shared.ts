@@ -85,3 +85,35 @@ export const NARRATOR = {
   pos: LESSON_STAGE.astra.pos,
   facing: LESSON_STAGE.astra.yaw,
 }
+
+/**
+ * VALLEY_STAGE — the World-02 (Retrieval Valley) equivalent of LESSON_STAGE. Vector Smith, the
+ * ANN engineer, is the rigged talking narrator here; he stands at the two-tower-lesson mark and
+ * delivers the same composed over-the-shoulder two-shot (DOM theory panel left, narrator right
+ * ~4/5, hero in the near-left foreground). Every value is URL-overridable with a `v…` prefix so
+ * the framing can be re-tuned headlessly, exactly like the camp stage.
+ */
+const vn = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
+const VCAM_V = new THREE.Vector3(vn('vcx', -3.2), vn('vcy', 2.6), vn('vcz', 5.4))
+const VSMITH_POS_V = new THREE.Vector3(vn('vsx', -8), 0, vn('vsz', 1.0))
+const VFACE_CAM = Math.atan2(VCAM_V.x - VSMITH_POS_V.x, VCAM_V.z - VSMITH_POS_V.z)
+
+export const VALLEY_STAGE = {
+  cam: VCAM_V,
+  look: new THREE.Vector3(vn('vlx', -13.5), vn('vly', 0.5), vn('vlz', 1.4)),
+  fov: vn('vfov', 40),
+  smith: {
+    pos: VSMITH_POS_V,
+    yaw: vn('vsy', VFACE_CAM), // faces the camera (auto-derived)
+    targetHeight: 1.75,
+    scale: vn('vssc', 1.0),
+    // plant boots on the VISIBLE valley surface. Vector Smith's rig has feet lower in local
+    // space than Astra's, so he needs more lift than her 0.18 (empirical sweep: 0.18=shins sunk,
+    // 0.35=boots planted, 0.5=floating). See [[headless-webgl-screenshots]] for the capture method.
+    feetY: vn('vsfy', 0.35),
+  },
+  player: {
+    pos: new THREE.Vector3(vn('vpx', -7.3), 0, vn('vpz', 4.9)),
+    yaw: vn('vpy', 1.1),
+  },
+}

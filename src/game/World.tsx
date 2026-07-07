@@ -3,11 +3,14 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Environment } from './Environment'
+import { RetrievalValley } from './RetrievalValley'
 import { Player } from './Player'
 import { FollowCamera } from './Camera'
 import { Stations, InteractionSystem } from './Stations'
 import { LessonStage } from './LessonStage'
+import { ValleyLessonStage } from './ValleyLessonStage'
 import { PostFX } from './PostFX'
+import { useProgress } from '../state/progress'
 
 // ?capture=1 makes the WebGL backbuffer persist so headless screenshot tools
 // reliably capture a painted frame (otherwise the cleared buffer reads as black).
@@ -31,21 +34,34 @@ export function World() {
         toneMapping: THREE.NoToneMapping,
       }}
     >
-      {/* dusk fog (background is set by <TwilightBackground/> inside Environment) */}
+      {/* dusk fog (background is set per-world by the active scene component) */}
       <fog attach="fog" args={['#231447', 34, 95]} />
       <Suspense fallback={null}>
-        <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
-          <Environment />
-          <Stations />
-          <Player />
-          <LessonStage />
-          <InteractionSystem />
-        </Physics>
+        <Scene />
         <FollowCamera />
         <NoFrustumCull />
         {!NOFX && <PostFX />}
       </Suspense>
     </Canvas>
+  )
+}
+
+/** The active region + the shared actors. Swaps the scene diorama when the player changes world. */
+function Scene() {
+  const world = useProgress((s) => s.currentWorld)
+  return (
+    <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
+      {world === 'foundations-camp' ? <Environment /> : <RetrievalValley />}
+      <Stations />
+      <Player />
+      {/* each region has its own rigged narrator two-shot: Astra in the camp, Vector Smith in the
+          valley. Their (large, skinned) GLBs load behind a nested Suspense so streaming a narrator
+          in never blanks the whole scene — no black flash on first load or when crossing worlds. */}
+      <Suspense fallback={null}>
+        {world === 'foundations-camp' ? <LessonStage /> : <ValleyLessonStage />}
+      </Suspense>
+      <InteractionSystem />
+    </Physics>
   )
 }
 

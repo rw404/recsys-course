@@ -47,6 +47,7 @@ export function InteractionSystem() {
     let bestDist = Infinity
     for (const id of NODE_ORDER) {
       const node = NODES[id]
+      if (node.worldId !== st.currentWorld) continue
       const state = st.getNodeState(id)
       if (!isInteractable(id, state)) continue
       const dx = p.x - node.position[0]
@@ -78,9 +79,10 @@ function isInteractable(id: NodeId, state: ProgressNodeState): boolean {
 }
 
 export function Stations() {
+  const world = useProgress((s) => s.currentWorld)
   return (
     <group>
-      {NODE_ORDER.map((id) => (
+      {NODE_ORDER.filter((id) => NODES[id].worldId === world).map((id) => (
         <StationNode key={id} id={id} />
       ))}
     </group>
@@ -179,15 +181,16 @@ function StationBody({
         </RigidBody>
       )
     case 'bridge':
-      return <BridgeBody state={state} color={color} />
+      return <BridgeBody node={node} state={state} color={color} />
     default:
       return null
   }
 }
 
-function BridgeBody({ state, color }: { state: ProgressNodeState; color: string }) {
+function BridgeBody({ node, state, color }: { node: CourseNode; state: ProgressNodeState; color: string }) {
   const unlocked = state !== 'locked_for_credit'
   const planks = 7
+  const target = node.id === 'world3-gate' ? '→ Flash Attention Lab' : '→ Retrieval Valley'
   return (
     <group>
       {/* chasm hint: two towers */}
@@ -215,7 +218,7 @@ function BridgeBody({ state, color }: { state: ProgressNodeState; color: string 
       })}
       <Billboard position={[0, 3.6, 0]}>
         <Text fontSize={0.34} color={unlocked ? '#ffd9ec' : '#6a5a8f'} anchorX="center">
-          {unlocked ? '→ Retrieval Valley' : '🔒 Locked'}
+          {unlocked ? target : '🔒 Locked'}
         </Text>
       </Billboard>
     </group>

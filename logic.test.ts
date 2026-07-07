@@ -62,12 +62,30 @@ assert('quiz completion unlocks bridge', eff2?.unlockBridge === 'retrieval-bridg
 assert('bridge no longer locked', s().getNodeState('retrieval-bridge') !== 'locked_for_credit')
 assert('objective now the bridge', s().nextRequiredAction().nodeId === 'retrieval-bridge')
 
-// finish
+// cross the bridge → enter Retrieval Valley (World 02) and the ANN lesson becomes next
 s().completeNode('retrieval-bridge')
-assert('camp complete → no required action', s().nextRequiredAction().nodeId === null)
+assert('crossing the bridge enters retrieval-valley', s().currentWorld === 'retrieval-valley')
+assert('objective now the two-tower lesson', s().nextRequiredAction().nodeId === 'two-tower-lesson')
+assert('retrieval-sandbox still locked before lesson', s().getNodeState('retrieval-sandbox') === 'locked_for_credit')
 
-// sanity: every node has a valid position + radius
+// World 02: lesson → retrieval lab (forges vector-core) → negatives quiz → gate
+s().completeNode('two-tower-lesson')
+assert('retrieval-sandbox now next_required', s().getNodeState('retrieval-sandbox') === 'next_required')
+const eff3 = s().completeNode('retrieval-sandbox')
+assert('retrieval lab forges vector-core', eff3?.spawnArtifact === 'vector-core')
+assert('vector-core collected (2 artifacts total)', s().artifacts['vector-core'] === true && s().collectedArtifacts() === 2)
+assert('negatives-quiz now next_required', s().getNodeState('negatives-quiz') === 'next_required')
+const eff4 = s().completeNode('negatives-quiz')
+assert('quiz unlocks the two-tower gate', eff4?.unlockBridge === 'world3-gate')
+assert('objective now the two-tower gate', s().nextRequiredAction().nodeId === 'world3-gate')
+
+// finish the valley
+s().completeNode('world3-gate')
+assert('valley complete → no required action', s().nextRequiredAction().nodeId === null)
+
+// sanity: every node has a valid position + radius, and worldId is one of the two regions
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
+assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley'))
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)

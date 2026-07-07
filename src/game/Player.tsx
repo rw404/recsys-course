@@ -6,7 +6,7 @@ import { useInput } from './useInput'
 import { runtime } from './shared'
 import { touchControls } from './controls'
 import { PorterGLB } from './PorterGLB'
-import { useProgress } from '../state/progress'
+import { useProgress, WORLD_SPAWN, type WorldId } from '../state/progress'
 
 const WALK_SPEED = 2.2
 const RUN_SPEED = 4.2
@@ -23,6 +23,7 @@ export function Player() {
 
   const desired = useRef(new THREE.Vector3())
   const current = useRef(new THREE.Vector3())
+  const world = useRef<WorldId>(useProgress.getState().currentWorld)
 
   const mode = useProgress((s) => s.mode)
   // during the staged lecture the player is shown from behind by <LessonStage/>, so hide the
@@ -33,6 +34,20 @@ export function Player() {
     const dt = Math.min(dtRaw, 0.05)
     const rb = body.current
     if (!rb) return
+
+    // Region change → teleport the body to the new world's spawn and snap the camera.
+    const liveWorld = useProgress.getState().currentWorld
+    if (liveWorld !== world.current) {
+      world.current = liveWorld
+      const [sx, sy, sz] = WORLD_SPAWN[liveWorld]
+      rb.setTranslation({ x: sx, y: sy, z: sz }, true)
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      runtime.playerPosition.set(sx, sy, sz)
+      runtime.cameraSkip = true
+      current.current.set(0, 0, 0)
+      desired.current.set(0, 0, 0)
+      return
+    }
 
     // Freeze movement while a panel is open (study/lab/quiz/interact).
     const frozen = mode !== 'explore'

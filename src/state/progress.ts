@@ -11,8 +11,17 @@ export type NodeId =
   | 'ranking-sandbox'
   | 'quiz-gate'
   | 'retrieval-bridge'
+  // World 02 · Retrieval Valley
+  | 'ann-guide'
+  | 'two-tower-lesson'
+  | 'retrieval-sandbox'
+  | 'negatives-quiz'
+  | 'world3-gate'
 
 export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'bridge' | 'arena'
+
+/** Explorable regions. The vertical slice ships two: the camp and the valley across the bridge. */
+export type WorldId = 'foundations-camp' | 'retrieval-valley'
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -33,7 +42,7 @@ export interface CourseNode {
   kind: NodeKind
   title: string
   subtitle: string
-  worldId: string
+  worldId: WorldId
   weekId?: string
   /** world-space position [x, y, z] */
   position: [number, number, number]
@@ -119,6 +128,73 @@ export const NODES: Record<NodeId, CourseNode> = {
     interactionRadius: 3.4,
     action: 'unlock_bridge',
   },
+
+  // ---- World 02 · Retrieval Valley -------------------------------------------------
+  // invisible welcome waypoint near the arrival landing (Vector Smith himself stands, rigged, at
+  // the two-tower-lesson mark — this node just fires his greeting when you step off the bridge)
+  'ann-guide': {
+    id: 'ann-guide',
+    kind: 'npc',
+    title: 'Vector Smith',
+    subtitle: 'ANN Engineer',
+    worldId: 'retrieval-valley',
+    position: [1.5, 0, 9.5],
+    requires: [],
+    requiredAction: false,
+    interactionRadius: 3.0,
+    action: 'talk',
+  },
+  'two-tower-lesson': {
+    id: 'two-tower-lesson',
+    kind: 'lesson',
+    title: 'ANN & Negative Sampling',
+    subtitle: 'Lesson',
+    worldId: 'retrieval-valley',
+    weekId: 'week-02',
+    position: [-8, 0, 1],
+    requires: ['retrieval-bridge'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lesson',
+  },
+  'retrieval-sandbox': {
+    id: 'retrieval-sandbox',
+    kind: 'widget',
+    title: 'Retrieval Sandbox',
+    subtitle: 'Lab',
+    worldId: 'retrieval-valley',
+    weekId: 'week-02',
+    position: [2, 0, -1],
+    requires: ['two-tower-lesson'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lab',
+  },
+  'negatives-quiz': {
+    id: 'negatives-quiz',
+    kind: 'quiz',
+    title: 'Two-Tower Gate Quiz',
+    subtitle: 'Checkpoint',
+    worldId: 'retrieval-valley',
+    weekId: 'week-02',
+    position: [9, 0, -5.5],
+    requires: ['retrieval-sandbox'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_quiz',
+  },
+  'world3-gate': {
+    id: 'world3-gate',
+    kind: 'bridge',
+    title: 'Two-Tower Gate',
+    subtitle: 'Next Region',
+    worldId: 'retrieval-valley',
+    position: [3, 0, -13],
+    requires: ['negatives-quiz'],
+    requiredAction: false,
+    interactionRadius: 3.6,
+    action: 'unlock_bridge',
+  },
 }
 
 export const NODE_ORDER: NodeId[] = [
@@ -127,7 +203,18 @@ export const NODE_ORDER: NodeId[] = [
   'ranking-sandbox',
   'quiz-gate',
   'retrieval-bridge',
+  'ann-guide',
+  'two-tower-lesson',
+  'retrieval-sandbox',
+  'negatives-quiz',
+  'world3-gate',
 ]
+
+/** Where the player is (re)spawned when they first enter a world. */
+export const WORLD_SPAWN: Record<WorldId, [number, number, number]> = {
+  'foundations-camp': [-6, 0.9, 8],
+  'retrieval-valley': [1, 0.9, 12],
+}
 
 export interface NextRequiredAction {
   nodeId: NodeId | null
@@ -141,6 +228,7 @@ interface ProgressState {
   talkedToGuide: boolean
 
   // runtime UI / player state (kept here so HUD + world share one store)
+  currentWorld: WorldId
   mode: PlayerMode
   nearbyNodeId: NodeId | null
   activeNodeId: NodeId | null
@@ -155,6 +243,7 @@ interface ProgressState {
   collectedArtifacts: () => number
 
   // actions
+  enterWorld: (id: WorldId) => void
   setNearby: (id: NodeId | null) => void
   setLessonPage: (n: number) => void
   openNode: (id: NodeId) => void
@@ -171,6 +260,11 @@ const emptyCompleted = (): Record<NodeId, boolean> => ({
   'ranking-sandbox': false,
   'quiz-gate': false,
   'retrieval-bridge': false,
+  'ann-guide': false,
+  'two-tower-lesson': false,
+  'retrieval-sandbox': false,
+  'negatives-quiz': false,
+  'world3-gate': false,
 })
 
 const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
@@ -185,10 +279,18 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/** ?world=valley starts the session already in Retrieval Valley (used by showcase captures). */
+function initialWorld(): WorldId {
+  if (typeof window === 'undefined') return 'foundations-camp'
+  const w = new URLSearchParams(window.location.search).get('world')
+  return w === 'valley' || w === 'retrieval-valley' ? 'retrieval-valley' : 'foundations-camp'
+}
+
 export const useProgress = create<ProgressState>((set, get) => ({
   completed: emptyCompleted(),
   artifacts: emptyArtifacts(),
   talkedToGuide: false,
+  currentWorld: initialWorld(),
   mode: 'explore',
   nearbyNodeId: null,
   activeNodeId: null,
@@ -220,16 +322,26 @@ export const useProgress = create<ProgressState>((set, get) => ({
         return { nodeId: id, label: labelForAction(node) }
       }
     }
-    // everything required is done in this slice
+    // bridges are not requiredAction nodes, so surface them explicitly between regions
     if (s.completed['quiz-gate'] && !s.completed['retrieval-bridge']) {
       return { nodeId: 'retrieval-bridge', label: 'Cross the Retrieval Bridge' }
     }
-    return { nodeId: null, label: 'Foundations Camp complete — next region coming soon' }
+    if (s.completed['negatives-quiz'] && !s.completed['world3-gate']) {
+      return { nodeId: 'world3-gate', label: 'Pass the Two-Tower Gate' }
+    }
+    return { nodeId: null, label: 'Retrieval Valley complete — next region coming soon' }
   },
 
   collectedArtifacts: () => {
     const a = get().artifacts
     return Object.values(a).filter(Boolean).length
+  },
+
+  enterWorld: (id) => {
+    if (get().currentWorld === id) return
+    // teleport the player to the new region's spawn and snap the camera (handled in Player/Camera
+    // via the runtime flags set by the caller wiring below)
+    set({ currentWorld: id, nearbyNodeId: null, activeNodeId: null, mode: 'explore' })
   },
 
   setNearby: (id) => {
@@ -260,7 +372,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
     set((st) => ({ completed: { ...st.completed, [id]: true } }))
     if (id === 'npc-guide') set({ talkedToGuide: true })
 
-    // completion effects for this slice
+    // completion effects across both regions
     if (id === 'ranking-sandbox' && !already) {
       set((st) => ({ artifacts: { ...st.artifacts, 'metric-compass': true } }))
       return { spawnArtifact: 'metric-compass', highlightNextPath: true }
@@ -269,6 +381,19 @@ export const useProgress = create<ProgressState>((set, get) => ({
       // completing the checkpoint lights the bridge
       set((st) => ({ completed: { ...st.completed, 'retrieval-bridge': false } }))
       return { unlockBridge: 'retrieval-bridge', highlightNextPath: true }
+    }
+    // crossing the lit bridge carries the player into Retrieval Valley
+    if (id === 'retrieval-bridge') {
+      get().enterWorld('retrieval-valley')
+      return { clearFog: 'retrieval-valley', highlightNextPath: true }
+    }
+    // the retrieval lab forges the Vector Core
+    if (id === 'retrieval-sandbox' && !already) {
+      set((st) => ({ artifacts: { ...st.artifacts, 'vector-core': true } }))
+      return { spawnArtifact: 'vector-core', highlightNextPath: true }
+    }
+    if (id === 'negatives-quiz' && !already) {
+      return { unlockBridge: 'world3-gate', highlightNextPath: true }
     }
     return { highlightNextPath: true }
   },
@@ -282,6 +407,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
       completed: emptyCompleted(),
       artifacts: emptyArtifacts(),
       talkedToGuide: false,
+      currentWorld: 'foundations-camp',
       mode: 'explore',
       nearbyNodeId: null,
       activeNodeId: null,

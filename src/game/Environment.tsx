@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
-import { NODES, NODE_ORDER, useProgress, type NodeId } from '../state/progress'
+import { NODES, NODE_ORDER, useProgress, type NodeId, type WorldId } from '../state/progress'
 import { MeshyProp } from './MeshyProp'
 import { Obstacles } from './Obstacles'
 import { Terrain } from './Terrain'
@@ -90,7 +90,7 @@ export function Environment() {
       <MeshyProp url="/models/props/pine-conifer.glb" position={[17, 0, 4]} targetHeight={6.0} rotationY={-1.2} tint="#20482f" tintAmount={0.62} solid colliderScale={0.3} />
       <MeshyProp url="/models/props/pavilion.glb" position={[14, 1.6, -12]} targetHeight={3.8} rotationY={-0.4} emissiveBoost={0.3} solid colliderScale={0.7} />
       {/* Guide Astra is rendered by <LessonStage/> (she doubles as the lecture narrator). */}
-      <RoutePath />
+      <RoutePath world="foundations-camp" />
     </>
   )
 }
@@ -147,7 +147,7 @@ function Boundaries() {
  * Glowing route drawn as chevrons along the node sequence.
  * The segment leading to the current next-required action pulses brighter.
  */
-function RoutePath() {
+export function RoutePath({ world }: { world: WorldId }) {
   const nextId = useProgress((s) => s.nextRequiredAction().nodeId)
   const completed = useProgress((s) => s.completed)
 
@@ -156,6 +156,8 @@ function RoutePath() {
     for (let i = 0; i < NODE_ORDER.length - 1; i++) {
       const from = NODE_ORDER[i]
       const to = NODE_ORDER[i + 1]
+      // only draw segments whose BOTH endpoints live in this world
+      if (NODES[from].worldId !== world || NODES[to].worldId !== world) continue
       const a = new THREE.Vector3(...NODES[from].position)
       const b = new THREE.Vector3(...NODES[to].position)
       const dir = new THREE.Vector3().subVectors(b, a)
@@ -171,7 +173,7 @@ function RoutePath() {
       segs.push({ from, to, chevrons, yaw })
     }
     return segs
-  }, [])
+  }, [world])
 
   return (
     <group>
