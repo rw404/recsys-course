@@ -157,9 +157,10 @@ const VR = 24 // valley island radius
 function ValleyTerrain() {
   return (
     <group>
-      {/* physics floor */}
+      {/* physics floor: a DEEP slab (top at y≈0, extends to y=-6) so a body can't tunnel through a
+          thin floor while the valley scene is still mounting on entry. */}
       <RigidBody type="fixed" colliders={false}>
-        <CylinderCollider args={[0.5, VR]} position={[1, -0.5, -2]} />
+        <CylinderCollider args={[3, VR]} position={[1, -3, -2]} />
       </RigidBody>
 
       {/* top play surface */}

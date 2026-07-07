@@ -12,6 +12,8 @@ const WALK_SPEED = 2.2
 const RUN_SPEED = 4.2
 const ACCEL = 9 // lower = smoother ramp to speed
 const JUMP_V = 7.5
+// Below this Y the player has fallen through the world → respawn (the island floor sits at y≈0).
+const RESPAWN_Y = -8
 // Camera-forward basis on the ground plane (camera sits behind +Z, above).
 const FORWARD = new THREE.Vector3(0, 0, -1)
 const RIGHT = new THREE.Vector3(1, 0, 0)
@@ -35,17 +37,31 @@ export function Player() {
     const rb = body.current
     if (!rb) return
 
-    // Region change → teleport the body to the new world's spawn and snap the camera.
-    const liveWorld = useProgress.getState().currentWorld
-    if (liveWorld !== world.current) {
-      world.current = liveWorld
-      const [sx, sy, sz] = WORLD_SPAWN[liveWorld]
+    // Hard-place the body at a world's spawn with zero velocity (used on region change and by the
+    // fall-through safety net below).
+    const respawn = (worldId: WorldId) => {
+      const [sx, sy, sz] = WORLD_SPAWN[worldId]
       rb.setTranslation({ x: sx, y: sy, z: sz }, true)
       rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
       runtime.playerPosition.set(sx, sy, sz)
       runtime.cameraSkip = true
       current.current.set(0, 0, 0)
       desired.current.set(0, 0, 0)
+    }
+
+    // Region change → teleport the body to the new world's spawn and snap the camera.
+    const liveWorld = useProgress.getState().currentWorld
+    if (liveWorld !== world.current) {
+      world.current = liveWorld
+      respawn(liveWorld)
+      return
+    }
+
+    // Safety net: if the body has dropped below the island (the terrain floor collider can be
+    // absent for a frame or two while a scene swaps in, and gravity would otherwise make the
+    // player fall forever), snap them back to the current world's spawn.
+    if (rb.translation().y < RESPAWN_Y) {
+      respawn(world.current)
       return
     }
 
@@ -103,6 +119,7 @@ export function Player() {
       linearDamping={0.9}
       enabledRotations={[false, false, false]}
       canSleep={false}
+      ccd // continuous collision → don't tunnel through the floor slab when falling fast
     >
       <CapsuleCollider args={[0.45, 0.42]} />
       <group ref={visual} visible={!hideVisual}>

@@ -25,9 +25,10 @@ const R = 27 // island radius
 function IslandBase() {
   return (
     <group>
-      {/* physics floor (flat, covers the play area) */}
+      {/* physics floor: a DEEP slab (top at y≈0, extends to y=-6) so a fast-falling body can't
+          tunnel through a thin floor during a scene swap. */}
       <RigidBody type="fixed" colliders={false}>
-        <CylinderCollider args={[0.5, R]} position={[3, -0.5, -2]} />
+        <CylinderCollider args={[3, R]} position={[3, -3, -2]} />
       </RigidBody>
 
       {/* top play surface */}
