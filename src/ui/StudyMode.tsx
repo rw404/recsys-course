@@ -54,8 +54,11 @@ export function StudyMode() {
     <div className="study-cinematic">
       {/* LEFT — holographic theory module */}
       <div className="holo-panel">
+        <div className="holo-frame" aria-hidden>
+          <i /><i /><i /><i />
+        </div>
         <div className="holo-head">
-          <span className="holo-kicker">◆ Theory Module · Metrics Plaza</span>
+          <span className="holo-kicker">Theory Module · Metrics Plaza</span>
           <button className="btn ghost" onClick={closeNode}>✕ Esc</button>
         </div>
 
@@ -67,6 +70,7 @@ export function StudyMode() {
           ) : (
             <HoloVisual icon={card.icon} intro={card.intro} />
           )}
+          <span className="holo-scan" aria-hidden />
         </div>
 
         <div className="holo-body">
