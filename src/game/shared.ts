@@ -40,9 +40,10 @@ export const GROUND_Y = 0
 const LQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 const ln = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
 
-// Pulled back to the hero's right (lcx 8.3) and up (lcy 2.6) so the shot looks over his right
-// shoulder toward Astra — the hero stays clearly in frame instead of vanishing behind the
-// foreground mound the old tight camera framed him against.
+// Pulled back to the hero's right (lcx 8.3) and up (lcy 2.6). The aim is swung hard-LEFT
+// (look.x -5) so Astra — anchored at world (3.9,0,2) — is pushed to the RIGHT ~4/5 of the
+// frame (the composition the reference calls for), with the Metrics Plaza cards behind her.
+// The hero then sits in the near LEFT foreground (back to camera) so he never overlaps her.
 const CAM_V = new THREE.Vector3(ln('lcx', 8.3), ln('lcy', 2.6), ln('lcz', 5.7))
 const ASTRA_POS_V = new THREE.Vector3(ln('lax', 3.9), 0, ln('laz', 2.0))
 // Astra's native front is +Z; to face the camera she must yaw to atan2(dx, dz) of the
@@ -52,11 +53,12 @@ const FACE_CAM = Math.atan2(CAM_V.x - ASTRA_POS_V.x, CAM_V.z - ASTRA_POS_V.z)
 
 export const LESSON_STAGE = {
   cam: CAM_V,
-  look: new THREE.Vector3(ln('llx', 3.7), ln('lly', 1.35), ln('llz', 1.9)),
-  fov: ln('lfov', 45),
+  look: new THREE.Vector3(ln('llx', -5), ln('lly', 1.35), ln('llz', 1.0)),
+  fov: ln('lfov', 40),
   astra: {
-    // mid-ground centre so she reads as the focal narrator and never sits behind the DOM theory
-    // panel (left ~40%)
+    // pushed to the RIGHT ~4/5 of frame (not centre) by the hard-left aim — she reads as the
+    // focal narrator with the Metrics Plaza cards as her backdrop, well clear of both the DOM
+    // theory panel (left ~40%) and the foreground hero
     pos: ASTRA_POS_V,
     yaw: ln('lay', FACE_CAM), // faces the camera (auto-derived)
     targetHeight: 1.75,
@@ -64,10 +66,10 @@ export const LESSON_STAGE = {
     feetY: ln('lafy', 0), // plant the rig's feet on the ground
   },
   player: {
-    // near-right foreground, back to camera, turned 3/4 toward Astra — the over-the-shoulder
-    // student, clearly visible (blue pack + hood) without occluding Astra
-    pos: new THREE.Vector3(ln('lpx', 6.2), 0, ln('lpz', 3.5)),
-    yaw: ln('lpy', 0.6), // back to camera, angled toward Astra (over-the-shoulder read)
+    // near LEFT foreground, back to camera, turned 3/4 toward Astra — the over-the-shoulder
+    // student (hood + blue pack), clearly visible yet with a clean gap to Astra (no overlap)
+    pos: new THREE.Vector3(ln('lpx', 4.6), 0, ln('lpz', 4.9)),
+    yaw: ln('lpy', 1.1), // back to camera, angled toward Astra (over-the-shoulder read)
   },
 }
 

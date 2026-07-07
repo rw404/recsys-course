@@ -33,14 +33,14 @@ export function LessonStage() {
           {/* warm key light on Astra's face + cool rim, only while lecturing */}
           <pointLight position={[5.2, 2.6, 4.2]} intensity={16} color="#ffd9b0" distance={11} />
           <pointLight position={[0.5, 2.4, -1.5]} intensity={10} color="#8ab4ff" distance={12} />
-          {/* HERO over-the-shoulder read. His back is to us (PorterGLB flips itself 180°), so a
-              flat wash just turns him into a pale smear. Instead: a crisp cool rim high and to
-              his camera-right carves the top edge of his head + shoulder against the dark scene,
-              and a second cooler rim from the far (Astra) side haloes the other edge — together
-              they read as a distinct over-the-shoulder silhouette. Both are short-range so they
-              die before reaching Astra and never flatten his body into a blob. */}
-          <pointLight position={[8.8, 3.7, 5.0]} intensity={30} color="#aecaff" distance={5.2} decay={2} />
-          <pointLight position={[7.0, 3.2, 2.4]} intensity={14} color="#c9b8ff" distance={3.4} decay={2} />
+          {/* HERO over-the-shoulder read. He now sits in the near LEFT foreground at ~(4.6,0,4.9)
+              with his back to us (PorterGLB flips itself 180°). A flat wash would just smear him,
+              so instead a crisp cool light from high camera-right rakes his hood + blue pack (his
+              back faces the camera) so he reads as a person, and a cooler violet halo from his far
+              (left) side carves the opposite edge. Both are short-range with decay so they die
+              before reaching Astra and never flatten him into a dark blob. */}
+          <pointLight position={[6.4, 3.4, 5.6]} intensity={30} color="#bcd4ff" distance={5.0} decay={2} />
+          <pointLight position={[2.9, 3.0, 3.5]} intensity={16} color="#c9b8ff" distance={4.4} decay={2} />
         </>
       )}
     </>
