@@ -44,6 +44,8 @@ const ln = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
 // (look.x -5) so Astra — anchored at world (3.9,0,2) — is pushed to the RIGHT ~4/5 of the
 // frame (the composition the reference calls for), with the Metrics Plaza cards behind her.
 // The hero then sits in the near LEFT foreground (back to camera) so he never overlaps her.
+// The aim is also pitched DOWN (look.y 0.4, below Astra's mid) so she rides higher in frame
+// and reads full-body instead of sinking off the bottom edge behind the HUD.
 const CAM_V = new THREE.Vector3(ln('lcx', 8.3), ln('lcy', 2.6), ln('lcz', 5.7))
 const ASTRA_POS_V = new THREE.Vector3(ln('lax', 3.9), 0, ln('laz', 2.0))
 // Astra's native front is +Z; to face the camera she must yaw to atan2(dx, dz) of the
@@ -53,7 +55,7 @@ const FACE_CAM = Math.atan2(CAM_V.x - ASTRA_POS_V.x, CAM_V.z - ASTRA_POS_V.z)
 
 export const LESSON_STAGE = {
   cam: CAM_V,
-  look: new THREE.Vector3(ln('llx', -5), ln('lly', 1.35), ln('llz', 1.0)),
+  look: new THREE.Vector3(ln('llx', -5), ln('lly', 0.4), ln('llz', 1.0)),
   fov: ln('lfov', 40),
   astra: {
     // pushed to the RIGHT ~4/5 of frame (not centre) by the hard-left aim — she reads as the
