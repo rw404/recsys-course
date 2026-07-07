@@ -7,7 +7,8 @@ const SHOTS = JSON.parse(process.env.SHOTS || '[{"tag":"final_g1","wait":2600},{
 const b=await chromium.launch({executablePath:EXE,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader','--ignore-gpu-blocklist','--disable-dev-shm-usage']})
 const ctx=await b.newContext({viewport:{width:1600,height:820},deviceScaleFactor:1.25})
 const p=await ctx.newPage()
-await p.goto('http://127.0.0.1:4173/?capture=1&lsnap=1',{waitUntil:'load',timeout:60000})
+const EXTRA = process.env.EXTRA ? '&'+process.env.EXTRA : ''
+await p.goto('http://127.0.0.1:4173/?capture=1&lsnap=1'+EXTRA,{waitUntil:'load',timeout:60000})
 await p.waitForSelector('canvas'); await p.waitForTimeout(2200)
 await p.getByRole('button',{name:'Catalog'}).click()
 await p.locator('.cat-row',{hasText:'Week 01'}).getByRole('button',{name:'Enter'}).click()

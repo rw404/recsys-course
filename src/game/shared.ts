@@ -65,7 +65,12 @@ export const LESSON_STAGE = {
     yaw: ln('lay', FACE_CAM), // faces the camera (auto-derived)
     targetHeight: 1.75,
     scale: ln('lasc', 1.07), // matches the porter's height (both rigs measured: astra 1.5, porter 1.6)
-    feetY: ln('lafy', 0), // plant the rig's feet on the ground
+    // Plant the rig's feet on the VISIBLE ground. Her rig's feet sit at local y≈0, but the
+    // walkable surface the camp reads as "the floor" stands above the physics collider top
+    // (Terrain's play-surface mesh), so feetY=0 sank her ~to the shins. 0.18 lifts her boots
+    // onto the plaza surface (verified in-lesson across talk poses; sweep showed 0=sunk,
+    // 0.15-0.20=planted, 0.30+=floating). Override with ?lafy=.
+    feetY: ln('lafy', 0.18),
   },
   player: {
     // near LEFT foreground, back to camera, turned 3/4 toward Astra — the over-the-shoulder
