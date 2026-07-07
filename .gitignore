@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+.env
+.env.*
+
+# dev capture / render artifacts (sandbox-only, not part of the app)
+/renders/
+/*.png
