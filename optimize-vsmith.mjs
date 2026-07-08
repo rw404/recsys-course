@@ -18,9 +18,8 @@ const kb = (p) => (fs.statSync(p).size / 1024) | 0
   console.log('character.glb ->', kb(`${DIR}/character.glb`) + 'KB')
 }
 
-// 2) clip glbs — strip everything but skeleton + animation. Only the low-arm clips are kept
-// (the big-arm ones tore the torso via auto-rig shoulder-weight bleed — see VectorSmithGLB).
-const CLIPS = ['idle', 'standchat', 'listening', 'talk-calm']
+// 2) clip glbs — strip everything but skeleton + animation.
+const CLIPS = ['idle', 'talk-open', 'talk-passion', 'talk-right', 'agree', 'standchat', 'talk-calm']
 for (const name of CLIPS) {
   const f = `${DIR}/${name}.glb`
   const before = kb(f)
