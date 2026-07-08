@@ -5,6 +5,7 @@ import { StudyMode } from './ui/StudyMode'
 import { LabMode } from './ui/LabMode'
 import { RetrievalLab } from './ui/RetrievalLab'
 import { AttentionLab } from './ui/AttentionLab'
+import { BanditLab } from './ui/BanditLab'
 import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
@@ -116,6 +117,7 @@ function Game() {
       {activeNodeId && mode === 'lab' && (
         activeNodeId === 'retrieval-sandbox' ? <RetrievalLab />
         : activeNodeId === 'attention-lab' ? <AttentionLab />
+        : activeNodeId === 'bandit-lab' ? <BanditLab />
         : <LabMode />
       )}
       {activeNodeId && mode === 'quiz' && <QuizMode />}

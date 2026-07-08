@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, type QuizQuestion } from '../data/course'
+import { METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, POLICY_QUIZ, type QuizQuestion } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; lead: string; questions: QuizQuestion[] }> = {
@@ -21,8 +21,15 @@ const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; l
     nodeId: 'attention-quiz',
     kicker: 'Sequential City · Checkpoint',
     title: 'Attention & Transformers Quiz',
-    lead: 'Answer all three correctly to light the Retrieval Bridge onward.',
+    lead: 'Answer all three correctly to light the Policy Bridge onward.',
     questions: ATTENTION_QUIZ,
+  },
+  'policy-quiz': {
+    nodeId: 'policy-quiz',
+    kicker: 'Policy Tower · Checkpoint',
+    title: 'Bandits & Policies Quiz',
+    lead: 'Answer all three correctly to open the Garden Gate onward.',
+    questions: POLICY_QUIZ,
   },
 }
 
@@ -84,7 +91,7 @@ export function QuizMode() {
           <button className="btn ghost" onClick={() => setAnswers({})}>Clear</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
             {passed
-              ? quiz.nodeId === 'negatives-quiz'
+              ? quiz.nodeId === 'negatives-quiz' || quiz.nodeId === 'policy-quiz'
                 ? 'Open the gate →'
                 : 'Light the bridge →'
               : answeredAll

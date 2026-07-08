@@ -23,11 +23,17 @@ export type NodeId =
   | 'attention-lab'
   | 'attention-quiz'
   | 'world4-gate'
+  // World 04 · Policy Tower
+  | 'astra-tower-guide'
+  | 'policy-lesson'
+  | 'bandit-lab'
+  | 'policy-quiz'
+  | 'world5-gate'
 
 export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'bridge' | 'arena'
 
 /** Explorable regions the player walks between across bridges/gates. */
-export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city'
+export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower'
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -259,11 +265,78 @@ export const NODES: Record<NodeId, CourseNode> = {
   'world4-gate': {
     id: 'world4-gate',
     kind: 'bridge',
-    title: 'Retrieval Bridge',
+    title: 'Policy Bridge',
     subtitle: 'Next Region',
     worldId: 'sequential-city',
     position: [2, 0, -13],
     requires: ['attention-quiz'],
+    requiredAction: false,
+    interactionRadius: 3.6,
+    action: 'unlock_bridge',
+  },
+
+  // ---- World 04 · Policy Tower -----------------------------------------------------
+  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
+  // policy-lesson mark — this node fires her greeting as you step off the bridge)
+  'astra-tower-guide': {
+    id: 'astra-tower-guide',
+    kind: 'npc',
+    title: 'Guide Astra',
+    subtitle: 'Course Guide',
+    worldId: 'policy-tower',
+    position: [1, 0, 9.5],
+    requires: [],
+    requiredAction: false,
+    interactionRadius: 3.0,
+    action: 'talk',
+  },
+  'policy-lesson': {
+    id: 'policy-lesson',
+    kind: 'lesson',
+    title: 'Bandits, Policies & Slates',
+    subtitle: 'Lesson',
+    worldId: 'policy-tower',
+    weekId: 'week-04',
+    position: [-7, 0, 2],
+    requires: ['world4-gate'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lesson',
+  },
+  'bandit-lab': {
+    id: 'bandit-lab',
+    kind: 'widget',
+    title: 'Bandit Lab',
+    subtitle: 'Lab',
+    worldId: 'policy-tower',
+    weekId: 'week-04',
+    position: [9, 0, -1.5],
+    requires: ['policy-lesson'],
+    requiredAction: true,
+    interactionRadius: 3.2,
+    action: 'open_lab',
+  },
+  'policy-quiz': {
+    id: 'policy-quiz',
+    kind: 'quiz',
+    title: 'Policy Checkpoint',
+    subtitle: 'Checkpoint',
+    worldId: 'policy-tower',
+    weekId: 'week-04',
+    position: [5, 0, 4],
+    requires: ['bandit-lab'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_quiz',
+  },
+  'world5-gate': {
+    id: 'world5-gate',
+    kind: 'bridge',
+    title: 'Garden Gate',
+    subtitle: 'Next Region',
+    worldId: 'policy-tower',
+    position: [2, 0, -13],
+    requires: ['policy-quiz'],
     requiredAction: false,
     interactionRadius: 3.6,
     action: 'unlock_bridge',
@@ -286,6 +359,11 @@ export const NODE_ORDER: NodeId[] = [
   'attention-lab',
   'attention-quiz',
   'world4-gate',
+  'astra-tower-guide',
+  'policy-lesson',
+  'bandit-lab',
+  'policy-quiz',
+  'world5-gate',
 ]
 
 /** Where the player is (re)spawned when they first enter a world. */
@@ -293,6 +371,7 @@ export const WORLD_SPAWN: Record<WorldId, [number, number, number]> = {
   'foundations-camp': [-6, 0.9, 8],
   'retrieval-valley': [1, 0.9, 12],
   'sequential-city': [1, 0.9, 11],
+  'policy-tower': [1, 0.9, 11],
 }
 
 export interface NextRequiredAction {
@@ -349,6 +428,11 @@ const emptyCompleted = (): Record<NodeId, boolean> => ({
   'attention-lab': false,
   'attention-quiz': false,
   'world4-gate': false,
+  'astra-tower-guide': false,
+  'policy-lesson': false,
+  'bandit-lab': false,
+  'policy-quiz': false,
+  'world5-gate': false,
 })
 
 const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
@@ -369,6 +453,7 @@ function initialWorld(): WorldId {
   const w = new URLSearchParams(window.location.search).get('world')
   if (w === 'valley' || w === 'retrieval-valley') return 'retrieval-valley'
   if (w === 'city' || w === 'sequential-city') return 'sequential-city'
+  if (w === 'tower' || w === 'policy-tower') return 'policy-tower'
   return 'foundations-camp'
 }
 
@@ -416,9 +501,12 @@ export const useProgress = create<ProgressState>((set, get) => ({
       return { nodeId: 'world3-gate', label: 'Pass the Two-Tower Gate' }
     }
     if (s.completed['attention-quiz'] && !s.completed['world4-gate']) {
-      return { nodeId: 'world4-gate', label: 'Cross the Retrieval Bridge onward' }
+      return { nodeId: 'world4-gate', label: 'Cross the Policy Bridge' }
     }
-    return { nodeId: null, label: 'Sequential City complete — next region coming soon' }
+    if (s.completed['policy-quiz'] && !s.completed['world5-gate']) {
+      return { nodeId: 'world5-gate', label: 'Pass the Garden Gate' }
+    }
+    return { nodeId: null, label: 'Policy Tower complete — next region coming soon' }
   },
 
   collectedArtifacts: () => {
@@ -496,6 +584,19 @@ export const useProgress = create<ProgressState>((set, get) => ({
     }
     if (id === 'attention-quiz' && !already) {
       return { unlockBridge: 'world4-gate', highlightNextPath: true }
+    }
+    // crossing the Policy Bridge carries the player into the Policy Tower (World 04)
+    if (id === 'world4-gate') {
+      get().enterWorld('policy-tower')
+      return { clearFog: 'policy-tower', highlightNextPath: true }
+    }
+    // the Bandit Lab forges the Policy Controller
+    if (id === 'bandit-lab' && !already) {
+      set((st) => ({ artifacts: { ...st.artifacts, 'policy-controller': true } }))
+      return { spawnArtifact: 'policy-controller', highlightNextPath: true }
+    }
+    if (id === 'policy-quiz' && !already) {
+      return { unlockBridge: 'world5-gate', highlightNextPath: true }
     }
     return { highlightNextPath: true }
   },

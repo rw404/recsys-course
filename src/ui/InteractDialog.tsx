@@ -57,10 +57,27 @@ function specFor(nodeId: NodeId): DialogSpec {
       }
     case 'world4-gate':
       return {
-        who: 'Retrieval Bridge',
+        who: 'Policy Bridge',
         avatar: '🌉',
         text:
-          'The bridge is lit — you have mastered attention and the Transformer. Ahead lies the Policy Tower, where recommendation becomes sequential decision-making. That region unlocks in the next build. For now, Sequential City is complete.',
+          'The bridge is lit — you have mastered attention and the Transformer. Beyond lies the Policy Tower, where recommendation becomes sequential decision-making: bandits, policies and slates. Step across.',
+        primary: 'Cross into the Policy Tower →',
+      }
+    case 'astra-tower-guide':
+      return {
+        who: 'Guide Astra',
+        avatar: '🧭',
+        text:
+          'Welcome to the Policy Tower! Ranking gave us an order — but a live system must DECIDE what to show and learn from what happens. That is a policy. Study bandits at the tower, then build one yourself in the Bandit Lab. Meet me at the tower.',
+        primary: 'Got it — set my objective',
+        showObjective: true,
+      }
+    case 'world5-gate':
+      return {
+        who: 'Garden Gate',
+        avatar: '⛩️',
+        text:
+          'The gate blooms open — you can build a policy that decides and learns. Beyond lies the Ecosystem Garden, where recommenders shape the very world they observe. That region unlocks in the next build. For now, the Policy Tower is complete.',
         primary: 'Look toward the next region',
       }
     default:

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, type LessonSection } from '../data/course'
+import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, type LessonSection } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
@@ -52,6 +52,21 @@ const LESSONS: Record<
         intro: true,
       },
       ...WEEK03_LESSON.sections,
+    ],
+  },
+  'policy-lesson': {
+    nodeId: 'policy-lesson',
+    kicker: 'Theory Module · Policy Tower',
+    narrator: 'Guide Astra',
+    cards: [
+      {
+        heading: WEEK04_LESSON.title,
+        body: WEEK04_LESSON.intro,
+        narration: 'Policies decide what to do next. Let’s build one together.',
+        icon: 'policy',
+        intro: true,
+      },
+      ...WEEK04_LESSON.sections,
     ],
   },
 }
@@ -310,6 +325,63 @@ function HoloVisual({ icon, intro }: { icon?: string; intro?: boolean }) {
           <span>flash · O(N)</span>
         </div>
         <div className="hv-caption">same result · tiled in fast memory</div>
+      </div>
+    )
+  }
+  if (icon === 'explore') {
+    return (
+      <div className="hv hv-explore">
+        {[0.35, 0.9, 0.5, 0.62].map((h, k) => (
+          <div key={k} className={`ex-arm ${k === 1 ? 'best' : ''}`} style={{ animationDelay: `${k * 0.12}s` }}>
+            <div className="ex-fill" style={{ height: `${h * 100}%` }} />
+            <span>{k === 1 ? '?' : ''}</span>
+          </div>
+        ))}
+        <div className="hv-caption">exploit the winner · explore the unknown</div>
+      </div>
+    )
+  }
+  if (icon === 'bandit') {
+    return (
+      <div className="hv hv-ucb">
+        {[0.9, 0.55, 0.7, 0.4].map((m, k) => (
+          <div key={k} className="ucb-arm" style={{ animationDelay: `${k * 0.12}s` }}>
+            <div className="ucb-mean" style={{ height: `${m * 100}%` }} />
+            <div className="ucb-bonus" style={{ height: `${(1 - m) * 60}%` }} />
+          </div>
+        ))}
+        <div className="hv-caption">mean + confidence bonus = optimism</div>
+      </div>
+    )
+  }
+  if (icon === 'policy') {
+    return (
+      <div className="hv hv-policy">
+        <span className="pol-node state">state</span>
+        <span className="pol-arrow">→</span>
+        <span className="pol-node pi">π</span>
+        <span className="pol-arrow">→</span>
+        <span className="pol-node act">action</span>
+        <span className="pol-reward">↩ reward</span>
+        <div className="hv-caption">map context to action · learn from reward</div>
+      </div>
+    )
+  }
+  if (icon === 'beam') {
+    return (
+      <div className="hv hv-beam">
+        {[[50], [28, 72], [16, 40, 60, 84]].map((row, r) => (
+          <div key={r} className="beam-row">
+            {row.map((x, c) => (
+              <span
+                key={c}
+                className={`beam-node ${r === 2 && (c === 0 || c === 2) ? 'keep' : ''}`}
+                style={{ left: `${x}%`, animationDelay: `${(r * 4 + c) * 0.08}s` }}
+              />
+            ))}
+          </div>
+        ))}
+        <div className="hv-caption">keep top-B partial slates · extend · prune</div>
       </div>
     )
   }

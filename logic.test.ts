@@ -1,6 +1,6 @@
 // Headless logic tests for the parts that carry real bugs:
 // the metric math and the progress-store state machine.
-import { ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE } from './src/data/course'
+import { ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE, simulateBandit, REGRET_BUDGET } from './src/data/course'
 import { useProgress, NODES } from './src/state/progress'
 
 let failed = 0
@@ -96,13 +96,38 @@ const eff6 = s().completeNode('attention-quiz')
 assert('quiz unlocks the world-4 gate', eff6?.unlockBridge === 'world4-gate')
 assert('objective now the retrieval bridge onward', s().nextRequiredAction().nodeId === 'world4-gate')
 
-// finish the city
+// cross the Policy Bridge → enter Policy Tower (World 04)
 s().completeNode('world4-gate')
-assert('city complete → no required action', s().nextRequiredAction().nodeId === null)
+assert('crossing the bridge enters policy-tower', s().currentWorld === 'policy-tower')
+assert('objective now the policy lesson', s().nextRequiredAction().nodeId === 'policy-lesson')
+assert('bandit-lab still locked before lesson', s().getNodeState('bandit-lab') === 'locked_for_credit')
 
-// sanity: every node has a valid position + radius, and worldId is one of the three regions
+// World 04: lesson → bandit lab (forges policy-controller) → quiz → gate
+s().completeNode('policy-lesson')
+assert('bandit-lab now next_required', s().getNodeState('bandit-lab') === 'next_required')
+const eff7 = s().completeNode('bandit-lab')
+assert('bandit lab forges policy-controller', eff7?.spawnArtifact === 'policy-controller')
+assert('policy-controller collected (4 artifacts total)', s().artifacts['policy-controller'] === true && s().collectedArtifacts() === 4)
+assert('policy-quiz now next_required', s().getNodeState('policy-quiz') === 'next_required')
+const eff8 = s().completeNode('policy-quiz')
+assert('quiz unlocks the garden gate', eff8?.unlockBridge === 'world5-gate')
+assert('objective now the garden gate', s().nextRequiredAction().nodeId === 'world5-gate')
+
+// finish the tower
+s().completeNode('world5-gate')
+assert('tower complete → no required action', s().nextRequiredAction().nodeId === null)
+
+// bandit sim sanity: greedy stalls (high regret), UCB clears the budget
+{
+  const g = simulateBandit('greedy')
+  const u = simulateBandit('ucb')
+  assert('greedy regret exceeds the budget', g.regret >= REGRET_BUDGET, { greedy: g.regret })
+  assert('ucb regret clears the budget', u.regret < REGRET_BUDGET, { ucb: u.regret })
+}
+
+// sanity: every node has a valid position + radius, and worldId is one of the four regions
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
-assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley' || n.worldId === 'sequential-city'))
+assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley' || n.worldId === 'sequential-city' || n.worldId === 'policy-tower'))
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)

@@ -5,12 +5,14 @@ import * as THREE from 'three'
 import { Environment } from './Environment'
 import { RetrievalValley } from './RetrievalValley'
 import { SequentialCity } from './SequentialCity'
+import { PolicyTower } from './PolicyTower'
 import { Player } from './Player'
 import { FollowCamera } from './Camera'
 import { Stations, InteractionSystem } from './Stations'
 import { LessonStage } from './LessonStage'
 import { ValleyLessonStage } from './ValleyLessonStage'
 import { CityLessonStage } from './CityLessonStage'
+import { TowerLessonStage } from './TowerLessonStage'
 import { ClickGround } from './ClickGround'
 import { PostFX } from './PostFX'
 import { useProgress } from '../state/progress'
@@ -58,8 +60,10 @@ function Scene() {
         <Environment />
       ) : world === 'retrieval-valley' ? (
         <RetrievalValley />
-      ) : (
+      ) : world === 'sequential-city' ? (
         <SequentialCity />
+      ) : (
+        <PolicyTower />
       )}
       {/* RPG click-to-move catcher, sized to the current island's walkable disc */}
       <ClickGround center={world === 'foundations-camp' ? [3, -2] : [1, -2]} radius={world === 'foundations-camp' ? 24 : 22} />
@@ -69,7 +73,7 @@ function Scene() {
           valley). Their (large, skinned) GLBs load behind a nested Suspense so streaming a narrator
           in never blanks the whole scene — no black flash on first load or when crossing worlds. */}
       <Suspense fallback={null}>
-        {world === 'foundations-camp' ? <LessonStage /> : world === 'retrieval-valley' ? <ValleyLessonStage /> : <CityLessonStage />}
+        {world === 'foundations-camp' ? <LessonStage /> : world === 'retrieval-valley' ? <ValleyLessonStage /> : world === 'sequential-city' ? <CityLessonStage /> : <TowerLessonStage />}
       </Suspense>
       <InteractionSystem />
     </Physics>

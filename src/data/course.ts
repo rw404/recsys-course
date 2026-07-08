@@ -50,6 +50,10 @@ export interface LessonSection {
     | 'multihead'
     | 'transformer'
     | 'flash'
+    | 'explore'
+    | 'bandit'
+    | 'policy'
+    | 'beam'
 }
 
 export const WEEK01_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
@@ -248,6 +252,144 @@ export function attnMemoryMB(n: number, flash: boolean): number {
   return (n * n * ATTN_HEADS * BYTES_PER) / 1e6
 }
 
+export const WEEK04_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
+  title: 'Week 04 · Bandits, Policies & Slates',
+  intro:
+    'Ranking gives an order — but a live recommender must DECIDE what to show and learn from what happens next. With unknown item payoffs and limited screen slots, that is a sequential decision problem: a bandit, then a policy.',
+  sections: [
+    {
+      heading: 'Explore vs. Exploit',
+      icon: 'explore',
+      narration: 'Show the safe winner, or gamble on the unknown that might be better?',
+      body:
+        'Every impression is a choice: EXPLOIT the arm you believe is best, or EXPLORE a less-tried one that could be better. Pure exploit locks onto whatever looked good early — even if it was luck. ε-greedy fixes this crudely: exploit most of the time, but with probability ε pick a random arm to keep learning.',
+      formula: 'aₜ = argmaxₐ Q̂(a)   with prob 1−ε ,   random   with prob ε',
+    },
+    {
+      heading: 'UCB & Thompson Sampling',
+      icon: 'bandit',
+      narration: 'Be optimistic about what you have not tried enough.',
+      body:
+        'Smarter bandits explore by UNCERTAINTY, not coin-flips. UCB adds a confidence bonus to rarely-pulled arms, so it tries them until it is sure they are worse. Thompson Sampling draws from each arm’s posterior and plays the winner. Both drive REGRET — the gap to always playing the best arm — down fast.',
+      formula: 'UCB(a) = Q̂(a) + √( 2·ln t / N(a) )',
+    },
+    {
+      heading: 'From bandits to policies',
+      icon: 'policy',
+      narration: 'A policy maps the whole context to an action, and learns from reward.',
+      body:
+        'Real recommendation is CONTEXTUAL: the best action depends on the user, time and session (the state). A policy π(a | s) maps state to an action and is trained to maximise long-term reward — clicks, watch-time, retention — not just the next tap. That is the bridge from bandits to full reinforcement learning.',
+      formula: 'maximise  𝔼[ Σₜ γᵗ · rₜ ]   over policy π(a | s)',
+    },
+    {
+      heading: 'Slate generation & Beam Search',
+      icon: 'beam',
+      narration: 'You do not pick one item — you build a whole page, and order matters.',
+      body:
+        'A feed is a SLATE of K items whose value is not the sum of parts: items compete, complement and cannibalise. Enumerating every slate is combinatorial, so we build them greedily with BEAM SEARCH — keep the top-B partial slates at each step, extend, prune — to assemble a strong, diverse page under the policy.',
+      formula: 'keep top-B partial slates → extend by 1 → re-score → prune',
+    },
+  ],
+}
+
+/** One selectable arm in the Bandit Lab. `rate` is the hidden true click-through rate. */
+export interface BanditArm {
+  id: string
+  label: string
+  rate: number
+}
+
+/**
+ * Bandit Lab pool. Arm B ("Personalized") is the best (0.78) but the player can't see the rates —
+ * only a strategy learns them by pulling. The teaching point (World-04 namesake): a pure-greedy
+ * policy locks onto whatever looked good first and piles up regret; an uncertainty-aware policy
+ * (UCB) explores just enough to find the best arm, so regret stays low.
+ */
+export const BANDIT_ARMS: BanditArm[] = [
+  { id: 'a', label: 'Trending', rate: 0.30 },
+  { id: 'b', label: 'Personalized', rate: 0.78 },
+  { id: 'c', label: 'Fresh', rate: 0.45 },
+  { id: 'd', label: 'Popular', rate: 0.58 },
+]
+
+export const BANDIT_PULLS = 300
+/** expected regret must be BELOW this to forge the Policy Controller (only a smart policy clears it) */
+export const REGRET_BUDGET = 35
+
+export type BanditStrategy = 'greedy' | 'epsilon' | 'ucb'
+export const BANDIT_STRATEGIES: { id: BanditStrategy; label: string; blurb: string }[] = [
+  { id: 'greedy', label: 'Greedy (exploit)', blurb: 'Always play the current best. Never explores — gets stuck.' },
+  { id: 'epsilon', label: 'ε-greedy', blurb: 'Exploit, but explore at random 10% of the time.' },
+  { id: 'ucb', label: 'UCB (uncertainty)', blurb: 'Optimistic about rarely-tried arms — explores by confidence.' },
+]
+
+export interface BanditResult {
+  reward: number
+  /** expected (pseudo) regret vs always playing the best arm — deterministic given pull counts */
+  regret: number
+  /** % of pulls that landed on the true best arm */
+  optimalPct: number
+  /** per-arm pull counts */
+  pulls: number[]
+  best: number
+}
+
+/** tiny deterministic PRNG so the lab (and its tests) are reproducible */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0
+    return s / 4294967296
+  }
+}
+function argmax(xs: number[]): number {
+  let bi = 0
+  for (let i = 1; i < xs.length; i++) if (xs[i] > xs[bi]) bi = i
+  return bi
+}
+
+/**
+ * Simulate a multi-armed bandit under a strategy. Returns realised reward plus the deterministic
+ * expected regret Σ N(a)·(r* − r(a)). Greedy stalls on an early-lucky arm → high regret; UCB
+ * finds arm B and keeps regret well under the budget.
+ */
+export function simulateBandit(strategy: BanditStrategy, pulls = BANDIT_PULLS, seed = 2024): BanditResult {
+  const rng = lcg(seed)
+  const n = BANDIT_ARMS.length
+  const counts = new Array(n).fill(0)
+  const sums = new Array(n).fill(0)
+  const bestRate = Math.max(...BANDIT_ARMS.map((a) => a.rate))
+  const best = BANDIT_ARMS.findIndex((a) => a.rate === bestRate)
+  let reward = 0
+
+  const pull = (arm: number) => {
+    const r = rng() < BANDIT_ARMS[arm].rate ? 1 : 0
+    counts[arm]++
+    sums[arm] += r
+    reward += r
+  }
+  // seed one pull per arm so every mean is defined
+  for (let i = 0; i < n; i++) pull(i)
+
+  for (let t = n; t < pulls; t++) {
+    const means = sums.map((s, i) => s / counts[i])
+    let arm: number
+    if (strategy === 'greedy') {
+      arm = argmax(means)
+    } else if (strategy === 'epsilon') {
+      arm = rng() < 0.1 ? Math.floor(rng() * n) : argmax(means)
+    } else {
+      // UCB1 confidence bonus (exploration constant tuned to the lab's short horizon)
+      arm = argmax(means.map((m, i) => m + Math.sqrt(Math.log(t) / counts[i])))
+    }
+    pull(arm)
+  }
+
+  let regret = 0
+  for (let i = 0; i < n; i++) regret += counts[i] * (bestRate - BANDIT_ARMS[i].rate)
+  return { reward, regret, optimalPct: (counts[best] / pulls) * 100, pulls: counts, best }
+}
+
 export interface QuizQuestion {
   id: string
   prompt: string
@@ -355,6 +497,45 @@ export const ATTENTION_QUIZ: QuizQuestion[] = [
     ],
     answer: 1,
     explain: 'Flash Attention is exact — same output — but tiles the computation so it never materialises the O(N²) score matrix.',
+  },
+]
+
+export const POLICY_QUIZ: QuizQuestion[] = [
+  {
+    id: 'p1',
+    prompt: 'A recommender always shows the item with the best historical click-rate and never tries others. What is the risk?',
+    options: [
+      'It explores too much and wastes impressions',
+      'It can stay stuck on an early winner and miss a genuinely better item',
+      'Its regret is guaranteed to be zero',
+      'It needs no reward signal',
+    ],
+    answer: 1,
+    explain: 'Pure exploitation (greedy) locks onto whatever looked best early — often from luck — and never discovers a better arm. That is unbounded regret.',
+  },
+  {
+    id: 'p2',
+    prompt: 'What does the UCB confidence bonus √(2·ln t / N(a)) do?',
+    options: [
+      'Penalises arms that have been pulled a lot',
+      'Adds optimism to rarely-tried arms so they get explored',
+      'Removes the need to estimate the mean',
+      'Makes the policy fully greedy',
+    ],
+    answer: 1,
+    explain: 'The bonus is large when N(a) is small, so under-explored arms look attractive until enough data proves them worse — exploration by uncertainty.',
+  },
+  {
+    id: 'p3',
+    prompt: 'Why build a K-item feed with beam search instead of picking the top-K items independently?',
+    options: [
+      'Beam search is always faster than sorting',
+      'Because slate value is not additive — items interact, so the best page is not just the K best items',
+      'It removes the need for a policy',
+      'To avoid computing any scores',
+    ],
+    answer: 1,
+    explain: 'Items in a slate complement and cannibalise each other, so the best whole page differs from the K individually-best items. Beam search assembles it under those interactions.',
   },
 ]
 

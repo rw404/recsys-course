@@ -149,3 +149,30 @@ export const CITY_STAGE = {
     yaw: cn('cpy', 1.1),
   },
 }
+
+/**
+ * TOWER_STAGE — the World-04 (Policy Tower) lecture set. Guide Astra returns as the narrator; she
+ * stands at the policy-lesson mark in front of the Policy Tower and delivers the same composed
+ * over-the-shoulder two-shot. `t…`-prefixed URL overrides tune it headlessly.
+ */
+const tn = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
+const TCAM_V = new THREE.Vector3(tn('tcx', -2.6), tn('tcy', 2.6), tn('tcz', 6.0))
+const TASTRA_POS_V = new THREE.Vector3(tn('tsx', -6.4), 0, tn('tsz', 2.4))
+const TFACE_CAM = Math.atan2(TCAM_V.x - TASTRA_POS_V.x, TCAM_V.z - TASTRA_POS_V.z)
+
+export const TOWER_STAGE = {
+  cam: TCAM_V,
+  look: new THREE.Vector3(tn('tlx', -12.5), tn('tly', 0.5), tn('tlz', 1.8)),
+  fov: tn('tfov', 40),
+  astra: {
+    pos: TASTRA_POS_V,
+    yaw: tn('tsy', TFACE_CAM), // faces the camera (auto-derived)
+    targetHeight: 1.75,
+    scale: tn('tssc', 1.07),
+    feetY: tn('tsfy', 0.35), // plant on the visible tower-plaza surface (same lift as the city)
+  },
+  player: {
+    pos: new THREE.Vector3(tn('tpx', -6.4), 0, tn('tpz', 5.4)),
+    yaw: tn('tpy', 1.1),
+  },
+}

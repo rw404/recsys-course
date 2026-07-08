@@ -429,6 +429,56 @@ body {
 .attn-flags .ok { color: var(--good); }
 .attn-flags .bad { color: #ff7a7a; }
 
+/* ---- Week 04 explainer visuals ---- */
+.hv-explore { flex-direction: row; align-items: flex-end; justify-content: center; gap: 16px; height: 170px; position: relative; }
+.ex-arm { width: 34px; height: 120px; border-radius: 8px 8px 4px 4px; background: rgba(120,100,170,0.14); border: 1px solid rgba(160,120,255,0.28); display: flex; align-items: flex-end; justify-content: center; position: relative; animation: pop 0.4s ease-out both; }
+.ex-arm .ex-fill { width: 100%; border-radius: 0 0 4px 4px; background: linear-gradient(180deg, var(--accent), rgba(123,63,247,0.4)); }
+.ex-arm.best { border-color: #ff6bd0; box-shadow: 0 0 16px rgba(255,107,208,0.4); }
+.ex-arm.best .ex-fill { background: linear-gradient(180deg, #ff6bd0, rgba(255,107,208,0.4)); }
+.ex-arm span { position: absolute; top: -22px; font-size: 18px; font-weight: 700; color: #ff9be0; }
+.hv-explore .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-ucb { flex-direction: row; align-items: flex-end; justify-content: center; gap: 18px; height: 170px; position: relative; }
+.ucb-arm { width: 34px; height: 130px; display: flex; flex-direction: column; justify-content: flex-end; animation: pop 0.4s ease-out both; }
+.ucb-bonus { width: 100%; border-radius: 6px 6px 0 0; background: repeating-linear-gradient(45deg, rgba(122,208,255,0.5) 0 5px, rgba(122,208,255,0.15) 5px 10px); }
+.ucb-mean { width: 100%; background: linear-gradient(180deg, var(--accent), rgba(123,63,247,0.4)); box-shadow: 0 0 12px rgba(160,110,255,0.4); }
+.hv-ucb .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-policy { flex-direction: row; align-items: center; justify-content: center; gap: 10px; height: 150px; position: relative; flex-wrap: wrap; }
+.pol-node { padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #eadcff; border: 1px solid rgba(160,110,255,0.4); background: rgba(123,63,247,0.22); animation: pop 0.4s ease-out both; }
+.pol-node.pi { font-size: 20px; background: linear-gradient(135deg, #ff6bd0, var(--accent-2)); border: none; color: #fff; box-shadow: 0 0 16px rgba(255,107,208,0.5); }
+.pol-node.act { background: rgba(122,208,255,0.16); border-color: rgba(122,208,255,0.4); color: #cfeaff; }
+.pol-arrow { color: #b79bff; font-size: 18px; }
+.pol-reward { flex-basis: 100%; text-align: center; margin-top: 4px; font-size: 12px; color: var(--good); }
+.hv-policy .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-beam { flex-direction: column; justify-content: center; gap: 22px; height: 170px; position: relative; width: 90%; }
+.beam-row { position: relative; height: 14px; }
+.beam-node { position: absolute; top: 0; width: 14px; height: 14px; border-radius: 50%; transform: translateX(-50%); background: var(--accent); box-shadow: 0 0 10px rgba(160,110,255,0.5); animation: pop 0.4s ease-out both; }
+.beam-node.keep { width: 18px; height: 18px; top: -2px; background: #ff6bd0; box-shadow: 0 0 16px rgba(255,107,208,0.6); }
+.hv-beam .hv-caption { position: absolute; bottom: -4px; left: 0; right: 0; }
+
+/* ---- Bandit lab ---- */
+.bandit-strats { display: flex; gap: 10px; margin: 14px 0 8px; flex-wrap: wrap; }
+.bandit-strat { flex: 1; min-width: 150px; text-align: left; padding: 12px 14px; border-radius: 12px; background: rgba(30,20,55,0.7); border: 1px solid rgba(160,120,255,0.3); color: var(--text); cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; gap: 4px; }
+.bandit-strat:hover { border-color: var(--accent); }
+.bandit-strat.on { background: rgba(160,110,255,0.2); border-color: var(--accent); }
+.bandit-strat b { font-size: 14px; }
+.bandit-strat span { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.bandit-result { background: rgba(20,14,40,0.6); border: 1px solid rgba(160,120,255,0.25); border-radius: 12px; padding: 14px 16px; margin: 6px 0 12px; }
+.bandit-arms { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.bandit-arm { display: grid; grid-template-columns: 96px 1fr 64px; align-items: center; gap: 10px; font-size: 12.5px; }
+.bandit-arm .ba-name { color: var(--muted); }
+.bandit-arm.best .ba-name { color: #ff9be0; font-weight: 600; }
+.ba-bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.ba-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent), #b06bff); transition: width 0.5s ease; }
+.bandit-arm.best .ba-bar i { background: linear-gradient(90deg, #ff6bd0, #ff9be0); }
+.ba-n { color: var(--muted); text-align: right; }
+.bandit-stats { display: flex; gap: 12px; }
+.bs-cell { flex: 1; background: rgba(30,20,55,0.5); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.bs-cell span { font-size: 11px; color: var(--muted); }
+.bs-cell b { font-size: 20px; }
+
 /* ---- Right: floats over the 3D narrator (Astra shows through) ---- */
 .study-right { position: absolute; right: 3vw; top: 0; bottom: 0; width: 42vw; pointer-events: none; }
 .study-right > * { pointer-events: auto; }
