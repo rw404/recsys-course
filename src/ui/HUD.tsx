@@ -7,6 +7,7 @@ const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
   { n: '03', id: 'sequential-city', name: 'Sequential City' },
   { n: '04', id: 'policy-tower', name: 'Policy Tower' },
   { n: '05', id: 'ecosystem-garden', name: 'Ecosystem Garden' },
+  { n: '06', id: 'final-arena', name: 'Final Arena' },
 ]
 
 const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
@@ -15,6 +16,7 @@ const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
   'sequential-city': { kicker: 'World 03', name: 'Sequential City' },
   'policy-tower': { kicker: 'World 04', name: 'Policy Tower' },
   'ecosystem-garden': { kicker: 'World 05', name: 'Ecosystem Garden' },
+  'final-arena': { kicker: 'World 06', name: 'Final Arena' },
 }
 
 // Reference shows the full-course artifact goal, not just this slice's four.
@@ -33,6 +35,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const cityDone = useProgress((s) => s.completed['world4-gate'])
   const towerDone = useProgress((s) => s.completed['world5-gate'])
   const gardenDone = useProgress((s) => s.completed['graduation'])
+  const courseDone = useProgress((s) => s.completed['champion'])
 
   const worlds = WORLD_MAP.map((w) => {
     let state: 'active' | 'locked' | 'done' = 'locked'
@@ -45,6 +48,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       state = towerDone ? 'done' : currentWorld === 'policy-tower' ? 'active' : cityDone ? 'active' : 'locked'
     } else if (w.id === 'ecosystem-garden') {
       state = gardenDone ? 'done' : currentWorld === 'ecosystem-garden' ? 'active' : towerDone ? 'active' : 'locked'
+    } else if (w.id === 'final-arena') {
+      state = courseDone ? 'done' : currentWorld === 'final-arena' ? 'active' : gardenDone ? 'active' : 'locked'
     }
     return { ...w, state }
   })
@@ -102,6 +107,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
             {collected} <span style={{ fontSize: 13, color: 'var(--muted)' }}>/ {COURSE_ARTIFACTS}</span>
           </div>
           <div className="sub">Artifacts Collected</div>
+          {courseDone && <div className="course-complete">Course Completed! ✓</div>}
         </div>
       </div>
 
@@ -132,8 +138,10 @@ function promptFor(id: NodeId): string {
     case 'open_lab': return `Enter lab · ${node.title}`
     case 'open_quiz': return `Attempt · ${node.title}`
     case 'unlock_bridge':
-      return id === 'graduation'
-        ? 'Reach the Course Summit'
+      return id === 'champion'
+        ? 'Claim the champion’s crown'
+        : id === 'graduation'
+        ? 'Enter the Final Arena'
         : id === 'world5-gate'
         ? 'Pass the Garden Gate'
         : id === 'world4-gate'

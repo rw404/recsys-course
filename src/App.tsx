@@ -7,6 +7,7 @@ import { RetrievalLab } from './ui/RetrievalLab'
 import { AttentionLab } from './ui/AttentionLab'
 import { BanditLab } from './ui/BanditLab'
 import { DiversityLab } from './ui/DiversityLab'
+import { CapstoneArena } from './ui/CapstoneArena'
 import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
@@ -33,8 +34,10 @@ const GATE_TOAST: Record<string, string> = {
   'negatives-quiz': '⛩️ The Two-Tower Gate has opened',
   'attention-quiz': '🌉 The Policy Bridge is now lit',
   'policy-quiz': '⛩️ The Garden Gate has bloomed open',
-  'ecosystem-quiz': '★ The Course Summit is within reach',
+  'ecosystem-quiz': '⛩️ The Final Arena Gate has opened',
 }
+// Claiming the champion finale completes the course — a special celebratory toast.
+const CHAMPION_TOAST = '🏆 Course Completed — you are a Champion!'
 
 export function App() {
   if (VIEW === 'character') {
@@ -87,6 +90,7 @@ function Game() {
       const k = key as keyof typeof completed
       if (completed[k] && !prevCompleted.current[k]) showToast(GATE_TOAST[key])
     }
+    if (completed['champion'] && !prevCompleted.current['champion']) showToast(CHAMPION_TOAST)
     prevCompleted.current = completed
   }, [completed])
 
@@ -131,6 +135,7 @@ function Game() {
         : activeNodeId === 'attention-lab' ? <AttentionLab />
         : activeNodeId === 'bandit-lab' ? <BanditLab />
         : activeNodeId === 'diversity-lab' ? <DiversityLab />
+        : activeNodeId === 'capstone-arena' ? <CapstoneArena />
         : <LabMode />
       )}
       {activeNodeId && mode === 'quiz' && <QuizMode />}

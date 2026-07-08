@@ -203,3 +203,29 @@ export const GARDEN_STAGE = {
     yaw: gn('gpy', 1.1),
   },
 }
+
+/**
+ * ARENA_STAGE — the World-06 (Final Arena) capstone-recap set. Guide Astra delivers the closing recap
+ * in front of the great arena. Same composed over-the-shoulder two-shot; `a…`-prefixed URL overrides.
+ */
+const an = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
+const ACAM_V = new THREE.Vector3(an('acx', -2.6), an('acy', 2.6), an('acz', 6.0))
+const AASTRA_POS_V = new THREE.Vector3(an('asx', -6.4), 0, an('asz', 2.4))
+const AFACE_CAM = Math.atan2(ACAM_V.x - AASTRA_POS_V.x, ACAM_V.z - AASTRA_POS_V.z)
+
+export const ARENA_STAGE = {
+  cam: ACAM_V,
+  look: new THREE.Vector3(an('alx', -12.5), an('aly', 0.5), an('alz', 1.8)),
+  fov: an('afov', 40),
+  astra: {
+    pos: AASTRA_POS_V,
+    yaw: an('asy', AFACE_CAM), // faces the camera (auto-derived)
+    targetHeight: 1.75,
+    scale: an('assc', 1.07),
+    feetY: an('asfy', 0.35), // plant on the visible arena-plaza surface (same lift as the garden)
+  },
+  player: {
+    pos: new THREE.Vector3(an('apx', -6.4), 0, an('apz', 5.4)),
+    yaw: an('apy', 1.1),
+  },
+}

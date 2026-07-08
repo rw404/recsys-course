@@ -35,7 +35,7 @@ const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; l
     nodeId: 'ecosystem-quiz',
     kicker: 'Ecosystem Garden · Checkpoint',
     title: 'Ecosystems & Diversity Quiz',
-    lead: 'Answer all three correctly to reach the Course Summit.',
+    lead: 'Answer all three correctly to open the gate to the Final Arena.',
     questions: ECOSYSTEM_QUIZ,
   },
 }
@@ -99,7 +99,7 @@ export function QuizMode() {
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
             {passed
               ? quiz.nodeId === 'ecosystem-quiz'
-                ? 'To the Course Summit →'
+                ? 'To the Final Arena →'
                 : quiz.nodeId === 'negatives-quiz' || quiz.nodeId === 'policy-quiz'
                 ? 'Open the gate →'
                 : 'Light the bridge →'

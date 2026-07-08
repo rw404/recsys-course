@@ -35,11 +35,16 @@ export type NodeId =
   | 'diversity-lab'
   | 'ecosystem-quiz'
   | 'graduation'
+  // World 06 · Final Arena
+  | 'astra-arena-guide'
+  | 'capstone-lesson'
+  | 'capstone-arena'
+  | 'champion'
 
 export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'bridge' | 'arena'
 
 /** Explorable regions the player walks between across bridges/gates. */
-export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower' | 'ecosystem-garden'
+export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower' | 'ecosystem-garden' | 'final-arena'
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -405,11 +410,65 @@ export const NODES: Record<NodeId, CourseNode> = {
   'graduation': {
     id: 'graduation',
     kind: 'bridge',
-    title: 'Course Summit',
-    subtitle: 'Finale',
+    title: 'Final Arena Gate',
+    subtitle: 'Next Region',
     worldId: 'ecosystem-garden',
     position: [2, 0, -13],
     requires: ['ecosystem-quiz'],
+    requiredAction: false,
+    interactionRadius: 3.6,
+    action: 'unlock_bridge',
+  },
+
+  // ---- World 06 · Final Arena ------------------------------------------------------
+  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
+  // capstone-lesson mark — this node fires her greeting as you step off the gate)
+  'astra-arena-guide': {
+    id: 'astra-arena-guide',
+    kind: 'npc',
+    title: 'Guide Astra',
+    subtitle: 'Course Guide',
+    worldId: 'final-arena',
+    position: [1, 0, 9.5],
+    requires: [],
+    requiredAction: false,
+    interactionRadius: 3.0,
+    action: 'talk',
+  },
+  'capstone-lesson': {
+    id: 'capstone-lesson',
+    kind: 'lesson',
+    title: 'Capstone · Prove Your Mastery',
+    subtitle: 'Recap',
+    worldId: 'final-arena',
+    weekId: 'capstone',
+    position: [-7, 0, 2],
+    requires: ['graduation'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lesson',
+  },
+  'capstone-arena': {
+    id: 'capstone-arena',
+    kind: 'arena',
+    title: 'Capstone Arena',
+    subtitle: 'Final Challenge',
+    worldId: 'final-arena',
+    weekId: 'capstone',
+    position: [9, 0, -1.5],
+    requires: ['capstone-lesson'],
+    requiredAction: true,
+    interactionRadius: 3.4,
+    action: 'open_lab',
+  },
+  'champion': {
+    id: 'champion',
+    kind: 'bridge',
+    title: 'Hall of Champions',
+    subtitle: 'Course Complete',
+    worldId: 'final-arena',
+    position: [2, 0, -13],
+    requires: ['capstone-arena'],
     requiredAction: false,
     interactionRadius: 3.6,
     action: 'unlock_bridge',
@@ -442,6 +501,10 @@ export const NODE_ORDER: NodeId[] = [
   'diversity-lab',
   'ecosystem-quiz',
   'graduation',
+  'astra-arena-guide',
+  'capstone-lesson',
+  'capstone-arena',
+  'champion',
 ]
 
 /** Where the player is (re)spawned when they first enter a world. */
@@ -451,6 +514,7 @@ export const WORLD_SPAWN: Record<WorldId, [number, number, number]> = {
   'sequential-city': [1, 0.9, 11],
   'policy-tower': [1, 0.9, 11],
   'ecosystem-garden': [1, 0.9, 11],
+  'final-arena': [1, 0.9, 11],
 }
 
 export interface NextRequiredAction {
@@ -472,6 +536,8 @@ interface ProgressState {
   reducedMotion: boolean
   /** current slide index of the open lesson — drives the 3D narrator's per-page gesture */
   lessonPage: number
+  /** best score achieved in the Final Arena capstone (for the Hall of Mastery "Your Best") */
+  capstoneScore: number
 
   // derived helpers
   getNodeState: (id: NodeId) => ProgressNodeState
@@ -483,6 +549,7 @@ interface ProgressState {
   enterWorld: (id: WorldId) => void
   setNearby: (id: NodeId | null) => void
   setLessonPage: (n: number) => void
+  setCapstoneScore: (n: number) => void
   openNode: (id: NodeId) => void
   closeNode: () => void
   completeNode: (id: NodeId) => CompletionEffect | null
@@ -517,6 +584,10 @@ const emptyCompleted = (): Record<NodeId, boolean> => ({
   'diversity-lab': false,
   'ecosystem-quiz': false,
   'graduation': false,
+  'astra-arena-guide': false,
+  'capstone-lesson': false,
+  'capstone-arena': false,
+  'champion': false,
 })
 
 const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
@@ -540,6 +611,7 @@ function initialWorld(): WorldId {
   if (w === 'city' || w === 'sequential-city') return 'sequential-city'
   if (w === 'tower' || w === 'policy-tower') return 'policy-tower'
   if (w === 'garden' || w === 'ecosystem-garden') return 'ecosystem-garden'
+  if (w === 'arena' || w === 'final-arena') return 'final-arena'
   return 'foundations-camp'
 }
 
@@ -553,6 +625,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
   activeNodeId: null,
   reducedMotion: prefersReducedMotion(),
   lessonPage: 0,
+  capstoneScore: 0,
   totalArtifacts: 5,
 
   getNodeState: (id) => {
@@ -593,12 +666,15 @@ export const useProgress = create<ProgressState>((set, get) => ({
       return { nodeId: 'world5-gate', label: 'Pass the Garden Gate' }
     }
     if (s.completed['ecosystem-quiz'] && !s.completed['graduation']) {
-      return { nodeId: 'graduation', label: 'Reach the Course Summit' }
+      return { nodeId: 'graduation', label: 'Enter the Final Arena' }
     }
-    if (s.completed['graduation']) {
-      return { nodeId: null, label: '★ Course complete — every region mastered' }
+    if (s.completed['capstone-arena'] && !s.completed['champion']) {
+      return { nodeId: 'champion', label: 'Claim your place in the Hall of Champions' }
     }
-    return { nodeId: null, label: 'Ecosystem Garden — the final region' }
+    if (s.completed['champion']) {
+      return { nodeId: null, label: '★ Champion — course complete' }
+    }
+    return { nodeId: null, label: 'The Final Arena — prove your mastery' }
   },
 
   collectedArtifacts: () => {
@@ -619,6 +695,11 @@ export const useProgress = create<ProgressState>((set, get) => ({
 
   setLessonPage: (n) => {
     if (get().lessonPage !== n) set({ lessonPage: n })
+  },
+
+  setCapstoneScore: (n) => {
+    // keep the best score achieved (the Hall of Mastery "Your Best")
+    if (n > get().capstoneScore) set({ capstoneScore: n })
   },
 
   openNode: (id) => {
@@ -703,7 +784,15 @@ export const useProgress = create<ProgressState>((set, get) => ({
     if (id === 'ecosystem-quiz' && !already) {
       return { unlockBridge: 'graduation', highlightNextPath: true }
     }
-    // graduation is the course finale — no further region
+    // crossing the Final Arena Gate carries the player into the Final Arena (World 06)
+    if (id === 'graduation') {
+      get().enterWorld('final-arena')
+      return { clearFog: 'final-arena', highlightNextPath: true }
+    }
+    if (id === 'capstone-arena' && !already) {
+      return { unlockBridge: 'champion', highlightNextPath: true }
+    }
+    // champion is the course finale — no further region
     return { highlightNextPath: true }
   },
 
@@ -720,6 +809,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
       mode: 'explore',
       nearbyNodeId: null,
       activeNodeId: null,
+      capstoneScore: 0,
     }),
 }))
 

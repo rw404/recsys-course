@@ -58,6 +58,7 @@ export interface LessonSection {
     | 'diversity'
     | 'debias'
     | 'churn'
+    | 'capstone'
 }
 
 export const WEEK01_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
@@ -662,6 +663,137 @@ export const POLICY_QUIZ: QuizQuestion[] = [
     ],
     answer: 1,
     explain: 'Items in a slate complement and cannibalise each other, so the best whole page differs from the K individually-best items. Beam search assembles it under those interactions.',
+  },
+]
+
+export const CAPSTONE_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
+  title: 'Capstone · Prove Your Mastery',
+  intro:
+    'You have walked the whole recommender pipeline — measuring, retrieving, attending, deciding and sustaining. The Final Arena asks you to prove it: one challenge drawing a question from every region. Ace it to climb the Hall of Mastery.',
+  sections: [
+    {
+      heading: 'Measure — Ranking & Metrics',
+      icon: 'ndcg',
+      narration: 'Order is everything. NDCG, Recall, Coverage judge the whole slate.',
+      body:
+        'From Foundations Camp: a recommender is judged on the ORDER it places items in. NDCG rewards relevant items near the top, Recall@k asks how many relevant ones made the cut, and Coverage guards against a one-note slate.',
+    },
+    {
+      heading: 'Retrieve — Two-Tower & ANN',
+      icon: 'twotower',
+      narration: 'Millions of items, milliseconds to answer — embed and search.',
+      body:
+        'From Retrieval Valley: embed users and items into one space, index with ANN for sub-linear search, and train with negatives so the space does not collapse. Similarity is not relevance — beware the popular hard-negatives.',
+    },
+    {
+      heading: 'Attend — Transformers',
+      icon: 'attention',
+      narration: 'Every token reads every other — softmax over Q·Kᵀ.',
+      body:
+        'From Sequential City: attention lets each position gather context from the whole sequence; multi-head runs several in parallel; Flash Attention computes the exact same result in a fraction of the memory.',
+    },
+    {
+      heading: 'Decide — Policies & Bandits',
+      icon: 'policy',
+      narration: 'Explore to escape the greedy trap; a policy maps state to action.',
+      body:
+        'From the Policy Tower: serving is a sequential decision. Pure exploitation piles up regret; UCB explores by uncertainty. A policy π(a|s) maps context to an action and learns from long-term reward, not just the next click.',
+    },
+    {
+      heading: 'Sustain — Ecosystems',
+      icon: 'diversity',
+      narration: 'The model shapes its own future data — keep it diverse and fair.',
+      body:
+        'From the Ecosystem Garden: feedback loops can collapse a catalogue into a bubble. Balance relevance with diversity (MMR), debias exposure (IPS), and optimise for long-term ecosystem health, not just today’s CTR.',
+    },
+  ],
+}
+
+/** A single fictional entry on the Final Arena leaderboard. */
+export interface HallEntry {
+  name: string
+  score: number
+}
+export const HALL_OF_MASTERY: HallEntry[] = [
+  { name: 'AstraLearner', score: 98450 },
+  { name: 'MindSeeker', score: 95280 },
+  { name: 'FocusForge', score: 92110 },
+  { name: 'InsightfulOne', score: 89320 },
+  { name: 'ThinkBright', score: 86770 },
+]
+
+/** points per correct capstone answer (5 × 20 000 = a perfect 100 000, which tops the Hall) */
+export const CAPSTONE_PER_Q = 20000
+/** minimum score (3 of 5) to clear the capstone and complete the course */
+export const CAPSTONE_PASS = 60000
+
+/** 1-based rank if `score` were inserted into the Hall of Mastery */
+export function capstoneRank(score: number): number {
+  let rank = 1
+  for (const e of HALL_OF_MASTERY) if (e.score > score) rank++
+  return rank
+}
+
+/**
+ * The capstone challenge: one synthesis question drawing on each of the five regions. Scoring is
+ * CAPSTONE_PER_Q per correct answer; a perfect run scores 100 000 and takes the #1 seat in the Hall
+ * of Mastery. Clearing CAPSTONE_PASS completes the course.
+ */
+export const CAPSTONE_QUESTIONS: QuizQuestion[] = [
+  {
+    id: 'c1',
+    prompt: 'Measure — two slates contain the same relevant items but in different orders. Which metric distinguishes them?',
+    options: ['Recall@k', 'NDCG', 'Coverage', 'Catalogue size'],
+    answer: 1,
+    explain: 'Recall@k and coverage are order-insensitive; NDCG discounts by position, so it separates two slates with the same items in different orders.',
+  },
+  {
+    id: 'c2',
+    prompt: 'Retrieve — at serving time you must pick candidates from 50M items in a few ms. What makes this feasible?',
+    options: [
+      'Scoring every item exactly with the ranker',
+      'An ANN index over the shared embedding space',
+      'Training with positives only',
+      'A larger beam width',
+    ],
+    answer: 1,
+    explain: 'Approximate Nearest Neighbour search is sub-linear, so you retrieve a good candidate set without scoring the whole catalogue exactly.',
+  },
+  {
+    id: 'c3',
+    prompt: 'Attend — in a Transformer, what does softmax(Q·Kᵀ/√dₖ) compute?',
+    options: [
+      'The positional encodings',
+      'The attention weights each token places on every other',
+      'The feed-forward activations',
+      'The final output embeddings',
+    ],
+    answer: 1,
+    explain: 'It turns query–key scores into weights that say how much each token attends to every other, which then average the Values.',
+  },
+  {
+    id: 'c4',
+    prompt: 'Decide — a policy always shows the historically best item and never tries others. What is the failure mode?',
+    options: [
+      'Zero regret by construction',
+      'It can stay stuck on an early winner and accrue unbounded regret',
+      'It over-explores and wastes impressions',
+      'It needs no reward signal',
+    ],
+    answer: 1,
+    explain: 'Pure exploitation (greedy) locks onto an early — often lucky — winner and never discovers a better arm; exploration (ε-greedy, UCB) is what bounds regret.',
+  },
+  {
+    id: 'c5',
+    prompt: 'Sustain — why can an unchecked feedback loop harm a healthy catalogue?',
+    options: [
+      'It always increases diversity',
+      'Popular items get more exposure → more clicks → look even better, narrowing the catalogue into a bubble',
+      'It removes the need for negatives',
+      'It makes training deterministic',
+    ],
+    answer: 1,
+    explain: 'Shown → clicked → logged → trained → shown. Early exposure bias compounds; balancing diversity and debiasing exposure keeps the ecosystem alive.',
   },
 ]
 

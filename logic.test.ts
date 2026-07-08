@@ -4,6 +4,7 @@ import {
   ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE,
   simulateBandit, REGRET_BUDGET,
   mmrSelect, diversityPass, slateRelevance, slateDiversity, REL_FLOOR, DIV_FLOOR,
+  CAPSTONE_QUESTIONS, CAPSTONE_PER_Q, CAPSTONE_PASS, capstoneRank, HALL_OF_MASTERY,
 } from './src/data/course'
 import { useProgress, NODES } from './src/state/progress'
 
@@ -134,10 +135,36 @@ const eff10 = s().completeNode('ecosystem-quiz')
 assert('quiz unlocks graduation', eff10?.unlockBridge === 'graduation')
 assert('objective now the course summit', s().nextRequiredAction().nodeId === 'graduation')
 
-// reach the summit → course complete
+// cross the Final Arena Gate → enter Final Arena (World 06)
 s().completeNode('graduation')
+assert('crossing the gate enters final-arena', s().currentWorld === 'final-arena')
+assert('objective now the capstone lesson', s().nextRequiredAction().nodeId === 'capstone-lesson')
+assert('capstone-arena still locked before recap', s().getNodeState('capstone-arena') === 'locked_for_credit')
+
+// World 06: capstone recap → capstone arena → champion (course complete)
+s().completeNode('capstone-lesson')
+assert('capstone-arena now next_required', s().getNodeState('capstone-arena') === 'next_required')
+const eff11 = s().completeNode('capstone-arena')
+assert('capstone arena unlocks champion', eff11?.unlockBridge === 'champion')
+assert('objective now the champion finale', s().nextRequiredAction().nodeId === 'champion')
+
+// claim the crown → course complete
+s().completeNode('champion')
 assert('course complete → no required action', s().nextRequiredAction().nodeId === null)
-assert('every region mastered label', s().nextRequiredAction().label.includes('Course complete'))
+assert('champion label', s().nextRequiredAction().label.includes('Champion'))
+
+// capstone scoring: 5 correct tops the Hall of Mastery, 3 correct clears the pass
+{
+  const perfect = CAPSTONE_QUESTIONS.length * CAPSTONE_PER_Q
+  assert('perfect capstone = 100k', perfect === 100000)
+  assert('perfect run is rank #1', capstoneRank(perfect) === 1)
+  assert('perfect beats the top of the hall', perfect > HALL_OF_MASTERY[0].score)
+  assert('3/5 clears the pass, 2/5 does not', 3 * CAPSTONE_PER_Q >= CAPSTONE_PASS && 2 * CAPSTONE_PER_Q < CAPSTONE_PASS)
+  s().setCapstoneScore(perfect)
+  assert('capstoneScore keeps the best', s().capstoneScore === perfect)
+  s().setCapstoneScore(40000)
+  assert('a lower score does not overwrite the best', s().capstoneScore === perfect)
+}
 
 // bandit sim sanity: greedy stalls (high regret), UCB clears the budget
 {
@@ -157,8 +184,8 @@ assert('every region mastered label', s().nextRequiredAction().label.includes('C
   assert('pure-diversity slate fails relevance floor', slateRelevance(scattered) < REL_FLOOR)
 }
 
-// sanity: every node has a valid position + radius, and worldId is one of the five regions
-const WORLDS = ['foundations-camp', 'retrieval-valley', 'sequential-city', 'policy-tower', 'ecosystem-garden']
+// sanity: every node has a valid position + radius, and worldId is one of the six regions
+const WORLDS = ['foundations-camp', 'retrieval-valley', 'sequential-city', 'policy-tower', 'ecosystem-garden', 'final-arena']
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
 assert('all nodes belong to a known world', Object.values(NODES).every((n) => WORLDS.includes(n.worldId)))
 

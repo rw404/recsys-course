@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, type LessonSection } from '../data/course'
+import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON, type LessonSection } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
@@ -82,6 +82,21 @@ const LESSONS: Record<
         intro: true,
       },
       ...WEEK05_LESSON.sections,
+    ],
+  },
+  'capstone-lesson': {
+    nodeId: 'capstone-lesson',
+    kicker: 'Capstone · Final Arena',
+    narrator: 'Guide Astra',
+    cards: [
+      {
+        heading: CAPSTONE_LESSON.title,
+        body: CAPSTONE_LESSON.intro,
+        narration: 'You have walked the whole pipeline. Time to prove your mastery.',
+        icon: 'capstone',
+        intro: true,
+      },
+      ...CAPSTONE_LESSON.sections,
     ],
   },
 }

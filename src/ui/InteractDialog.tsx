@@ -91,10 +91,27 @@ function specFor(nodeId: NodeId): DialogSpec {
       }
     case 'graduation':
       return {
-        who: 'Course Summit',
-        avatar: '🏔️',
+        who: 'Final Arena Gate',
+        avatar: '⛩️',
         text:
-          'You have crossed every region — metrics, retrieval, attention, policies and now a living ecosystem. Five artifacts forged, the whole recommender pipeline walked end to end. This is the summit: the course is complete. Congratulations, porter.',
+          'You have crossed every region — metrics, retrieval, attention, policies and a living ecosystem. Five artifacts forged, the whole pipeline walked. One trial remains: the Final Arena, where you prove your mastery before the Hall of Champions. Step through.',
+        primary: 'Enter the Final Arena →',
+      }
+    case 'astra-arena-guide':
+      return {
+        who: 'Guide Astra',
+        avatar: '🧭',
+        text:
+          'This is it — the Final Arena. No new theory, only proof. The Capstone draws one question from every region you have walked. Study my closing recap, then step into the arena and climb the Hall of Mastery. Make it count, Champion.',
+        primary: 'Got it — set my objective',
+        showObjective: true,
+      }
+    case 'champion':
+      return {
+        who: 'Hall of Champions',
+        avatar: '🏆',
+        text:
+          'You did it. Metrics, retrieval, attention, policies, ecosystems — and a capstone to prove it all. The whole recommender pipeline, walked and mastered. Your name belongs in the Hall of Champions now. The course is complete. Congratulations, porter.',
         primary: '★ Complete the course',
       }
     default:
