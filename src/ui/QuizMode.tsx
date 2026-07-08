@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { METRICS_QUIZ, NEGATIVES_QUIZ, type QuizQuestion } from '../data/course'
+import { METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, type QuizQuestion } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; lead: string; questions: QuizQuestion[] }> = {
@@ -16,6 +16,13 @@ const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; l
     title: 'Retrieval & Negatives Quiz',
     lead: 'Answer all three correctly to open the Two-Tower Gate onward.',
     questions: NEGATIVES_QUIZ,
+  },
+  'attention-quiz': {
+    nodeId: 'attention-quiz',
+    kicker: 'Sequential City · Checkpoint',
+    title: 'Attention & Transformers Quiz',
+    lead: 'Answer all three correctly to light the Retrieval Bridge onward.',
+    questions: ATTENTION_QUIZ,
   },
 }
 

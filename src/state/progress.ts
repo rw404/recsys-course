@@ -17,11 +17,17 @@ export type NodeId =
   | 'retrieval-sandbox'
   | 'negatives-quiz'
   | 'world3-gate'
+  // World 03 · Sequential City
+  | 'astra-city-guide'
+  | 'transformer-lesson'
+  | 'attention-lab'
+  | 'attention-quiz'
+  | 'world4-gate'
 
 export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'bridge' | 'arena'
 
-/** Explorable regions. The vertical slice ships two: the camp and the valley across the bridge. */
-export type WorldId = 'foundations-camp' | 'retrieval-valley'
+/** Explorable regions the player walks between across bridges/gates. */
+export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city'
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -195,6 +201,73 @@ export const NODES: Record<NodeId, CourseNode> = {
     interactionRadius: 3.6,
     action: 'unlock_bridge',
   },
+
+  // ---- World 03 · Sequential City --------------------------------------------------
+  // invisible welcome waypoint near the arrival (Guide Astra herself stands, rigged, at the
+  // transformer-lesson mark — this node fires her greeting as you step off the gate)
+  'astra-city-guide': {
+    id: 'astra-city-guide',
+    kind: 'npc',
+    title: 'Guide Astra',
+    subtitle: 'Course Guide',
+    worldId: 'sequential-city',
+    position: [1, 0, 9.5],
+    requires: [],
+    requiredAction: false,
+    interactionRadius: 3.0,
+    action: 'talk',
+  },
+  'transformer-lesson': {
+    id: 'transformer-lesson',
+    kind: 'lesson',
+    title: 'Attention & Transformers',
+    subtitle: 'Lesson',
+    worldId: 'sequential-city',
+    weekId: 'week-03',
+    position: [-7, 0, 2],
+    requires: ['world3-gate'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lesson',
+  },
+  'attention-lab': {
+    id: 'attention-lab',
+    kind: 'widget',
+    title: 'Flash Attention Lab',
+    subtitle: 'Lab',
+    worldId: 'sequential-city',
+    weekId: 'week-03',
+    position: [9, 0, -1.5],
+    requires: ['transformer-lesson'],
+    requiredAction: true,
+    interactionRadius: 3.2,
+    action: 'open_lab',
+  },
+  'attention-quiz': {
+    id: 'attention-quiz',
+    kind: 'quiz',
+    title: 'Attention Checkpoint',
+    subtitle: 'Checkpoint',
+    worldId: 'sequential-city',
+    weekId: 'week-03',
+    position: [5, 0, 4],
+    requires: ['attention-lab'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_quiz',
+  },
+  'world4-gate': {
+    id: 'world4-gate',
+    kind: 'bridge',
+    title: 'Retrieval Bridge',
+    subtitle: 'Next Region',
+    worldId: 'sequential-city',
+    position: [2, 0, -13],
+    requires: ['attention-quiz'],
+    requiredAction: false,
+    interactionRadius: 3.6,
+    action: 'unlock_bridge',
+  },
 }
 
 export const NODE_ORDER: NodeId[] = [
@@ -208,12 +281,18 @@ export const NODE_ORDER: NodeId[] = [
   'retrieval-sandbox',
   'negatives-quiz',
   'world3-gate',
+  'astra-city-guide',
+  'transformer-lesson',
+  'attention-lab',
+  'attention-quiz',
+  'world4-gate',
 ]
 
 /** Where the player is (re)spawned when they first enter a world. */
 export const WORLD_SPAWN: Record<WorldId, [number, number, number]> = {
   'foundations-camp': [-6, 0.9, 8],
   'retrieval-valley': [1, 0.9, 12],
+  'sequential-city': [1, 0.9, 11],
 }
 
 export interface NextRequiredAction {
@@ -265,6 +344,11 @@ const emptyCompleted = (): Record<NodeId, boolean> => ({
   'retrieval-sandbox': false,
   'negatives-quiz': false,
   'world3-gate': false,
+  'astra-city-guide': false,
+  'transformer-lesson': false,
+  'attention-lab': false,
+  'attention-quiz': false,
+  'world4-gate': false,
 })
 
 const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
@@ -283,7 +367,9 @@ function prefersReducedMotion(): boolean {
 function initialWorld(): WorldId {
   if (typeof window === 'undefined') return 'foundations-camp'
   const w = new URLSearchParams(window.location.search).get('world')
-  return w === 'valley' || w === 'retrieval-valley' ? 'retrieval-valley' : 'foundations-camp'
+  if (w === 'valley' || w === 'retrieval-valley') return 'retrieval-valley'
+  if (w === 'city' || w === 'sequential-city') return 'sequential-city'
+  return 'foundations-camp'
 }
 
 export const useProgress = create<ProgressState>((set, get) => ({
@@ -329,7 +415,10 @@ export const useProgress = create<ProgressState>((set, get) => ({
     if (s.completed['negatives-quiz'] && !s.completed['world3-gate']) {
       return { nodeId: 'world3-gate', label: 'Pass the Two-Tower Gate' }
     }
-    return { nodeId: null, label: 'Retrieval Valley complete — next region coming soon' }
+    if (s.completed['attention-quiz'] && !s.completed['world4-gate']) {
+      return { nodeId: 'world4-gate', label: 'Cross the Retrieval Bridge onward' }
+    }
+    return { nodeId: null, label: 'Sequential City complete — next region coming soon' }
   },
 
   collectedArtifacts: () => {
@@ -394,6 +483,19 @@ export const useProgress = create<ProgressState>((set, get) => ({
     }
     if (id === 'negatives-quiz' && !already) {
       return { unlockBridge: 'world3-gate', highlightNextPath: true }
+    }
+    // crossing the Two-Tower Gate carries the player into Sequential City (World 03)
+    if (id === 'world3-gate') {
+      get().enterWorld('sequential-city')
+      return { clearFog: 'sequential-city', highlightNextPath: true }
+    }
+    // the Flash Attention lab forges the Attention Lens
+    if (id === 'attention-lab' && !already) {
+      set((st) => ({ artifacts: { ...st.artifacts, 'attention-lens': true } }))
+      return { spawnArtifact: 'attention-lens', highlightNextPath: true }
+    }
+    if (id === 'attention-quiz' && !already) {
+      return { unlockBridge: 'world4-gate', highlightNextPath: true }
     }
     return { highlightNextPath: true }
   },

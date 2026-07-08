@@ -387,6 +387,48 @@ body {
 /* retrieval-lab picked candidate highlight */
 .item.picked { border-color: var(--accent); background: rgba(160,110,255,0.14); }
 
+/* ---- Week 03 explainer visuals ---- */
+.hv-attn { position: relative; display: flex; align-items: center; gap: 16px; height: 170px; justify-content: center; }
+.attn-q { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; color: #fff; background: linear-gradient(135deg, #ff6bd0, var(--accent-2)); box-shadow: 0 0 16px rgba(255,107,208,0.5); }
+.attn-keys { display: flex; flex-direction: column; gap: 8px; width: 180px; }
+.attn-key { display: flex; align-items: center; gap: 8px; animation: rowIn 0.5s ease-out both; }
+.attn-k { font-size: 11px; color: #9fd0ff; width: 14px; }
+.attn-bar { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #7ad0ff, var(--accent)); box-shadow: 0 0 10px rgba(122,208,255,0.5); }
+.hv-attn .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-mh { flex-direction: row; justify-content: center; align-items: center; gap: 12px; height: 150px; position: relative; }
+.mh-head { display: grid; grid-template-columns: repeat(3, 12px); grid-auto-rows: 12px; gap: 3px; padding: 6px; border-radius: 8px; background: rgba(120,100,170,0.14); border: 1px solid rgba(160,120,255,0.25); animation: pop 0.4s ease-out both; }
+.mh-head span { border-radius: 3px; }
+.hv-mh .hv-caption { position: absolute; bottom: 4px; left: 0; right: 0; }
+
+.hv-tf { gap: 7px; align-items: stretch; width: 82%; }
+.tf-row { padding: 8px 12px; border-radius: 8px; font-size: 13px; color: #eadcff; text-align: center; background: linear-gradient(90deg, rgba(123,63,247,0.4), rgba(160,110,255,0.25)); border: 1px solid rgba(160,110,255,0.4); animation: rowIn 0.5s ease-out both; }
+.tf-row.norm { background: rgba(122,208,255,0.14); border-color: rgba(122,208,255,0.4); color: #cfeaff; font-size: 12px; }
+
+.hv-flash { flex-direction: row; justify-content: center; align-items: flex-end; gap: 28px; height: 160px; position: relative; }
+.flash-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.flash-col span { font-size: 11px; color: #9fd0ff; }
+.flash-big { width: 90px; height: 90px; border-radius: 8px; background: repeating-linear-gradient(45deg, rgba(255,107,208,0.5) 0 6px, rgba(255,107,208,0.2) 6px 12px); box-shadow: 0 0 16px rgba(255,107,208,0.4); }
+.flash-tiles { display: grid; grid-template-columns: repeat(2, 22px); grid-auto-rows: 22px; gap: 6px; }
+.flash-tiles i { border-radius: 5px; background: linear-gradient(135deg, var(--good), #8affc9); box-shadow: 0 0 10px rgba(75,227,160,0.5); animation: pop 0.4s ease-out both; }
+.hv-flash .hv-caption { position: absolute; bottom: -2px; left: 0; right: 0; }
+
+/* ---- Flash Attention lab ---- */
+.attn-method { display: flex; gap: 10px; margin: 14px 0 10px; }
+.attn-runs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.attn-run { padding: 10px 16px; border-radius: 10px; background: rgba(30,20,55,0.7); border: 1px solid rgba(160,120,255,0.3); color: var(--text); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.attn-run:hover { border-color: var(--accent); }
+.attn-run.on { background: rgba(160,110,255,0.2); border-color: var(--accent); }
+.attn-result { background: rgba(20,14,40,0.6); border: 1px solid rgba(160,120,255,0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.attn-memrow { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.attn-memrow b { font-size: 20px; }
+.attn-budget { color: var(--muted); font-size: 12px; }
+.attn-membar { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 8px 0 10px; }
+.attn-membar i { display: block; height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+.attn-flags { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.attn-flags .ok { color: var(--good); }
+.attn-flags .bad { color: #ff7a7a; }
+
 /* ---- Right: floats over the 3D narrator (Astra shows through) ---- */
 .study-right { position: absolute; right: 3vw; top: 0; bottom: 0; width: 42vw; pointer-events: none; }
 .study-right > * { pointer-events: auto; }

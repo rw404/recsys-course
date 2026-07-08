@@ -43,7 +43,24 @@ function specFor(nodeId: NodeId): DialogSpec {
         who: 'Two-Tower Gate',
         avatar: '⛩️',
         text:
-          'The gate hums open — you have mastered retrieval. Ahead the path climbs toward the Flash Attention Lab, where sequences and attention await. That region unlocks in the next build. For now, Retrieval Valley is complete.',
+          'The gate hums open — you have mastered retrieval. Beyond lies Sequential City, where attention and Transformers await. Step through.',
+        primary: 'Enter Sequential City →',
+      }
+    case 'astra-city-guide':
+      return {
+        who: 'Guide Astra',
+        avatar: '🧭',
+        text:
+          'Welcome to Sequential City! Retrieval found the candidates — now we must understand a whole sequence at once. That is attention. Study it at the Transformer Tower, then see Flash Attention run for real in the lab. Meet me at the tower.',
+        primary: 'Got it — set my objective',
+        showObjective: true,
+      }
+    case 'world4-gate':
+      return {
+        who: 'Retrieval Bridge',
+        avatar: '🌉',
+        text:
+          'The bridge is lit — you have mastered attention and the Transformer. Ahead lies the Policy Tower, where recommendation becomes sequential decision-making. That region unlocks in the next build. For now, Sequential City is complete.',
         primary: 'Look toward the next region',
       }
     default:

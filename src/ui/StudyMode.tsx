@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WEEK01_LESSON, WEEK02_LESSON, type LessonSection } from '../data/course'
+import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, type LessonSection } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
@@ -37,6 +37,21 @@ const LESSONS: Record<
         intro: true,
       },
       ...WEEK02_LESSON.sections,
+    ],
+  },
+  'transformer-lesson': {
+    nodeId: 'transformer-lesson',
+    kicker: 'Theory Module · Transformer Tower',
+    narrator: 'Guide Astra',
+    cards: [
+      {
+        heading: WEEK03_LESSON.title,
+        body: WEEK03_LESSON.intro,
+        narration: 'Transformers process sequences with attention. Let’s step inside.',
+        icon: 'attention',
+        intro: true,
+      },
+      ...WEEK03_LESSON.sections,
     ],
   },
 }
@@ -240,6 +255,61 @@ function HoloVisual({ icon, intro }: { icon?: string; intro?: boolean }) {
           return <span key={k} className={`ib-cell ${diag ? 'pos' : 'neg'}`} style={{ animationDelay: `${k * 0.04}s` }} />
         })}
         <div className="hv-caption">diagonal = positives · rest = free negatives</div>
+      </div>
+    )
+  }
+  if (icon === 'attention') {
+    return (
+      <div className="hv hv-attn">
+        <span className="attn-q">Q</span>
+        <div className="attn-keys">
+          {[0.9, 0.4, 0.65, 0.25].map((w, k) => (
+            <div key={k} className="attn-key" style={{ animationDelay: `${k * 0.12}s` }}>
+              <span className="attn-k">K</span>
+              <div className="attn-bar" style={{ width: `${w * 100}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="hv-caption">query weights every key · softmax</div>
+      </div>
+    )
+  }
+  if (icon === 'multihead') {
+    return (
+      <div className="hv hv-mh">
+        {['#ff6bd0', '#b06bff', '#6bd0ff', '#8affc9'].map((c, k) => (
+          <div key={k} className="mh-head" style={{ animationDelay: `${k * 0.12}s` }}>
+            {Array.from({ length: 9 }).map((_, j) => (
+              <span key={j} style={{ background: c, opacity: 0.25 + ((j * 7 + k * 3) % 5) * 0.18 }} />
+            ))}
+          </div>
+        ))}
+        <div className="hv-caption">heads in parallel · different relations</div>
+      </div>
+    )
+  }
+  if (icon === 'transformer') {
+    return (
+      <div className="hv hv-tf">
+        {['Embed', 'Multi-Head Attention', 'Add & Norm', 'Feed Forward', 'Layer Norm'].map((l, k) => (
+          <div key={l} className={`tf-row ${l.includes('Norm') ? 'norm' : ''}`} style={{ animationDelay: `${k * 0.12}s` }}>{l}</div>
+        ))}
+        <div className="hv-caption">one block · stacked ×N</div>
+      </div>
+    )
+  }
+  if (icon === 'flash') {
+    return (
+      <div className="hv hv-flash">
+        <div className="flash-col">
+          <div className="flash-big" />
+          <span>standard · O(N²)</span>
+        </div>
+        <div className="flash-col">
+          <div className="flash-tiles">{Array.from({ length: 4 }).map((_, k) => <i key={k} style={{ animationDelay: `${k * 0.15}s` }} />)}</div>
+          <span>flash · O(N)</span>
+        </div>
+        <div className="hv-caption">same result · tiled in fast memory</div>
       </div>
     )
   }

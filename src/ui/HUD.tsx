@@ -4,7 +4,7 @@ import { NODES, useProgress, type NodeId, type WorldId } from '../state/progress
 const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
   { n: '01', id: 'foundations-camp', name: 'Foundations Camp' },
   { n: '02', id: 'retrieval-valley', name: 'Retrieval Valley' },
-  { n: '03', id: null, name: 'Flash Attention Lab' },
+  { n: '03', id: 'sequential-city', name: 'Sequential City' },
   { n: '04', id: null, name: 'Policy Tower' },
   { n: '05', id: null, name: 'Ecosystem Garden' },
 ]
@@ -12,6 +12,7 @@ const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
 const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
   'foundations-camp': { kicker: 'World 01', name: 'Foundations Camp' },
   'retrieval-valley': { kicker: 'World 02', name: 'Retrieval Valley' },
+  'sequential-city': { kicker: 'World 03', name: 'Sequential City' },
 }
 
 // Reference shows the full-course artifact goal, not just this slice's four.
@@ -27,12 +28,15 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const currentWorld = useProgress((s) => s.currentWorld)
   const campDone = useProgress((s) => s.completed['retrieval-bridge'])
   const valleyDone = useProgress((s) => s.completed['world3-gate'])
+  const cityDone = useProgress((s) => s.completed['world4-gate'])
 
   const worlds = WORLD_MAP.map((w) => {
     let state: 'active' | 'locked' | 'done' = 'locked'
     if (w.id === 'foundations-camp') state = campDone ? 'done' : 'active'
     else if (w.id === 'retrieval-valley') {
       state = valleyDone ? 'done' : currentWorld === 'retrieval-valley' ? 'active' : campDone ? 'active' : 'locked'
+    } else if (w.id === 'sequential-city') {
+      state = cityDone ? 'done' : currentWorld === 'sequential-city' ? 'active' : valleyDone ? 'active' : 'locked'
     }
     return { ...w, state }
   })
@@ -119,7 +123,12 @@ function promptFor(id: NodeId): string {
     case 'open_lesson': return `Open lesson · ${node.title}`
     case 'open_lab': return `Enter lab · ${node.title}`
     case 'open_quiz': return `Attempt · ${node.title}`
-    case 'unlock_bridge': return id === 'world3-gate' ? 'Pass the Two-Tower Gate' : 'Cross to Retrieval Valley'
+    case 'unlock_bridge':
+      return id === 'world4-gate'
+        ? 'Cross the Retrieval Bridge'
+        : id === 'world3-gate'
+        ? 'Pass the Two-Tower Gate'
+        : 'Cross to Retrieval Valley'
     default: return 'Interact'
   }
 }

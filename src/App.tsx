@@ -4,6 +4,7 @@ import { HUD } from './ui/HUD'
 import { StudyMode } from './ui/StudyMode'
 import { LabMode } from './ui/LabMode'
 import { RetrievalLab } from './ui/RetrievalLab'
+import { AttentionLab } from './ui/AttentionLab'
 import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
@@ -15,6 +16,13 @@ import { GlbViewer } from './game/GlbViewer'
 import { VSmithViewer } from './game/VSmithViewer'
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
+
+const ARTIFACT_NAMES: Record<string, string> = {
+  'metric-compass': 'Metric Compass',
+  'vector-core': 'Vector Core',
+  'attention-lens': 'Attention Lens',
+  'policy-controller': 'Policy Controller',
+}
 
 export function App() {
   if (VIEW === 'character') {
@@ -45,25 +53,23 @@ function Game() {
   const mode = useProgress((s) => s.mode)
   const activeNodeId = useProgress((s) => s.activeNodeId)
   const closeNode = useProgress((s) => s.closeNode)
-  const collected = useProgress((s) => s.collectedArtifacts())
+  const artifacts = useProgress((s) => s.artifacts)
   const bridgeUnlocked = useProgress((s) => s.completed['quiz-gate'])
-  const vectorCore = useProgress((s) => s.artifacts['vector-core'])
 
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
   // toast when a new artifact is forged or the bridge lights up
-  const prevCollected = useRef(collected)
+  const prevArtifacts = useRef(artifacts)
   const prevBridge = useRef(bridgeUnlocked)
-  const prevCore = useRef(vectorCore)
   useEffect(() => {
-    if (collected > prevCollected.current) {
-      const name = vectorCore && !prevCore.current ? 'Vector Core' : 'Metric Compass'
-      showToast(`★ Artifact forged: ${name} — check your backpack`)
+    for (const [key, on] of Object.entries(artifacts)) {
+      if (on && !prevArtifacts.current[key as keyof typeof artifacts]) {
+        showToast(`★ Artifact forged: ${ARTIFACT_NAMES[key] ?? key} — check your backpack`)
+      }
     }
-    prevCollected.current = collected
-    prevCore.current = vectorCore
-  }, [collected, vectorCore])
+    prevArtifacts.current = artifacts
+  }, [artifacts])
   useEffect(() => {
     if (bridgeUnlocked && !prevBridge.current) {
       showToast('🌉 The Retrieval Bridge is now lit')
@@ -107,7 +113,11 @@ function Game() {
       {toast && <div className="toast panel">{toast}</div>}
 
       {activeNodeId && mode === 'study' && <StudyMode />}
-      {activeNodeId && mode === 'lab' && (activeNodeId === 'retrieval-sandbox' ? <RetrievalLab /> : <LabMode />)}
+      {activeNodeId && mode === 'lab' && (
+        activeNodeId === 'retrieval-sandbox' ? <RetrievalLab />
+        : activeNodeId === 'attention-lab' ? <AttentionLab />
+        : <LabMode />
+      )}
       {activeNodeId && mode === 'quiz' && <QuizMode />}
       {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
 

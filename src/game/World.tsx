@@ -4,11 +4,13 @@ import { Physics } from '@react-three/rapier'
 import * as THREE from 'three'
 import { Environment } from './Environment'
 import { RetrievalValley } from './RetrievalValley'
+import { SequentialCity } from './SequentialCity'
 import { Player } from './Player'
 import { FollowCamera } from './Camera'
 import { Stations, InteractionSystem } from './Stations'
 import { LessonStage } from './LessonStage'
 import { ValleyLessonStage } from './ValleyLessonStage'
+import { CityLessonStage } from './CityLessonStage'
 import { ClickGround } from './ClickGround'
 import { PostFX } from './PostFX'
 import { useProgress } from '../state/progress'
@@ -52,20 +54,22 @@ function Scene() {
   const world = useProgress((s) => s.currentWorld)
   return (
     <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
-      {world === 'foundations-camp' ? <Environment /> : <RetrievalValley />}
-      {/* RPG click-to-move catcher, sized to the current island's walkable disc */}
       {world === 'foundations-camp' ? (
-        <ClickGround center={[3, -2]} radius={24} />
+        <Environment />
+      ) : world === 'retrieval-valley' ? (
+        <RetrievalValley />
       ) : (
-        <ClickGround center={[1, -2]} radius={22} />
+        <SequentialCity />
       )}
+      {/* RPG click-to-move catcher, sized to the current island's walkable disc */}
+      <ClickGround center={world === 'foundations-camp' ? [3, -2] : [1, -2]} radius={world === 'foundations-camp' ? 24 : 22} />
       <Stations />
       <Player />
-      {/* each region has its own rigged narrator two-shot: Astra in the camp, Vector Smith in the
-          valley. Their (large, skinned) GLBs load behind a nested Suspense so streaming a narrator
+      {/* each region has its own rigged narrator two-shot (Astra in camp + city, Vector Smith in the
+          valley). Their (large, skinned) GLBs load behind a nested Suspense so streaming a narrator
           in never blanks the whole scene — no black flash on first load or when crossing worlds. */}
       <Suspense fallback={null}>
-        {world === 'foundations-camp' ? <LessonStage /> : <ValleyLessonStage />}
+        {world === 'foundations-camp' ? <LessonStage /> : world === 'retrieval-valley' ? <ValleyLessonStage /> : <CityLessonStage />}
       </Suspense>
       <InteractionSystem />
     </Physics>

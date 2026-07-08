@@ -190,7 +190,12 @@ function StationBody({
 function BridgeBody({ node, state, color }: { node: CourseNode; state: ProgressNodeState; color: string }) {
   const unlocked = state !== 'locked_for_credit'
   const planks = 7
-  const target = node.id === 'world3-gate' ? '→ Flash Attention Lab' : '→ Retrieval Valley'
+  const target =
+    node.id === 'world4-gate'
+      ? '→ Policy Tower'
+      : node.id === 'world3-gate'
+      ? '→ Sequential City'
+      : '→ Retrieval Valley'
   return (
     <group>
       {/* chasm hint: two towers */}

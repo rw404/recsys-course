@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { runtime, LESSON_STAGE, VALLEY_STAGE } from './shared'
+import { runtime, LESSON_STAGE, VALLEY_STAGE, CITY_STAGE } from './shared'
 import { NODES, useProgress } from '../state/progress'
 
 // Fixed, slightly-elevated isometric-ish follow. No sharp rotations, no orbit.
@@ -68,7 +68,12 @@ export function FollowCamera() {
 
     if (active && active.kind === 'lesson') {
       // narrator cinematic — smooth push-in to the staged lecture set (per-world framing)
-      const stage = active.worldId === 'retrieval-valley' ? VALLEY_STAGE : LESSON_STAGE
+      const stage =
+        active.worldId === 'retrieval-valley'
+          ? VALLEY_STAGE
+          : active.worldId === 'sequential-city'
+          ? CITY_STAGE
+          : LESSON_STAGE
       const cam = camera as THREE.PerspectiveCamera
       if (Math.abs(cam.fov - stage.fov) > 0.1) {
         cam.fov = stage.fov

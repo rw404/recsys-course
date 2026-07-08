@@ -122,3 +122,30 @@ export const VALLEY_STAGE = {
     yaw: vn('vpy', 1.1),
   },
 }
+
+/**
+ * CITY_STAGE — the World-03 (Sequential City) lecture set. Guide Astra returns as the narrator; she
+ * stands at the transformer-lesson mark in front of the Transformer Tower and delivers the same
+ * composed over-the-shoulder two-shot. `c…`-prefixed URL overrides tune it headlessly.
+ */
+const cn = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
+const CCAM_V = new THREE.Vector3(cn('ccx', -2.6), cn('ccy', 2.6), cn('ccz', 6.0))
+const CASTRA_POS_V = new THREE.Vector3(cn('csx', -6.4), 0, cn('csz', 2.4))
+const CFACE_CAM = Math.atan2(CCAM_V.x - CASTRA_POS_V.x, CCAM_V.z - CASTRA_POS_V.z)
+
+export const CITY_STAGE = {
+  cam: CCAM_V,
+  look: new THREE.Vector3(cn('clx', -12.5), cn('cly', 0.5), cn('clz', 1.8)),
+  fov: cn('cfov', 40),
+  astra: {
+    pos: CASTRA_POS_V,
+    yaw: cn('csy', CFACE_CAM), // faces the camera (auto-derived)
+    targetHeight: 1.75,
+    scale: cn('cssc', 1.07),
+    feetY: cn('csfy', 0.35), // plant on the visible city surface (same lift as the valley)
+  },
+  player: {
+    pos: new THREE.Vector3(cn('cpx', -6.4), 0, cn('cpz', 5.4)),
+    yaw: cn('cpy', 1.1),
+  },
+}

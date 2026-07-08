@@ -46,6 +46,10 @@ export interface LessonSection {
     | 'ann'
     | 'negatives'
     | 'inbatch'
+    | 'attention'
+    | 'multihead'
+    | 'transformer'
+    | 'flash'
 }
 
 export const WEEK01_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
@@ -170,6 +174,80 @@ export function meanSimilarity(retrieved: RetrievalItem[]): number {
   return retrieved.reduce((s, it) => s + it.sim, 0) / retrieved.length
 }
 
+export const WEEK03_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
+  title: 'Week 03 · Attention & Transformers',
+  intro:
+    'A two-tower model scores a user against items independently. But a sequence — a sentence, a session, a playlist — needs every element to look at every other. That is attention, and stacking it makes a Transformer.',
+  sections: [
+    {
+      heading: 'Attention: Query, Key, Value',
+      icon: 'attention',
+      narration: 'Every token asks a question and reads the answers from all the others.',
+      body:
+        'Each token emits a Query (what it is looking for), a Key (what it offers) and a Value (its content). The match between a query and every key becomes a weight; the output is the weighted sum of the values. So each position gathers context from the whole sequence at once.',
+      formula: 'Attention(Q,K,V) = softmax( Q·Kᵀ / √dₖ ) · V',
+    },
+    {
+      heading: 'Multi-Head Attention',
+      icon: 'multihead',
+      narration: 'Several heads, each watching a different kind of relationship.',
+      body:
+        'One attention pattern is limiting. Multi-Head Attention runs several attentions in parallel, each with its own projections, so one head can track syntax while another tracks long-range references. Their outputs are concatenated and projected back.',
+      formula: 'MHA = Concat(head₁ … headₕ) · Wᴼ',
+    },
+    {
+      heading: 'The Transformer block',
+      icon: 'transformer',
+      narration: 'Embed, attend, normalise, feed-forward — then stack it N times.',
+      body:
+        'A Transformer layer is: Multi-Head Attention → Add & Norm (a residual connection + LayerNorm) → a position-wise Feed-Forward network → Add & Norm again. Stack N of these on top of token + positional embeddings and you have the backbone behind modern language and sequence models.',
+    },
+    {
+      heading: 'Flash Attention',
+      icon: 'flash',
+      narration: 'Same maths, tiled in fast memory — much faster, far less memory.',
+      body:
+        'Standard attention materialises the full N×N score matrix, so memory grows with N². Flash Attention streams the computation in tiles kept in on-chip SRAM, never writing the big matrix to slow memory. The result is bit-for-bit the SAME attention — just faster and O(N) memory instead of O(N²).',
+      formula: 'peak memory:  standard O(N²)   →   flash O(N)',
+    },
+  ],
+}
+
+/** One option in the Flash-Attention lab: a sequence length to run. */
+export interface AttnRun {
+  id: string
+  label: string
+  /** sequence length (tokens) */
+  n: number
+}
+
+/**
+ * Flash-Attention lab pool. The teaching point (World-03 namesake): standard attention keeps the
+ * whole N×N score matrix, so peak memory is O(N²) and long sequences blow the on-chip budget;
+ * Flash Attention tiles the same computation, so memory is ~O(N) and the SAME (exact) output fits.
+ */
+export const ATTN_RUNS: AttnRun[] = [
+  { id: 'a', label: '512 tokens', n: 512 },
+  { id: 'b', label: '2K tokens', n: 2048 },
+  { id: 'c', label: '8K tokens', n: 8192 },
+  { id: 'd', label: '32K tokens', n: 32768 },
+]
+
+/** on-chip memory budget for the lab, in MB */
+export const ATTN_BUDGET_MB = 24
+export const ATTN_HEADS = 8
+const BYTES_PER = 2 // fp16 scores
+
+/** peak memory (MB) for a run under a method. standard keeps the N×N×heads scores; flash tiles it. */
+export function attnMemoryMB(n: number, flash: boolean): number {
+  if (flash) {
+    // ~O(N): a few Q/K/V tiles + running softmax stats, independent of N²
+    return (n * 64 * 3 * BYTES_PER) / 1e6 + 0.5
+  }
+  // ~O(N²): the full score matrix per head
+  return (n * n * ATTN_HEADS * BYTES_PER) / 1e6
+}
+
 export interface QuizQuestion {
   id: string
   prompt: string
@@ -238,6 +316,45 @@ export const NEGATIVES_QUIZ: QuizQuestion[] = [
     ],
     answer: 1,
     explain: 'In-batch negatives reuse the other positives in the batch as cheap negatives — nearly free and they scale with batch size.',
+  },
+]
+
+export const ATTENTION_QUIZ: QuizQuestion[] = [
+  {
+    id: 't1',
+    prompt: 'In attention, what does the softmax(Q·Kᵀ/√dₖ) term produce?',
+    options: [
+      'The final output vectors',
+      'A set of weights saying how much each token attends to every other',
+      'The positional encoding',
+      'The feed-forward activations',
+    ],
+    answer: 1,
+    explain: 'Q·Kᵀ scores every query against every key; softmax turns them into attention weights used to average the Values.',
+  },
+  {
+    id: 't2',
+    prompt: 'Why use Multi-Head Attention instead of a single attention?',
+    options: [
+      'It is required for the residual connection',
+      'Each head can attend to a different kind of relationship in parallel',
+      'It removes the need for LayerNorm',
+      'It makes the sequence shorter',
+    ],
+    answer: 1,
+    explain: 'Multiple heads with separate projections capture different relations (syntax, long-range, etc.) at once.',
+  },
+  {
+    id: 't3',
+    prompt: 'How does Flash Attention differ from standard attention?',
+    options: [
+      'It approximates attention, trading accuracy for speed',
+      'It computes the same result by tiling in on-chip memory — faster and O(N) memory',
+      'It replaces attention with a feed-forward net',
+      'It only works for short sequences',
+    ],
+    answer: 1,
+    explain: 'Flash Attention is exact — same output — but tiles the computation so it never materialises the O(N²) score matrix.',
   },
 ]
 

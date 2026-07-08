@@ -79,13 +79,30 @@ const eff4 = s().completeNode('negatives-quiz')
 assert('quiz unlocks the two-tower gate', eff4?.unlockBridge === 'world3-gate')
 assert('objective now the two-tower gate', s().nextRequiredAction().nodeId === 'world3-gate')
 
-// finish the valley
+// cross the Two-Tower Gate → enter Sequential City (World 03)
 s().completeNode('world3-gate')
-assert('valley complete → no required action', s().nextRequiredAction().nodeId === null)
+assert('crossing the gate enters sequential-city', s().currentWorld === 'sequential-city')
+assert('objective now the transformer lesson', s().nextRequiredAction().nodeId === 'transformer-lesson')
+assert('attention-lab still locked before lesson', s().getNodeState('attention-lab') === 'locked_for_credit')
 
-// sanity: every node has a valid position + radius, and worldId is one of the two regions
+// World 03: lesson → flash attention lab (forges attention-lens) → quiz → gate
+s().completeNode('transformer-lesson')
+assert('attention-lab now next_required', s().getNodeState('attention-lab') === 'next_required')
+const eff5 = s().completeNode('attention-lab')
+assert('flash lab forges attention-lens', eff5?.spawnArtifact === 'attention-lens')
+assert('attention-lens collected (3 artifacts total)', s().artifacts['attention-lens'] === true && s().collectedArtifacts() === 3)
+assert('attention-quiz now next_required', s().getNodeState('attention-quiz') === 'next_required')
+const eff6 = s().completeNode('attention-quiz')
+assert('quiz unlocks the world-4 gate', eff6?.unlockBridge === 'world4-gate')
+assert('objective now the retrieval bridge onward', s().nextRequiredAction().nodeId === 'world4-gate')
+
+// finish the city
+s().completeNode('world4-gate')
+assert('city complete → no required action', s().nextRequiredAction().nodeId === null)
+
+// sanity: every node has a valid position + radius, and worldId is one of the three regions
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
-assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley'))
+assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley' || n.worldId === 'sequential-city'))
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)
