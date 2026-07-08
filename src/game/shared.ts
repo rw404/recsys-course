@@ -98,7 +98,9 @@ export const NARRATOR = {
  */
 const vn = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
 const VCAM_V = new THREE.Vector3(vn('vcx', -3.2), vn('vcy', 2.6), vn('vcz', 5.4))
-const VSMITH_POS_V = new THREE.Vector3(vn('vsx', -8), 0, vn('vsz', 1.0))
+// Vector Smith stands a bit RIGHT of and IN FRONT of the ANN-Lab pavilion, on the flat path — he
+// used to stand on the pavilion's raised base and clipped one boot into it (was vsx -8, vsz 1).
+const VSMITH_POS_V = new THREE.Vector3(vn('vsx', -6.5), 0, vn('vsz', 1.8))
 const VFACE_CAM = Math.atan2(VCAM_V.x - VSMITH_POS_V.x, VCAM_V.z - VSMITH_POS_V.z)
 
 export const VALLEY_STAGE = {
