@@ -12,6 +12,7 @@ import { useProgress } from './state/progress'
 import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
 import { GlbViewer } from './game/GlbViewer'
+import { VSmithViewer } from './game/VSmithViewer'
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
 
@@ -27,6 +28,13 @@ export function App() {
     return (
       <div className="canvas-wrap">
         <GlbViewer />
+      </div>
+    )
+  }
+  if (VIEW === 'vsmith') {
+    return (
+      <div className="canvas-wrap">
+        <VSmithViewer />
       </div>
     )
   }

@@ -16,23 +16,29 @@ import { useProgress } from '../state/progress'
 const DIR = '/models/vector-smith-rigged'
 const BASE_URL = `${DIR}/character.glb`
 
+// Only the clips that keep the arms LOW / near the torso are used: this rig's auto-rigged skinning
+// tears the side of the body when an arm raises (shoulder-bone weight bleeds into the torso), so the
+// big-arm clips (talk-open / talk-passion / talk-right / think) and the odd crouch (agree) are
+// dropped. These four stand upright with hands at/near the body — no visible tearing.
 const CLIP_FILES: [string, string][] = [
   ['idle', `${DIR}/idle.glb`],
-  ['talkOpen', `${DIR}/talk-open.glb`], // 313 both hands open
-  ['talkPassion', `${DIR}/talk-passion.glb`], // 308 passionate
-  ['talkRight', `${DIR}/talk-right.glb`], // 314 right hand open
-  ['agree', `${DIR}/agree.glb`], // 25 agree / nod
-  ['think', `${DIR}/think.glb`], // 317 shrug (weighing)
+  ['standChat', `${DIR}/standchat.glb`], // 56 stand & chat (arms at sides)
+  ['listening', `${DIR}/listening.glb`], // 47 listening (relaxed)
+  ['talkCalm', `${DIR}/talk-calm.glb`], // 311 talk, hands gesturing low at the waist
 ]
 const CLIP_URLS = CLIP_FILES.map(([, url]) => url)
 
-// per-page gesture sequences (index = slide) — calm, natural talking poses.
+// per-page gesture sequences (index = slide). This rig's auto-rigged skinning tears the side of
+// the torso when the arms raise (shoulder-bone weight bleeds into the body), so we use ONLY
+// low-arm / head-driven clips — stand-and-chat, listening, a gentle nod and hands-low talk. Arms
+// stay near the body, so the bleed never shows. The big-arm clips (talkOpen/talkPassion/think)
+// are intentionally excluded.
 const PAGE_GESTURES: string[][] = [
-  ['talkOpen', 'talkRight', 'agree'], // 0 welcome / intro
-  ['talkPassion', 'talkRight', 'talkOpen'], // 1 two towers
-  ['talkRight', 'talkOpen', 'talkPassion'], // 2 ANN
-  ['think', 'talkRight', 'talkOpen'], // 3 negatives (weighing)
-  ['talkPassion', 'talkOpen', 'talkRight'], // 4 in-batch finale
+  ['talkCalm', 'standChat', 'listening'], // 0 welcome / intro
+  ['standChat', 'talkCalm', 'listening'], // 1 two towers
+  ['talkCalm', 'listening', 'standChat'], // 2 ANN
+  ['listening', 'talkCalm', 'standChat'], // 3 negatives (weighing)
+  ['talkCalm', 'standChat', 'listening'], // 4 in-batch finale
 ]
 const CYCLE_SEC = 5.2
 const GESTURE_SPEED = 0.9
