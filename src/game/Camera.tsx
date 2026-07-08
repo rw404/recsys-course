@@ -14,6 +14,9 @@ const INSPECT_LOOK = new THREE.Vector3(0, -0.1, 0)
 
 const EXPLORE_OFFSET = new THREE.Vector3(0, 9.5, 13)
 const EXPLORE_LOOK = new THREE.Vector3(0, 1.2, -2) // look slightly ahead of the player
+// Journey/Atlas hero vista: lower + behind, aimed OUT over the receding landscape.
+const ATLAS_OFFSET = new THREE.Vector3(0, 6.5, 13)
+const ATLAS_LOOK = new THREE.Vector3(0, 1.0, -12)
 const PORTRAIT_LOOK = new THREE.Vector3(0, 1.0, -4) // look further ahead on tall screens
 // When interacting, push in closer and frame the station.
 const INTERACT_OFFSET = new THREE.Vector3(0, 5.2, 7)
@@ -109,8 +112,8 @@ export function FollowCamera() {
       // On tall screens a vertical FOV of 50° leaves a very narrow horizontal field
       // (stations fall off the sides). Widen the vertical FOV to keep the horizontal
       // field usable, and pull back only gently so the scene stays out of the fog.
-      let targetFov = 50
-      if (portrait) {
+      let targetFov = st.atlasOpen ? 56 : 50 // wider, cinematic field for the Journey vista
+      if (portrait && !st.atlasOpen) {
         const hFov = THREE.MathUtils.degToRad(64)
         targetFov = THREE.MathUtils.clamp(
           THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(hFov / 2) / aspect)),
@@ -123,12 +126,19 @@ export function FollowCamera() {
         cam.fov = targetFov
         cam.updateProjectionMatrix()
       }
-      // pull the camera back in the Course Atlas so more of the six-region island reads at once
-      const atlasZoom = st.atlasOpen ? 1.7 : 1
-      const zoom = (portrait ? Math.min(1.16, 1 + (1 - aspect) * 0.32) : 1) * atlasZoom
-      scaledOffset.current.copy(EXPLORE_OFFSET).multiplyScalar(zoom)
-      tmpTarget.current.copy(p).add(scaledOffset.current)
-      tmpLook.current.copy(p).add(portrait ? PORTRAIT_LOOK : EXPLORE_LOOK)
+      if (st.atlasOpen) {
+        // hero vista: sit low and behind the player, looking OUT and slightly down over the
+        // journey as it recedes toward the distant Arena peak (the reference composition)
+        const portZoom = portrait ? Math.min(1.35, 1 + (1 - aspect) * 0.6) : 1
+        scaledOffset.current.copy(ATLAS_OFFSET).multiplyScalar(portZoom)
+        tmpTarget.current.copy(p).add(scaledOffset.current)
+        tmpLook.current.copy(p).add(ATLAS_LOOK)
+      } else {
+        const zoom = portrait ? Math.min(1.16, 1 + (1 - aspect) * 0.32) : 1
+        scaledOffset.current.copy(EXPLORE_OFFSET).multiplyScalar(zoom)
+        tmpTarget.current.copy(p).add(scaledOffset.current)
+        tmpLook.current.copy(p).add(portrait ? PORTRAIT_LOOK : EXPLORE_LOOK)
+      }
     }
 
     if (reduced || runtime.cameraSkip) {

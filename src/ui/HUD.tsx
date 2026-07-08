@@ -55,7 +55,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
     }
     return { ...w, state }
   })
-  const badge = atlasOpen ? { kicker: 'Overview', name: 'Course Atlas' } : WORLD_BADGE[currentWorld]
+  const badge = atlasOpen ? { kicker: 'World Map', name: 'The Journey' } : WORLD_BADGE[currentWorld]
 
   const showPressE = mode === 'explore' && nearbyId !== null
 
@@ -64,8 +64,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       <div className="objective panel">
         <div className="gem" />
         <div>
-          <div className="label">{atlasOpen ? 'Overview' : 'Next objective'}</div>
-          <div className="value">{atlasOpen ? 'Course Atlas — all six regions' : next.label}</div>
+          <div className="label">Next objective</div>
+          <div className="value">{next.label}</div>
         </div>
       </div>
 
@@ -94,8 +94,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       </div>
 
       <div className="hud-buttons">
-        <button className={`btn ${atlasOpen ? 'primary' : 'ghost'}`} onClick={toggleAtlas} title="Toggle the combined overview map of all six regions">
-          {atlasOpen ? '✕ Exit Atlas' : '🗺 Atlas'}
+        <button className={`btn ${atlasOpen ? 'primary' : 'ghost'}`} onClick={toggleAtlas} title="See the whole course as one connected journey">
+          {atlasOpen ? '✕ Exit map' : '🗺 The Journey'}
         </button>
         <button className="btn ghost" onClick={() => setReduced(!reduced)} title="Toggle cinematic camera motion">
           {reduced ? 'Motion: reduced' : 'Motion: on'}

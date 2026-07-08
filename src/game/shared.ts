@@ -5,7 +5,7 @@ import * as THREE from 'three'
  * overview scene of all six regions). Placed on the Foundations-Camp zone, facing into the map.
  * (Defined before spawnOverride so the ?atlas=1 deep-link can start the player here.)
  */
-export const ATLAS_SPAWN: [number, number, number] = [-14, 0.9, -3]
+export const ATLAS_SPAWN: [number, number, number] = [-17, 0.9, 13]
 
 /**
  * Runtime, high-frequency world state that must NOT trigger React re-renders.
