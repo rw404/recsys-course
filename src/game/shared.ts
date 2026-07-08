@@ -21,6 +21,9 @@ export const runtime = {
   playerFacing: 0, // yaw in radians
   playerSpeed: 0, // planar speed (m/s) — drives the character's walk/run/idle blend
   cameraSkip: false, // set true to snap camera (skip cinematic)
+  // RPG-style click-to-move destination (world XZ). Set by <ClickGround/> on a ground click,
+  // consumed + cleared by the Player. WASD/joystick input cancels it.
+  moveTarget: null as THREE.Vector3 | null,
 }
 
 export const GROUND_Y = 0

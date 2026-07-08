@@ -95,7 +95,9 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
       <div className="controls panel">
         <span className="grp"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+        <span className="grp"><kbd>🖱</kbd> Click to move</span>
         <span className="grp"><kbd>Shift</kbd> Run</span>
+        <span className="grp"><kbd>Space</kbd> Jump</span>
         <span className="grp"><kbd>E</kbd> Interact</span>
         <span className="grp"><kbd>C</kbd> Catalog</span>
       </div>

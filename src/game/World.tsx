@@ -9,6 +9,7 @@ import { FollowCamera } from './Camera'
 import { Stations, InteractionSystem } from './Stations'
 import { LessonStage } from './LessonStage'
 import { ValleyLessonStage } from './ValleyLessonStage'
+import { ClickGround } from './ClickGround'
 import { PostFX } from './PostFX'
 import { useProgress } from '../state/progress'
 
@@ -52,6 +53,12 @@ function Scene() {
   return (
     <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
       {world === 'foundations-camp' ? <Environment /> : <RetrievalValley />}
+      {/* RPG click-to-move catcher, sized to the current island's walkable disc */}
+      {world === 'foundations-camp' ? (
+        <ClickGround center={[3, -2]} radius={24} />
+      ) : (
+        <ClickGround center={[1, -2]} radius={22} />
+      )}
       <Stations />
       <Player />
       {/* each region has its own rigged narrator two-shot: Astra in the camp, Vector Smith in the

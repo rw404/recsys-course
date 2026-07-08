@@ -26,6 +26,11 @@ export function Player() {
   const desired = useRef(new THREE.Vector3())
   const current = useRef(new THREE.Vector3())
   const world = useRef<WorldId>(useProgress.getState().currentWorld)
+  // click-to-move bookkeeping
+  const stuckTime = useRef(0) // how long we've wanted to move but been blocked (→ auto-hop)
+  const stallTime = useRef(0) // how long a click-move has made no progress (→ give up)
+  const lastDist = useRef(Infinity)
+  const prevTarget = useRef<THREE.Vector3 | null>(null)
 
   const mode = useProgress((s) => s.mode)
   // during the staged lecture the player is shown from behind by <LessonStage/>, so hide the
@@ -44,6 +49,7 @@ export function Player() {
       rb.setTranslation({ x: sx, y: sy, z: sz }, true)
       rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
       runtime.playerPosition.set(sx, sy, sz)
+      runtime.moveTarget = null // don't chase a target from the old region
       runtime.cameraSkip = true
       current.current.set(0, 0, 0)
       desired.current.set(0, 0, 0)
@@ -69,16 +75,46 @@ export function Player() {
     const frozen = mode !== 'explore'
     const inp = input.current
 
-    // desired horizontal velocity in world space (keyboard + virtual joystick)
+    // desired horizontal velocity in world space (keyboard + virtual joystick OR click-to-move)
     desired.current.set(0, 0, 0)
     if (!frozen) {
       const fwd = inp.forward + touchControls.moveY
       const str = inp.strafe + touchControls.moveX
-      desired.current.addScaledVector(FORWARD, fwd).addScaledVector(RIGHT, str)
-      if (desired.current.lengthSq() > 1) desired.current.normalize()
-      const touchMag = Math.hypot(touchControls.moveX, touchControls.moveY)
-      const speed = inp.run || touchMag > 0.9 ? RUN_SPEED : WALK_SPEED
-      desired.current.multiplyScalar(speed)
+      const manual = Math.abs(fwd) > 0.01 || Math.abs(str) > 0.01
+      if (manual) {
+        // WASD / joystick — cancels any active click-to-move
+        runtime.moveTarget = null
+        desired.current.addScaledVector(FORWARD, fwd).addScaledVector(RIGHT, str)
+        if (desired.current.lengthSq() > 1) desired.current.normalize()
+        const touchMag = Math.hypot(touchControls.moveX, touchControls.moveY)
+        const speed = inp.run || touchMag > 0.9 ? RUN_SPEED : WALK_SPEED
+        desired.current.multiplyScalar(speed)
+      } else if (runtime.moveTarget) {
+        // steer toward the clicked destination
+        if (runtime.moveTarget !== prevTarget.current) {
+          prevTarget.current = runtime.moveTarget // new click → reset progress trackers
+          lastDist.current = Infinity
+          stallTime.current = 0
+        }
+        const tp = rb.translation()
+        const dx = runtime.moveTarget.x - tp.x
+        const dz = runtime.moveTarget.z - tp.z
+        const dist = Math.hypot(dx, dz)
+        if (dist < 0.45) {
+          runtime.moveTarget = null // arrived
+        } else {
+          const spd = dist > 3.5 ? RUN_SPEED : WALK_SPEED
+          desired.current.set((dx / dist) * spd, 0, (dz / dist) * spd)
+          // give up if we've stopped making progress (blocked by an unjumpable obstacle)
+          if (dist < lastDist.current - 0.03) {
+            lastDist.current = dist
+            stallTime.current = 0
+          } else {
+            stallTime.current += dt
+            if (stallTime.current > 1.8) runtime.moveTarget = null
+          }
+        }
+      }
     }
 
     // smooth toward desired (feels responsive but not twitchy)
@@ -91,7 +127,23 @@ export function Player() {
     const wantsJump = inp.jumpPressed || touchControls.jumpEdge
     inp.jumpPressed = false
     touchControls.jumpEdge = false
-    if (!frozen && wantsJump && grounded) vy = JUMP_V
+
+    // auto-hop: if we want to move but are blocked (near-zero actual speed while grounded), jump so
+    // click-to-move / walking doesn't get stuck on a ledge or small obstacle.
+    const wantMove = desired.current.lengthSq() > 0.25
+    const actualPlanar = Math.hypot(linvel.x, linvel.z)
+    let autoJump = false
+    if (!frozen && wantMove && grounded && actualPlanar < 0.6) {
+      stuckTime.current += dt
+      if (stuckTime.current > 0.25) {
+        autoJump = true
+        stuckTime.current = 0
+      }
+    } else {
+      stuckTime.current = 0
+    }
+
+    if (!frozen && (wantsJump || autoJump) && grounded) vy = JUMP_V
     rb.setLinvel({ x: current.current.x, y: vy, z: current.current.z }, true)
 
     // publish position + speed for camera, stations and the character animator
@@ -119,9 +171,11 @@ export function Player() {
       linearDamping={0.9}
       enabledRotations={[false, false, false]}
       canSleep={false}
-      ccd // continuous collision → don't tunnel through the floor slab when falling fast
     >
-      <CapsuleCollider args={[0.45, 0.42]} />
+      {/* frictionless: the character is velocity-controlled (we set linvel every frame), so we
+          don't want wall/floor friction — it would stick the player to obstacles and, crucially,
+          kill the upward jump velocity when pressed against a wall (breaking the auto-hop). */}
+      <CapsuleCollider args={[0.45, 0.42]} friction={0} />
       <group ref={visual} visible={!hideVisual}>
         <PorterGLB />
       </group>
