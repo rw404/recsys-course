@@ -36,6 +36,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const towerDone = useProgress((s) => s.completed['world5-gate'])
   const gardenDone = useProgress((s) => s.completed['graduation'])
   const courseDone = useProgress((s) => s.completed['champion'])
+  const atlasOpen = useProgress((s) => s.atlasOpen)
+  const toggleAtlas = useProgress((s) => s.toggleAtlas)
 
   const worlds = WORLD_MAP.map((w) => {
     let state: 'active' | 'locked' | 'done' = 'locked'
@@ -53,7 +55,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
     }
     return { ...w, state }
   })
-  const badge = WORLD_BADGE[currentWorld]
+  const badge = atlasOpen ? { kicker: 'Overview', name: 'Course Atlas' } : WORLD_BADGE[currentWorld]
 
   const showPressE = mode === 'explore' && nearbyId !== null
 
@@ -62,8 +64,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       <div className="objective panel">
         <div className="gem" />
         <div>
-          <div className="label">Next objective</div>
-          <div className="value">{next.label}</div>
+          <div className="label">{atlasOpen ? 'Overview' : 'Next objective'}</div>
+          <div className="value">{atlasOpen ? 'Course Atlas — all six regions' : next.label}</div>
         </div>
       </div>
 
@@ -92,6 +94,9 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       </div>
 
       <div className="hud-buttons">
+        <button className={`btn ${atlasOpen ? 'primary' : 'ghost'}`} onClick={toggleAtlas} title="Toggle the combined overview map of all six regions">
+          {atlasOpen ? '✕ Exit Atlas' : '🗺 Atlas'}
+        </button>
         <button className="btn ghost" onClick={() => setReduced(!reduced)} title="Toggle cinematic camera motion">
           {reduced ? 'Motion: reduced' : 'Motion: on'}
         </button>
@@ -115,8 +120,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
         <span className="grp"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
         <span className="grp"><kbd>🖱</kbd> Click to move</span>
         <span className="grp"><kbd>Shift</kbd> Run</span>
-        <span className="grp"><kbd>Space</kbd> Jump</span>
-        <span className="grp"><kbd>E</kbd> Interact</span>
+        {!atlasOpen && <span className="grp"><kbd>Space</kbd> Jump</span>}
+        {!atlasOpen && <span className="grp"><kbd>E</kbd> Interact</span>}
         <span className="grp"><kbd>C</kbd> Catalog</span>
       </div>
 

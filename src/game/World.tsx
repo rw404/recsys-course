@@ -8,6 +8,7 @@ import { SequentialCity } from './SequentialCity'
 import { PolicyTower } from './PolicyTower'
 import { EcosystemGarden } from './EcosystemGarden'
 import { FinalArena } from './FinalArena'
+import { AtlasScene } from './AtlasWorld'
 import { Player } from './Player'
 import { FollowCamera } from './Camera'
 import { Stations, InteractionSystem } from './Stations'
@@ -58,6 +59,25 @@ export function World() {
 /** The active region + the shared actors. Swaps the scene diorama when the player changes world. */
 function Scene() {
   const world = useProgress((s) => s.currentWorld)
+  const atlasOpen = useProgress((s) => s.atlasOpen)
+
+  // Course Atlas overview: one combined island of all six regions. Reuses the Player + physics +
+  // click-to-move, but skips the course stations/lesson-stages (the atlas has no interactables).
+  if (atlasOpen) {
+    return (
+      <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
+        <Suspense fallback={null}>
+          <AtlasScene />
+        </Suspense>
+        {/* clicks stop short of the rim fence so click-to-move never targets the very edge */}
+        <ClickGround center={[-1, 0]} radius={22} />
+        {/* stable key: keep the SAME Player instance across the atlas⇄world toggle so its
+            teleport-on-transition (watching atlasOpen) fires instead of a silent remount */}
+        <Player key="player" />
+      </Physics>
+    )
+  }
+
   return (
     <Physics gravity={[0, -18, 0]} timeStep="vary" paused={false}>
       {world === 'foundations-camp' ? (
@@ -76,7 +96,7 @@ function Scene() {
       {/* RPG click-to-move catcher, sized to the current island's walkable disc */}
       <ClickGround center={world === 'foundations-camp' ? [3, -2] : [1, -2]} radius={world === 'foundations-camp' ? 24 : 22} />
       <Stations />
-      <Player />
+      <Player key="player" />
       {/* each region has its own rigged narrator two-shot (Astra in camp + city, Vector Smith in the
           valley). Their (large, skinned) GLBs load behind a nested Suspense so streaming a narrator
           in never blanks the whole scene — no black flash on first load or when crossing worlds. */}

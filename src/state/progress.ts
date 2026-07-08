@@ -538,6 +538,8 @@ interface ProgressState {
   lessonPage: number
   /** best score achieved in the Final Arena capstone (for the Hall of Mastery "Your Best") */
   capstoneScore: number
+  /** the Course Atlas overview scene (all six regions in one connected diorama) is open */
+  atlasOpen: boolean
 
   // derived helpers
   getNodeState: (id: NodeId) => ProgressNodeState
@@ -550,6 +552,7 @@ interface ProgressState {
   setNearby: (id: NodeId | null) => void
   setLessonPage: (n: number) => void
   setCapstoneScore: (n: number) => void
+  toggleAtlas: () => void
   openNode: (id: NodeId) => void
   closeNode: () => void
   completeNode: (id: NodeId) => CompletionEffect | null
@@ -626,6 +629,8 @@ export const useProgress = create<ProgressState>((set, get) => ({
   reducedMotion: prefersReducedMotion(),
   lessonPage: 0,
   capstoneScore: 0,
+  // ?atlas=1 opens the combined overview scene on load (deep-link + headless capture)
+  atlasOpen: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('atlas'),
   totalArtifacts: 5,
 
   getNodeState: (id) => {
@@ -700,6 +705,12 @@ export const useProgress = create<ProgressState>((set, get) => ({
   setCapstoneScore: (n) => {
     // keep the best score achieved (the Hall of Mastery "Your Best")
     if (n > get().capstoneScore) set({ capstoneScore: n })
+  },
+
+  toggleAtlas: () => {
+    // opening the Atlas closes any open panel and returns to explore mode (the Player teleports
+    // to/from the atlas island in its own useFrame by watching this flag)
+    set({ atlasOpen: !get().atlasOpen, mode: 'explore', activeNodeId: null, nearbyNodeId: null })
   },
 
   openNode: (id) => {
@@ -810,6 +821,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
       nearbyNodeId: null,
       activeNodeId: null,
       capstoneScore: 0,
+      atlasOpen: false,
     }),
 }))
 

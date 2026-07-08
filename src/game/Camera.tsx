@@ -123,7 +123,9 @@ export function FollowCamera() {
         cam.fov = targetFov
         cam.updateProjectionMatrix()
       }
-      const zoom = portrait ? Math.min(1.16, 1 + (1 - aspect) * 0.32) : 1
+      // pull the camera back in the Course Atlas so more of the six-region island reads at once
+      const atlasZoom = st.atlasOpen ? 1.7 : 1
+      const zoom = (portrait ? Math.min(1.16, 1 + (1 - aspect) * 0.32) : 1) * atlasZoom
       scaledOffset.current.copy(EXPLORE_OFFSET).multiplyScalar(zoom)
       tmpTarget.current.copy(p).add(scaledOffset.current)
       tmpLook.current.copy(p).add(portrait ? PORTRAIT_LOOK : EXPLORE_LOOK)

@@ -1,17 +1,26 @@
 import * as THREE from 'three'
 
 /**
+ * ATLAS_SPAWN — where the player stands when they open the Course Atlas (the single combined
+ * overview scene of all six regions). Placed on the Foundations-Camp zone, facing into the map.
+ * (Defined before spawnOverride so the ?atlas=1 deep-link can start the player here.)
+ */
+export const ATLAS_SPAWN: [number, number, number] = [-14, 0.9, -3]
+
+/**
  * Runtime, high-frequency world state that must NOT trigger React re-renders.
  * Read/written inside useFrame only. Discrete/progress state lives in the zustand store.
  */
 // Optional spawn override via ?px=&pz=(&py=) — used by showcase captures to place the
-// character on the path. No effect in normal play.
+// character on the path. No effect in normal play. ?atlas=1 starts on the Atlas island's Camp zone.
 function spawnOverride(): THREE.Vector3 {
   const base = new THREE.Vector3(-6, 0.9, 8)
   if (typeof window === 'undefined') return base
   const q = new URLSearchParams(window.location.search)
   if (q.has('px') || q.has('pz')) {
     base.set(Number(q.get('px') ?? base.x), Number(q.get('py') ?? base.y), Number(q.get('pz') ?? base.z))
+  } else if (q.has('atlas')) {
+    base.set(ATLAS_SPAWN[0], ATLAS_SPAWN[1], ATLAS_SPAWN[2])
   }
   return base
 }

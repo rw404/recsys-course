@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, CapsuleCollider, type RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useInput } from './useInput'
-import { runtime } from './shared'
+import { runtime, ATLAS_SPAWN } from './shared'
 import { touchControls } from './controls'
 import { PorterGLB } from './PorterGLB'
 import { useProgress, WORLD_SPAWN, type WorldId } from '../state/progress'
@@ -26,6 +26,7 @@ export function Player() {
   const desired = useRef(new THREE.Vector3())
   const current = useRef(new THREE.Vector3())
   const world = useRef<WorldId>(useProgress.getState().currentWorld)
+  const atlasBefore = useRef(useProgress.getState().atlasOpen)
   // click-to-move bookkeeping
   const stuckTime = useRef(0) // how long we've wanted to move but been blocked (→ auto-hop)
   const stallTime = useRef(0) // how long a click-move has made no progress (→ give up)
@@ -42,10 +43,9 @@ export function Player() {
     const rb = body.current
     if (!rb) return
 
-    // Hard-place the body at a world's spawn with zero velocity (used on region change and by the
-    // fall-through safety net below).
-    const respawn = (worldId: WorldId) => {
-      const [sx, sy, sz] = WORLD_SPAWN[worldId]
+    // Hard-place the body at a world-space point with zero velocity (used on region change, atlas
+    // toggle, and by the fall-through safety net below).
+    const placeAt = (sx: number, sy: number, sz: number) => {
       rb.setTranslation({ x: sx, y: sy, z: sz }, true)
       rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
       runtime.playerPosition.set(sx, sy, sz)
@@ -54,10 +54,22 @@ export function Player() {
       current.current.set(0, 0, 0)
       desired.current.set(0, 0, 0)
     }
+    const respawn = (worldId: WorldId) => placeAt(...WORLD_SPAWN[worldId])
 
+    const st = useProgress.getState()
+    const liveWorld = st.currentWorld
+    const atlas = st.atlasOpen
+
+    // Opening / closing the Course Atlas → teleport onto the atlas island (or back to the region).
+    if (atlas !== atlasBefore.current) {
+      atlasBefore.current = atlas
+      world.current = liveWorld // stay synced so exiting doesn't double-fire the region-change path
+      if (atlas) placeAt(...ATLAS_SPAWN)
+      else respawn(liveWorld)
+      return
+    }
     // Region change → teleport the body to the new world's spawn and snap the camera.
-    const liveWorld = useProgress.getState().currentWorld
-    if (liveWorld !== world.current) {
+    if (!atlas && liveWorld !== world.current) {
       world.current = liveWorld
       respawn(liveWorld)
       return
@@ -65,9 +77,10 @@ export function Player() {
 
     // Safety net: if the body has dropped below the island (the terrain floor collider can be
     // absent for a frame or two while a scene swaps in, and gravity would otherwise make the
-    // player fall forever), snap them back to the current world's spawn.
+    // player fall forever), snap them back to the current surface's spawn.
     if (rb.translation().y < RESPAWN_Y) {
-      respawn(world.current)
+      if (atlas) placeAt(...ATLAS_SPAWN)
+      else respawn(world.current)
       return
     }
 
@@ -143,7 +156,8 @@ export function Player() {
       stuckTime.current = 0
     }
 
-    if (!frozen && (wantsJump || autoJump) && grounded) vy = JUMP_V
+    // no jumping in the Atlas — it is one flat continuous island (matches the "no jumps" brief)
+    if (!frozen && !atlas && (wantsJump || autoJump) && grounded) vy = JUMP_V
     rb.setLinvel({ x: current.current.x, y: vy, z: current.current.z }, true)
 
     // publish position + speed for camera, stations and the character animator
