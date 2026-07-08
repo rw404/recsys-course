@@ -283,15 +283,15 @@ function ArenaPeak() {
       ))}
       <pointLight ref={glow} position={[ax, ay + 2, az + 1]} intensity={26} color="#e0a6ff" distance={48} />
       <pointLight position={[ax, ay + 3, az - 2]} intensity={30} color="#ff8ad0" distance={30} />
-      {/* clickable travel-catcher over the peak → fast-travel into the Final Arena */}
+      {/* clickable travel-catcher over the whole peak → fast-travel into the Final Arena */}
       <mesh
-        position={[ax, ay + 2, az]}
+        position={[ax, ay, az]}
         onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); travelToWorld('final-arena') }}
         onPointerOver={(e) => { e.stopPropagation(); setCursor(true) }}
         onPointerOut={() => setCursor(false)}
       >
-        <sphereGeometry args={[7, 12, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <sphereGeometry args={[11, 14, 14]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <Billboard position={[ax + 9, ay + 4, az]}>
         <Text fontSize={1.0} color="#f2eaff" anchorX="left" outlineWidth={0.02} outlineColor="#140b26">
@@ -473,17 +473,18 @@ function RegionMarker({ region }: { region: Region }) {
         <circleGeometry args={[3.6, 40]} />
         <meshBasicMaterial color={region.accent} transparent opacity={0.1} side={THREE.DoubleSide} toneMapped={false} depthWrite={false} />
       </mesh>
-      {/* invisible click-catcher (sits just above the ground disc + stopPropagation so it wins over
-          click-to-move): click a region on the map → fast-travel straight into that world */}
+      {/* invisible click-catcher: a TALL column covering the whole structure (not a flat ground
+          disc — at the low hero camera the top of a tall tower projects to a far-away ground point,
+          so a flat disc missed the click and click-to-move fired). stopPropagation beats ClickGround.
+          Click a region on the map → fast-travel straight into that world. */}
       <mesh
-        position={[0, 0.42, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 4.2, 0]}
         onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); travelToWorld(region.world) }}
         onPointerOver={(e) => { e.stopPropagation(); setCursor(true) }}
         onPointerOut={() => setCursor(false)}
       >
-        <circleGeometry args={[3.6, 40]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <cylinderGeometry args={[4.2, 4.2, 9, 20]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <pointLight position={[0, 4, 0]} intensity={16} color={region.accent} distance={13} />
 
