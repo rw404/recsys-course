@@ -191,7 +191,9 @@ function BridgeBody({ node, state, color }: { node: CourseNode; state: ProgressN
   const unlocked = state !== 'locked_for_credit'
   const planks = 7
   const target =
-    node.id === 'world5-gate'
+    node.id === 'graduation'
+      ? '★ Course Summit'
+      : node.id === 'world5-gate'
       ? '→ Ecosystem Garden'
       : node.id === 'world4-gate'
       ? '→ Policy Tower'

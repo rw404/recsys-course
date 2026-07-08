@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, type LessonSection } from '../data/course'
+import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, type LessonSection } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
@@ -67,6 +67,21 @@ const LESSONS: Record<
         intro: true,
       },
       ...WEEK04_LESSON.sections,
+    ],
+  },
+  'ecosystem-lesson': {
+    nodeId: 'ecosystem-lesson',
+    kicker: 'Theory Module · Ecosystem Garden',
+    narrator: 'Guide Astra',
+    cards: [
+      {
+        heading: WEEK05_LESSON.title,
+        body: WEEK05_LESSON.intro,
+        narration: 'Healthy ecosystems thrive on variety. Balance drives growth.',
+        icon: 'diversity',
+        intro: true,
+      },
+      ...WEEK05_LESSON.sections,
     ],
   },
 }
@@ -382,6 +397,57 @@ function HoloVisual({ icon, intro }: { icon?: string; intro?: boolean }) {
           </div>
         ))}
         <div className="hv-caption">keep top-B partial slates · extend · prune</div>
+      </div>
+    )
+  }
+  if (icon === 'feedback') {
+    return (
+      <div className="hv hv-feedback">
+        {['shown', 'clicked', 'logged', 'trained'].map((l, k) => (
+          <span key={l} className="fb-node" style={{ animationDelay: `${k * 0.2}s` }}>{l}</span>
+        ))}
+        <div className="fb-loop" />
+        <div className="hv-caption">the model shapes its own next data</div>
+      </div>
+    )
+  }
+  if (icon === 'diversity') {
+    return (
+      <div className="hv hv-diversity">
+        <div className="dv-bubble">
+          {[0, 1, 2, 3, 4].map((k) => <span key={k} style={{ background: '#ff6bd0' }} />)}
+          <b>λ=1 · bubble</b>
+        </div>
+        <div className="dv-mix">
+          {['#ff6bd0', '#6bd0ff', '#ffd36b', '#8affc9', '#c08bff'].map((c, k) => <span key={k} style={{ background: c }} />)}
+          <b>balanced</b>
+        </div>
+        <div className="hv-caption">relevance − similarity, tuned by λ</div>
+      </div>
+    )
+  }
+  if (icon === 'debias') {
+    return (
+      <div className="hv hv-debias">
+        {[0.95, 0.55, 0.32, 0.18].map((raw, k) => (
+          <div key={k} className="db-row" style={{ animationDelay: `${k * 0.14}s` }}>
+            <span className="db-slot">#{k + 1}</span>
+            <div className="db-bar raw" style={{ width: `${raw * 100}%` }} />
+            <div className="db-bar corr" style={{ width: `${Math.min(100, raw * (1 + k * 0.55) * 100)}%` }} />
+          </div>
+        ))}
+        <div className="hv-caption">reweight by 1 / P(shown)</div>
+      </div>
+    )
+  }
+  if (icon === 'churn') {
+    return (
+      <div className="hv hv-churn">
+        <div className="ch-line ctr" />
+        <div className="ch-line ret" />
+        <span className="ch-lab ctr">CTR chase → churn</span>
+        <span className="ch-lab ret">balance → growth</span>
+        <div className="hv-caption">optimise for who is still here next month</div>
       </div>
     )
   }

@@ -6,7 +6,7 @@ const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
   { n: '02', id: 'retrieval-valley', name: 'Retrieval Valley' },
   { n: '03', id: 'sequential-city', name: 'Sequential City' },
   { n: '04', id: 'policy-tower', name: 'Policy Tower' },
-  { n: '05', id: null, name: 'Ecosystem Garden' },
+  { n: '05', id: 'ecosystem-garden', name: 'Ecosystem Garden' },
 ]
 
 const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
@@ -14,6 +14,7 @@ const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
   'retrieval-valley': { kicker: 'World 02', name: 'Retrieval Valley' },
   'sequential-city': { kicker: 'World 03', name: 'Sequential City' },
   'policy-tower': { kicker: 'World 04', name: 'Policy Tower' },
+  'ecosystem-garden': { kicker: 'World 05', name: 'Ecosystem Garden' },
 }
 
 // Reference shows the full-course artifact goal, not just this slice's four.
@@ -31,6 +32,7 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const valleyDone = useProgress((s) => s.completed['world3-gate'])
   const cityDone = useProgress((s) => s.completed['world4-gate'])
   const towerDone = useProgress((s) => s.completed['world5-gate'])
+  const gardenDone = useProgress((s) => s.completed['graduation'])
 
   const worlds = WORLD_MAP.map((w) => {
     let state: 'active' | 'locked' | 'done' = 'locked'
@@ -41,6 +43,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       state = cityDone ? 'done' : currentWorld === 'sequential-city' ? 'active' : valleyDone ? 'active' : 'locked'
     } else if (w.id === 'policy-tower') {
       state = towerDone ? 'done' : currentWorld === 'policy-tower' ? 'active' : cityDone ? 'active' : 'locked'
+    } else if (w.id === 'ecosystem-garden') {
+      state = gardenDone ? 'done' : currentWorld === 'ecosystem-garden' ? 'active' : towerDone ? 'active' : 'locked'
     }
     return { ...w, state }
   })
@@ -128,7 +132,9 @@ function promptFor(id: NodeId): string {
     case 'open_lab': return `Enter lab · ${node.title}`
     case 'open_quiz': return `Attempt · ${node.title}`
     case 'unlock_bridge':
-      return id === 'world5-gate'
+      return id === 'graduation'
+        ? 'Reach the Course Summit'
+        : id === 'world5-gate'
         ? 'Pass the Garden Gate'
         : id === 'world4-gate'
         ? 'Cross the Policy Bridge'

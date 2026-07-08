@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { runtime, LESSON_STAGE, VALLEY_STAGE, CITY_STAGE, TOWER_STAGE } from './shared'
+import { runtime, LESSON_STAGE, VALLEY_STAGE, CITY_STAGE, TOWER_STAGE, GARDEN_STAGE } from './shared'
 import { NODES, useProgress } from '../state/progress'
 
 // Fixed, slightly-elevated isometric-ish follow. No sharp rotations, no orbit.
@@ -75,6 +75,8 @@ export function FollowCamera() {
           ? CITY_STAGE
           : active.worldId === 'policy-tower'
           ? TOWER_STAGE
+          : active.worldId === 'ecosystem-garden'
+          ? GARDEN_STAGE
           : LESSON_STAGE
       const cam = camera as THREE.PerspectiveCamera
       if (Math.abs(cam.fov - stage.fov) > 0.1) {

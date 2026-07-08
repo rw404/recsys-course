@@ -479,6 +479,42 @@ body {
 .bs-cell span { font-size: 11px; color: var(--muted); }
 .bs-cell b { font-size: 20px; }
 
+/* ---- Diversity lab category dot ---- */
+.cat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 2px; vertical-align: middle; box-shadow: 0 0 6px currentColor; }
+
+/* ---- Week 05 explainer visuals ---- */
+.hv-feedback { flex-direction: row; align-items: center; justify-content: center; gap: 10px; height: 150px; position: relative; flex-wrap: wrap; }
+.fb-node { padding: 8px 12px; border-radius: 20px; font-size: 12px; color: #dbf1ff; border: 1px solid rgba(95,208,255,0.4); background: rgba(58,127,208,0.18); animation: pop 0.4s ease-out both; }
+.fb-loop { position: absolute; width: 78%; height: 62%; border: 2px dashed rgba(95,208,255,0.4); border-radius: 50%; animation: spin 9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.hv-feedback .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-diversity { flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: 160px; position: relative; }
+.dv-bubble, .dv-mix { display: flex; align-items: center; gap: 6px; }
+.dv-bubble span, .dv-mix span { width: 20px; height: 20px; border-radius: 5px; box-shadow: 0 0 8px rgba(255,255,255,0.2); }
+.dv-bubble b, .dv-mix b { font-size: 11px; color: var(--muted); margin-left: 8px; }
+.dv-mix b { color: var(--good); }
+.hv-diversity .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
+.hv-debias { flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; width: 84%; height: 160px; position: relative; }
+.db-row { display: flex; align-items: center; gap: 8px; height: 14px; animation: rowIn 0.5s ease-out both; }
+.db-slot { font-size: 10px; color: var(--muted); width: 20px; }
+.db-bar { height: 9px; border-radius: 5px; }
+.db-bar.raw { background: rgba(160,110,255,0.35); }
+.db-bar.corr { background: linear-gradient(90deg, #6bd0ff, var(--accent)); box-shadow: 0 0 8px rgba(107,208,255,0.4); margin-left: -4px; }
+.hv-debias .hv-caption { position: absolute; bottom: -4px; left: 0; right: 0; }
+
+.hv-churn { position: relative; height: 160px; width: 88%; }
+.ch-line { position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; }
+.ch-line.ctr { top: 38%; background: linear-gradient(90deg, #ff6bd0, rgba(255,107,208,0.1)); transform-origin: left; animation: chDrop 3s ease-in-out infinite; }
+.ch-line.ret { top: 54%; background: linear-gradient(90deg, var(--good), #8affc9); transform-origin: left; animation: chRise 3s ease-in-out infinite; }
+@keyframes chDrop { 0%,100% { transform: rotate(-4deg) scaleX(0.7); } 50% { transform: rotate(10deg) scaleX(1); } }
+@keyframes chRise { 0%,100% { transform: rotate(-8deg) scaleX(0.7); } 50% { transform: rotate(-14deg) scaleX(1); } }
+.ch-lab { position: absolute; font-size: 11px; }
+.ch-lab.ctr { top: 22%; right: 4%; color: #ff9be0; }
+.ch-lab.ret { top: 66%; right: 4%; color: var(--good); }
+.hv-churn .hv-caption { position: absolute; bottom: 0; left: 0; right: 0; }
+
 /* ---- Right: floats over the 3D narrator (Astra shows through) ---- */
 .study-right { position: absolute; right: 3vw; top: 0; bottom: 0; width: 42vw; pointer-events: none; }
 .study-right > * { pointer-events: auto; }

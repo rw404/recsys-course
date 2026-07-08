@@ -29,11 +29,17 @@ export type NodeId =
   | 'bandit-lab'
   | 'policy-quiz'
   | 'world5-gate'
+  // World 05 · Ecosystem Garden
+  | 'astra-garden-guide'
+  | 'ecosystem-lesson'
+  | 'diversity-lab'
+  | 'ecosystem-quiz'
+  | 'graduation'
 
 export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'bridge' | 'arena'
 
 /** Explorable regions the player walks between across bridges/gates. */
-export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower'
+export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower' | 'ecosystem-garden'
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -47,7 +53,7 @@ export type ProgressNodeState =
 
 export type PlayerMode = 'explore' | 'interact' | 'study' | 'lab' | 'quiz' | 'cinematic'
 
-export type ArtifactId = 'metric-compass' | 'vector-core' | 'attention-lens' | 'policy-controller'
+export type ArtifactId = 'metric-compass' | 'vector-core' | 'attention-lens' | 'policy-controller' | 'diversity-seed'
 
 export interface CourseNode {
   id: NodeId
@@ -341,6 +347,73 @@ export const NODES: Record<NodeId, CourseNode> = {
     interactionRadius: 3.6,
     action: 'unlock_bridge',
   },
+
+  // ---- World 05 · Ecosystem Garden -------------------------------------------------
+  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
+  // ecosystem-lesson mark — this node fires her greeting as you step off the gate)
+  'astra-garden-guide': {
+    id: 'astra-garden-guide',
+    kind: 'npc',
+    title: 'Guide Astra',
+    subtitle: 'Course Guide',
+    worldId: 'ecosystem-garden',
+    position: [1, 0, 9.5],
+    requires: [],
+    requiredAction: false,
+    interactionRadius: 3.0,
+    action: 'talk',
+  },
+  'ecosystem-lesson': {
+    id: 'ecosystem-lesson',
+    kind: 'lesson',
+    title: 'Ecosystems, Diversity & Feedback',
+    subtitle: 'Lesson',
+    worldId: 'ecosystem-garden',
+    weekId: 'week-05',
+    position: [-7, 0, 2],
+    requires: ['world5-gate'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_lesson',
+  },
+  'diversity-lab': {
+    id: 'diversity-lab',
+    kind: 'widget',
+    title: 'Diversity Lab',
+    subtitle: 'Lab',
+    worldId: 'ecosystem-garden',
+    weekId: 'week-05',
+    position: [9, 0, -1.5],
+    requires: ['ecosystem-lesson'],
+    requiredAction: true,
+    interactionRadius: 3.2,
+    action: 'open_lab',
+  },
+  'ecosystem-quiz': {
+    id: 'ecosystem-quiz',
+    kind: 'quiz',
+    title: 'Ecosystem Checkpoint',
+    subtitle: 'Checkpoint',
+    worldId: 'ecosystem-garden',
+    weekId: 'week-05',
+    position: [5, 0, 4],
+    requires: ['diversity-lab'],
+    requiredAction: true,
+    interactionRadius: 3.0,
+    action: 'open_quiz',
+  },
+  'graduation': {
+    id: 'graduation',
+    kind: 'bridge',
+    title: 'Course Summit',
+    subtitle: 'Finale',
+    worldId: 'ecosystem-garden',
+    position: [2, 0, -13],
+    requires: ['ecosystem-quiz'],
+    requiredAction: false,
+    interactionRadius: 3.6,
+    action: 'unlock_bridge',
+  },
 }
 
 export const NODE_ORDER: NodeId[] = [
@@ -364,6 +437,11 @@ export const NODE_ORDER: NodeId[] = [
   'bandit-lab',
   'policy-quiz',
   'world5-gate',
+  'astra-garden-guide',
+  'ecosystem-lesson',
+  'diversity-lab',
+  'ecosystem-quiz',
+  'graduation',
 ]
 
 /** Where the player is (re)spawned when they first enter a world. */
@@ -372,6 +450,7 @@ export const WORLD_SPAWN: Record<WorldId, [number, number, number]> = {
   'retrieval-valley': [1, 0.9, 12],
   'sequential-city': [1, 0.9, 11],
   'policy-tower': [1, 0.9, 11],
+  'ecosystem-garden': [1, 0.9, 11],
 }
 
 export interface NextRequiredAction {
@@ -433,6 +512,11 @@ const emptyCompleted = (): Record<NodeId, boolean> => ({
   'bandit-lab': false,
   'policy-quiz': false,
   'world5-gate': false,
+  'astra-garden-guide': false,
+  'ecosystem-lesson': false,
+  'diversity-lab': false,
+  'ecosystem-quiz': false,
+  'graduation': false,
 })
 
 const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
@@ -440,6 +524,7 @@ const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
   'vector-core': false,
   'attention-lens': false,
   'policy-controller': false,
+  'diversity-seed': false,
 })
 
 function prefersReducedMotion(): boolean {
@@ -454,6 +539,7 @@ function initialWorld(): WorldId {
   if (w === 'valley' || w === 'retrieval-valley') return 'retrieval-valley'
   if (w === 'city' || w === 'sequential-city') return 'sequential-city'
   if (w === 'tower' || w === 'policy-tower') return 'policy-tower'
+  if (w === 'garden' || w === 'ecosystem-garden') return 'ecosystem-garden'
   return 'foundations-camp'
 }
 
@@ -467,7 +553,7 @@ export const useProgress = create<ProgressState>((set, get) => ({
   activeNodeId: null,
   reducedMotion: prefersReducedMotion(),
   lessonPage: 0,
-  totalArtifacts: 4,
+  totalArtifacts: 5,
 
   getNodeState: (id) => {
     const s = get()
@@ -506,7 +592,13 @@ export const useProgress = create<ProgressState>((set, get) => ({
     if (s.completed['policy-quiz'] && !s.completed['world5-gate']) {
       return { nodeId: 'world5-gate', label: 'Pass the Garden Gate' }
     }
-    return { nodeId: null, label: 'Policy Tower complete — next region coming soon' }
+    if (s.completed['ecosystem-quiz'] && !s.completed['graduation']) {
+      return { nodeId: 'graduation', label: 'Reach the Course Summit' }
+    }
+    if (s.completed['graduation']) {
+      return { nodeId: null, label: '★ Course complete — every region mastered' }
+    }
+    return { nodeId: null, label: 'Ecosystem Garden — the final region' }
   },
 
   collectedArtifacts: () => {
@@ -598,6 +690,20 @@ export const useProgress = create<ProgressState>((set, get) => ({
     if (id === 'policy-quiz' && !already) {
       return { unlockBridge: 'world5-gate', highlightNextPath: true }
     }
+    // crossing the Garden Gate carries the player into the Ecosystem Garden (World 05)
+    if (id === 'world5-gate') {
+      get().enterWorld('ecosystem-garden')
+      return { clearFog: 'ecosystem-garden', highlightNextPath: true }
+    }
+    // the Diversity Lab forges the Diversity Seed (the 5th and final artifact)
+    if (id === 'diversity-lab' && !already) {
+      set((st) => ({ artifacts: { ...st.artifacts, 'diversity-seed': true } }))
+      return { spawnArtifact: 'diversity-seed', highlightNextPath: true }
+    }
+    if (id === 'ecosystem-quiz' && !already) {
+      return { unlockBridge: 'graduation', highlightNextPath: true }
+    }
+    // graduation is the course finale — no further region
     return { highlightNextPath: true }
   },
 

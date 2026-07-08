@@ -176,3 +176,30 @@ export const TOWER_STAGE = {
     yaw: tn('tpy', 1.1),
   },
 }
+
+/**
+ * GARDEN_STAGE — the World-05 (Ecosystem Garden) lecture set. Guide Astra narrates the finale from
+ * under the great blossom tree. Same composed over-the-shoulder two-shot; `g…`-prefixed URL
+ * overrides tune it headlessly.
+ */
+const gn = (k: string, d: number) => (LQ.has(k) ? Number(LQ.get(k)) : d)
+const GCAM_V = new THREE.Vector3(gn('gcx', -2.6), gn('gcy', 2.6), gn('gcz', 6.0))
+const GASTRA_POS_V = new THREE.Vector3(gn('gsx', -6.4), 0, gn('gsz', 2.4))
+const GFACE_CAM = Math.atan2(GCAM_V.x - GASTRA_POS_V.x, GCAM_V.z - GASTRA_POS_V.z)
+
+export const GARDEN_STAGE = {
+  cam: GCAM_V,
+  look: new THREE.Vector3(gn('glx', -12.5), gn('gly', 0.5), gn('glz', 1.8)),
+  fov: gn('gfov', 40),
+  astra: {
+    pos: GASTRA_POS_V,
+    yaw: gn('gsy', GFACE_CAM), // faces the camera (auto-derived)
+    targetHeight: 1.75,
+    scale: gn('gssc', 1.07),
+    feetY: gn('gsfy', 0.35), // plant on the visible garden surface (same lift as the tower)
+  },
+  player: {
+    pos: new THREE.Vector3(gn('gpx', -6.4), 0, gn('gpz', 5.4)),
+    yaw: gn('gpy', 1.1),
+  },
+}

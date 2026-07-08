@@ -77,8 +77,25 @@ function specFor(nodeId: NodeId): DialogSpec {
         who: 'Garden Gate',
         avatar: '⛩️',
         text:
-          'The gate blooms open — you can build a policy that decides and learns. Beyond lies the Ecosystem Garden, where recommenders shape the very world they observe. That region unlocks in the next build. For now, the Policy Tower is complete.',
-        primary: 'Look toward the next region',
+          'The gate blooms open — you can build a policy that decides and learns. Beyond lies the Ecosystem Garden, the final region, where recommenders shape the very world they observe. Step through.',
+        primary: 'Enter the Ecosystem Garden →',
+      }
+    case 'astra-garden-guide':
+      return {
+        who: 'Guide Astra',
+        avatar: '🧭',
+        text:
+          'Welcome to the Ecosystem Garden — the last region. A recommender is not a passive observer: what it shows changes what people do, and that becomes its next lesson. Keep the garden alive with diversity, debiasing and long-term balance. Study it with me, then grow variety in the Diversity Lab.',
+        primary: 'Got it — set my objective',
+        showObjective: true,
+      }
+    case 'graduation':
+      return {
+        who: 'Course Summit',
+        avatar: '🏔️',
+        text:
+          'You have crossed every region — metrics, retrieval, attention, policies and now a living ecosystem. Five artifacts forged, the whole recommender pipeline walked end to end. This is the summit: the course is complete. Congratulations, porter.',
+        primary: '★ Complete the course',
       }
     default:
       return { who: NODES[nodeId].title, avatar: '•', text: '', primary: 'Close' }

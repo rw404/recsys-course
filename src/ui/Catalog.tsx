@@ -19,10 +19,10 @@ export function Catalog({ onClose }: { onClose: () => void }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={onClose}>✕ Close</button>
         <div className="kicker">Catalog · No-3D fallback</div>
-        <h1>Foundations Camp — World 01</h1>
+        <h1>Course Catalog — All Regions</h1>
         <p className="lead">
-          Every station maps to a real course action. Next up: <b>{next.label}</b>. You can enter any
-          available station here without walking.
+          Every station across all five regions maps to a real course action. Next up: <b>{next.label}</b>.
+          You can enter any available station here without walking.
         </p>
 
         <div className="catalog-list">

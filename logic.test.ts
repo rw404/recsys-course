@@ -1,6 +1,10 @@
 // Headless logic tests for the parts that carry real bugs:
 // the metric math and the progress-store state machine.
-import { ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE, simulateBandit, REGRET_BUDGET } from './src/data/course'
+import {
+  ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE,
+  simulateBandit, REGRET_BUDGET,
+  mmrSelect, diversityPass, slateRelevance, slateDiversity, REL_FLOOR, DIV_FLOOR,
+} from './src/data/course'
 import { useProgress, NODES } from './src/state/progress'
 
 let failed = 0
@@ -113,9 +117,27 @@ const eff8 = s().completeNode('policy-quiz')
 assert('quiz unlocks the garden gate', eff8?.unlockBridge === 'world5-gate')
 assert('objective now the garden gate', s().nextRequiredAction().nodeId === 'world5-gate')
 
-// finish the tower
+// cross the Garden Gate → enter Ecosystem Garden (World 05)
 s().completeNode('world5-gate')
-assert('tower complete → no required action', s().nextRequiredAction().nodeId === null)
+assert('crossing the gate enters ecosystem-garden', s().currentWorld === 'ecosystem-garden')
+assert('objective now the ecosystem lesson', s().nextRequiredAction().nodeId === 'ecosystem-lesson')
+assert('diversity-lab still locked before lesson', s().getNodeState('diversity-lab') === 'locked_for_credit')
+
+// World 05: lesson → diversity lab (forges diversity-seed) → quiz → graduation
+s().completeNode('ecosystem-lesson')
+assert('diversity-lab now next_required', s().getNodeState('diversity-lab') === 'next_required')
+const eff9 = s().completeNode('diversity-lab')
+assert('diversity lab forges diversity-seed', eff9?.spawnArtifact === 'diversity-seed')
+assert('diversity-seed collected (5 artifacts total)', s().artifacts['diversity-seed'] === true && s().collectedArtifacts() === 5)
+assert('ecosystem-quiz now next_required', s().getNodeState('ecosystem-quiz') === 'next_required')
+const eff10 = s().completeNode('ecosystem-quiz')
+assert('quiz unlocks graduation', eff10?.unlockBridge === 'graduation')
+assert('objective now the course summit', s().nextRequiredAction().nodeId === 'graduation')
+
+// reach the summit → course complete
+s().completeNode('graduation')
+assert('course complete → no required action', s().nextRequiredAction().nodeId === null)
+assert('every region mastered label', s().nextRequiredAction().label.includes('Course complete'))
 
 // bandit sim sanity: greedy stalls (high regret), UCB clears the budget
 {
@@ -125,9 +147,20 @@ assert('tower complete → no required action', s().nextRequiredAction().nodeId 
   assert('ucb regret clears the budget', u.regret < REGRET_BUDGET, { ucb: u.regret })
 }
 
-// sanity: every node has a valid position + radius, and worldId is one of the four regions
+// diversity lab: a balanced MMR slate passes; pure-relevance & pure-diversity extremes fail
+{
+  const balanced = mmrSelect(0.6)
+  const bubble = mmrSelect(1)
+  const scattered = mmrSelect(0)
+  assert('balanced MMR slate clears both floors', diversityPass(balanced), { rel: slateRelevance(balanced), div: slateDiversity(balanced) })
+  assert('pure-relevance slate fails diversity floor', slateDiversity(bubble) < DIV_FLOOR)
+  assert('pure-diversity slate fails relevance floor', slateRelevance(scattered) < REL_FLOOR)
+}
+
+// sanity: every node has a valid position + radius, and worldId is one of the five regions
+const WORLDS = ['foundations-camp', 'retrieval-valley', 'sequential-city', 'policy-tower', 'ecosystem-garden']
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
-assert('all nodes belong to a known world', Object.values(NODES).every((n) => n.worldId === 'foundations-camp' || n.worldId === 'retrieval-valley' || n.worldId === 'sequential-city' || n.worldId === 'policy-tower'))
+assert('all nodes belong to a known world', Object.values(NODES).every((n) => WORLDS.includes(n.worldId)))
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)

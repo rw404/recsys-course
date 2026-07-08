@@ -6,6 +6,7 @@ import { LabMode } from './ui/LabMode'
 import { RetrievalLab } from './ui/RetrievalLab'
 import { AttentionLab } from './ui/AttentionLab'
 import { BanditLab } from './ui/BanditLab'
+import { DiversityLab } from './ui/DiversityLab'
 import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
@@ -23,6 +24,16 @@ const ARTIFACT_NAMES: Record<string, string> = {
   'vector-core': 'Vector Core',
   'attention-lens': 'Attention Lens',
   'policy-controller': 'Policy Controller',
+  'diversity-seed': 'Diversity Seed',
+}
+
+// Completing a region's checkpoint quiz lights the gate onward — toast it (all five regions).
+const GATE_TOAST: Record<string, string> = {
+  'quiz-gate': '🌉 The Retrieval Bridge is now lit',
+  'negatives-quiz': '⛩️ The Two-Tower Gate has opened',
+  'attention-quiz': '🌉 The Policy Bridge is now lit',
+  'policy-quiz': '⛩️ The Garden Gate has bloomed open',
+  'ecosystem-quiz': '★ The Course Summit is within reach',
 }
 
 export function App() {
@@ -55,14 +66,14 @@ function Game() {
   const activeNodeId = useProgress((s) => s.activeNodeId)
   const closeNode = useProgress((s) => s.closeNode)
   const artifacts = useProgress((s) => s.artifacts)
-  const bridgeUnlocked = useProgress((s) => s.completed['quiz-gate'])
+  const completed = useProgress((s) => s.completed)
 
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  // toast when a new artifact is forged or the bridge lights up
+  // toast when a new artifact is forged or a gate onward lights up
   const prevArtifacts = useRef(artifacts)
-  const prevBridge = useRef(bridgeUnlocked)
+  const prevCompleted = useRef(completed)
   useEffect(() => {
     for (const [key, on] of Object.entries(artifacts)) {
       if (on && !prevArtifacts.current[key as keyof typeof artifacts]) {
@@ -72,11 +83,12 @@ function Game() {
     prevArtifacts.current = artifacts
   }, [artifacts])
   useEffect(() => {
-    if (bridgeUnlocked && !prevBridge.current) {
-      showToast('🌉 The Retrieval Bridge is now lit')
+    for (const key of Object.keys(GATE_TOAST)) {
+      const k = key as keyof typeof completed
+      if (completed[k] && !prevCompleted.current[k]) showToast(GATE_TOAST[key])
     }
-    prevBridge.current = bridgeUnlocked
-  }, [bridgeUnlocked])
+    prevCompleted.current = completed
+  }, [completed])
 
   const toastTimer = useRef<number | undefined>(undefined)
   const showToast = (msg: string) => {
@@ -118,6 +130,7 @@ function Game() {
         activeNodeId === 'retrieval-sandbox' ? <RetrievalLab />
         : activeNodeId === 'attention-lab' ? <AttentionLab />
         : activeNodeId === 'bandit-lab' ? <BanditLab />
+        : activeNodeId === 'diversity-lab' ? <DiversityLab />
         : <LabMode />
       )}
       {activeNodeId && mode === 'quiz' && <QuizMode />}

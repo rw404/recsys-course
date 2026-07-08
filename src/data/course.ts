@@ -54,6 +54,10 @@ export interface LessonSection {
     | 'bandit'
     | 'policy'
     | 'beam'
+    | 'feedback'
+    | 'diversity'
+    | 'debias'
+    | 'churn'
 }
 
 export const WEEK01_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
@@ -390,6 +394,128 @@ export function simulateBandit(strategy: BanditStrategy, pulls = BANDIT_PULLS, s
   return { reward, regret, optimalPct: (counts[best] / pulls) * 100, pulls: counts, best }
 }
 
+export const WEEK05_LESSON: { title: string; intro: string; sections: LessonSection[] } = {
+  title: 'Week 05 · Ecosystems, Diversity & Feedback',
+  intro:
+    'A recommender is not a passive observer — what it shows changes what people do, which becomes its next training data. That feedback loop can quietly collapse a healthy catalogue into a filter bubble. This final region is about keeping the ecosystem alive: diversity, debiasing, and long-term growth.',
+  sections: [
+    {
+      heading: 'Feedback loops',
+      icon: 'feedback',
+      narration: 'The model shapes the very data it will learn from next.',
+      body:
+        'Recommendations decide what gets seen, clicks decide what gets logged, and logs train the next model. So a small early bias compounds: popular items get shown more, get more clicks, look even better. Left unchecked the loop is rich-get-richer — the catalogue narrows and the model mistakes exposure for quality.',
+      formula: 'shown → clicked → logged → trained → shown …',
+    },
+    {
+      heading: 'Diversity & serendipity',
+      icon: 'diversity',
+      narration: 'Accuracy alone builds a filter bubble. Variety keeps it alive.',
+      body:
+        'The most "relevant" slate is often five near-duplicates. Users need coverage and the occasional surprise. Maximal Marginal Relevance (MMR) trades relevance against novelty: each pick is scored by its relevance minus its similarity to what is already chosen, tuned by a knob λ.',
+      formula: 'MMR = argmaxᵢ [ λ·rel(i) − (1−λ)·maxⱼ sim(i, j) ]',
+    },
+    {
+      heading: 'Debiasing exposure',
+      icon: 'debias',
+      narration: 'Position and popularity bias distort what a click really means.',
+      body:
+        'A click on the top slot is not the same as a click on slot ten — the top just gets seen more. Position, popularity and exposure biases mean logged feedback is not ground truth. Inverse-Propensity-Scoring reweights each observation by 1/P(shown) so rarely-exposed items are not unfairly buried.',
+      formula: 'r̂(i) = rᵢ / P(i shown)',
+    },
+    {
+      heading: 'Churn & long-term value',
+      icon: 'churn',
+      narration: 'Optimise for the ecosystem that is still there next month.',
+      body:
+        'Chasing the next click can burn long-term trust: clickbait lifts today and churns users tomorrow. Healthy systems balance immediate reward against retention, creator supply and catalogue health — growing the whole ecosystem rather than strip-mining it. Balance in, grow out.',
+      formula: 'maximise retention + catalogue health, not just CTR',
+    },
+  ],
+}
+
+/** One item in the Diversity Lab pool: a relevance score and a content category. */
+export interface DiversityItem {
+  id: string
+  label: string
+  category: string
+  relevance: number
+}
+
+/**
+ * Diversity Lab pool. The high-relevance items are clustered in a couple of categories (the popular
+ * "News" bubble), so a pure-relevance slate is near-duplicates while a pure-diversity slate grabs
+ * low-relevance filler. Only a balanced λ clears BOTH the relevance and the diversity floor — the
+ * World-05 teaching point: variety and relevance together keep the ecosystem healthy.
+ */
+export const DIVERSITY_ITEMS: DiversityItem[] = [
+  { id: 'n1', label: 'Headline', category: 'News', relevance: 0.95 },
+  { id: 'n2', label: 'Breaking', category: 'News', relevance: 0.92 },
+  { id: 'n3', label: 'Analysis', category: 'News', relevance: 0.88 },
+  { id: 'n4', label: 'Op-Ed', category: 'News', relevance: 0.84 },
+  { id: 'm1', label: 'New Album', category: 'Music', relevance: 0.60 },
+  { id: 'm2', label: 'Live Set', category: 'Music', relevance: 0.45 },
+  { id: 's1', label: 'Match Recap', category: 'Sports', relevance: 0.50 },
+  { id: 's2', label: 'Transfer', category: 'Sports', relevance: 0.35 },
+  { id: 'a1', label: 'Gallery', category: 'Art', relevance: 0.40 },
+  { id: 'f1', label: 'Recipe', category: 'Food', relevance: 0.30 },
+]
+
+export const DIVERSITY_K = 5
+export const REL_FLOOR = 0.62
+export const DIV_FLOOR = 0.75
+const SIM_SAME = 1.0
+const SIM_DIFF = 0.15
+
+function itemSim(a: DiversityItem, b: DiversityItem): number {
+  return a.category === b.category ? SIM_SAME : SIM_DIFF
+}
+
+/**
+ * Maximal Marginal Relevance selection. Seeds with the most relevant item, then greedily adds the
+ * item maximising λ·rel − (1−λ)·maxSim-to-selected. λ=1 → pure relevance (a filter bubble); λ=0 →
+ * pure novelty (irrelevant filler); a mid λ balances both.
+ */
+export function mmrSelect(lambda: number, k = DIVERSITY_K): DiversityItem[] {
+  const pool = [...DIVERSITY_ITEMS].sort((a, b) => b.relevance - a.relevance)
+  const selected: DiversityItem[] = [pool.shift()!]
+  while (selected.length < k && pool.length) {
+    let best: DiversityItem | null = null
+    let bestScore = -Infinity
+    for (const it of pool) {
+      const maxSim = Math.max(...selected.map((s) => itemSim(it, s)))
+      const score = lambda * it.relevance - (1 - lambda) * maxSim
+      if (score > bestScore) {
+        bestScore = score
+        best = it
+      }
+    }
+    selected.push(best!)
+    pool.splice(pool.indexOf(best!), 1)
+  }
+  return selected
+}
+
+/** average relevance of a slate (0..1) */
+export function slateRelevance(slate: DiversityItem[]): number {
+  return slate.reduce((s, i) => s + i.relevance, 0) / slate.length
+}
+/** fraction of distinct categories in a slate (0..1) */
+export function slateDiversity(slate: DiversityItem[]): number {
+  return new Set(slate.map((i) => i.category)).size / slate.length
+}
+/** flavour "ecosystem health" 0..100 — rewards high AND balanced relevance+diversity */
+export function ecosystemHealth(slate: DiversityItem[]): number {
+  const r = slateRelevance(slate)
+  const d = slateDiversity(slate)
+  const balance = 1 - Math.abs(r - d)
+  return Math.round(100 * ((r + d) / 2) * (0.6 + 0.4 * balance))
+}
+/** the lab passes when the slate clears BOTH floors — only a balanced λ does */
+export function diversityPass(slate: DiversityItem[]): boolean {
+  return slateRelevance(slate) >= REL_FLOOR && slateDiversity(slate) >= DIV_FLOOR
+}
+
 export interface QuizQuestion {
   id: string
   prompt: string
@@ -536,6 +662,45 @@ export const POLICY_QUIZ: QuizQuestion[] = [
     ],
     answer: 1,
     explain: 'Items in a slate complement and cannibalise each other, so the best whole page differs from the K individually-best items. Beam search assembles it under those interactions.',
+  },
+]
+
+export const ECOSYSTEM_QUIZ: QuizQuestion[] = [
+  {
+    id: 'e1',
+    prompt: 'Why is a recommender’s feedback loop dangerous if left unchecked?',
+    options: [
+      'It makes training slower',
+      'What it shows changes future data, so early biases compound into a filter bubble',
+      'It always increases diversity over time',
+      'It removes the need for negatives',
+    ],
+    answer: 1,
+    explain: 'Shown → clicked → logged → trained → shown. Popular items get more exposure, more clicks, and look even better — the catalogue narrows.',
+  },
+  {
+    id: 'e2',
+    prompt: 'In MMR, what happens as λ → 1?',
+    options: [
+      'The slate becomes maximally diverse',
+      'The slate ignores relevance entirely',
+      'The slate becomes pure relevance — often near-duplicates',
+      'Every item is reweighted by propensity',
+    ],
+    answer: 2,
+    explain: 'MMR = λ·rel − (1−λ)·sim. At λ=1 the novelty term vanishes, so it picks the most relevant items even if they are near-identical.',
+  },
+  {
+    id: 'e3',
+    prompt: 'A click in the top slot is worth more logged attention than a click in slot ten. What corrects for this?',
+    options: [
+      'Increasing the learning rate',
+      'Inverse-Propensity-Scoring — reweight each observation by 1/P(shown)',
+      'Adding more attention heads',
+      'Using a bigger beam width',
+    ],
+    answer: 1,
+    explain: 'Position/exposure bias means logged feedback is not ground truth; IPS divides by the probability of exposure so rarely-shown items are not unfairly buried.',
   },
 ]
 
