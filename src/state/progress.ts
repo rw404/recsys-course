@@ -549,6 +549,8 @@ interface ProgressState {
 
   // actions
   enterWorld: (id: WorldId) => void
+  /** free fast-travel to any region from anywhere (HUD world chips + Journey map) */
+  travelTo: (id: WorldId) => void
   setNearby: (id: NodeId | null) => void
   setLessonPage: (n: number) => void
   setCapstoneScore: (n: number) => void
@@ -692,6 +694,13 @@ export const useProgress = create<ProgressState>((set, get) => ({
     // teleport the player to the new region's spawn and snap the camera (handled in Player/Camera
     // via the runtime flags set by the caller wiring below)
     set({ currentWorld: id, nearbyNodeId: null, activeNodeId: null, mode: 'explore' })
+  },
+
+  travelTo: (id) => {
+    // free fast-travel: jump into any region from anywhere (closes the Journey map + any panel).
+    // Directly set currentWorld (bypassing enterWorld's same-world early return) so the Player's
+    // useFrame detects the change (or the atlas-close transition) and teleports to that spawn.
+    set({ currentWorld: id, atlasOpen: false, mode: 'explore', activeNodeId: null, nearbyNodeId: null })
   },
 
   setNearby: (id) => {

@@ -38,6 +38,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const courseDone = useProgress((s) => s.completed['champion'])
   const atlasOpen = useProgress((s) => s.atlasOpen)
   const toggleAtlas = useProgress((s) => s.toggleAtlas)
+  const travelTo = useProgress((s) => s.travelTo)
+  const activeNodeId = useProgress((s) => s.activeNodeId)
 
   const worlds = WORLD_MAP.map((w) => {
     let state: 'active' | 'locked' | 'done' = 'locked'
@@ -70,18 +72,26 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       </div>
 
       <div className="progress-track panel">
-        <span className="title">Course Progress</span>
-        {worlds.map((w, i) => (
-          <div key={w.n} style={{ display: 'flex', alignItems: 'center' }}>
-            {i > 0 && <div className={`step-link ${w.state === 'done' ? 'done' : ''}`} />}
-            <div className={`wstep ${w.state}`}>
-              <div className="wdot" />
-              <div className="wcap">
-                <span className="wnum">{w.n}</span> {w.name}
-              </div>
+        <span className="title">Course Progress <em className="travel-hint">· click to travel</em></span>
+        {worlds.map((w, i) => {
+          const here = !atlasOpen && currentWorld === w.id
+          return (
+            <div key={w.n} style={{ display: 'flex', alignItems: 'center' }}>
+              {i > 0 && <div className={`step-link ${w.state === 'done' ? 'done' : ''}`} />}
+              <button
+                className={`wstep ${w.state} ${here ? 'here' : ''}`}
+                onClick={() => { if (activeNodeId || !w.id) return; travelTo(w.id) }}
+                title={activeNodeId ? 'Close this panel to travel' : w.id ? `Travel to ${w.name}` : w.name}
+                disabled={!w.id || activeNodeId !== null}
+              >
+                <div className="wdot" />
+                <div className="wcap">
+                  <span className="wnum">{w.n}</span> {w.name}
+                </div>
+              </button>
             </div>
-          </div>
-        ))}
+          )
+        })}
         <div className="crown" title="Course mastery">♛</div>
       </div>
 

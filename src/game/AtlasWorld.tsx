@@ -5,6 +5,7 @@ import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier
 import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
 import { Ambiance } from './Ambiance'
+import { useProgress, type WorldId } from '../state/progress'
 
 /**
  * The Journey — a single continuous epic vista of the whole course (the combined "all worlds in one
@@ -20,6 +21,7 @@ interface Region {
   n: string
   name: string
   tag: string
+  world: WorldId
   pos: [number, number, number]
   accent: string
   url: string
@@ -29,16 +31,28 @@ interface Region {
 
 // five walkable regions on the island, laid out as a journey from the near-left camp into the depth
 const REGIONS: Region[] = [
-  { n: '1', name: 'Foundations Camp', tag: 'Metrics · Signals · Rankings', pos: [-17, 0, 11], accent: '#b98bff', url: '/models/props/crystal-shrine-textured.glb', h: 4.4, rotY: 0.3 },
-  { n: '2', name: 'Retrieval Valley', tag: 'Embeddings · ANN · Two-Tower', pos: [-9, 0, 2], accent: '#6bd0ff', url: '/models/props/two-tower-gate.glb', h: 5.6, rotY: 0.1 },
-  { n: '3', name: 'Sequential City', tag: 'Sequences · Attention · Transformers', pos: [1, 0, -8], accent: '#ff5fd0', url: '/models/props/transformer-gate.glb', h: 6.6, rotY: -0.1 },
-  { n: '4', name: 'Policy Factory', tag: 'Generative · Beam Search · Control', pos: [13, 0, -3], accent: '#ffb04f', url: '/models/props/policy-tower.glb', h: 6.0, rotY: 0.25 },
-  { n: '5', name: 'Ecosystem Garden', tag: 'Debias · Feedback · Growth', pos: [18, 0, 8], accent: '#8affc9', url: '/models/props/greenhouse.glb', h: 5.0, rotY: -0.4 },
+  { n: '1', name: 'Foundations Camp', tag: 'Metrics · Signals · Rankings', world: 'foundations-camp', pos: [-17, 0, 11], accent: '#b98bff', url: '/models/props/crystal-shrine-textured.glb', h: 4.4, rotY: 0.3 },
+  { n: '2', name: 'Retrieval Valley', tag: 'Embeddings · ANN · Two-Tower', world: 'retrieval-valley', pos: [-9, 0, 2], accent: '#6bd0ff', url: '/models/props/two-tower-gate.glb', h: 5.6, rotY: 0.1 },
+  { n: '3', name: 'Sequential City', tag: 'Sequences · Attention · Transformers', world: 'sequential-city', pos: [1, 0, -8], accent: '#ff5fd0', url: '/models/props/transformer-gate.glb', h: 6.6, rotY: -0.1 },
+  { n: '4', name: 'Policy Factory', tag: 'Generative · Beam Search · Control', world: 'policy-tower', pos: [13, 0, -3], accent: '#ffb04f', url: '/models/props/policy-tower.glb', h: 6.0, rotY: 0.25 },
+  { n: '5', name: 'Ecosystem Garden', tag: 'Debias · Feedback · Growth', world: 'ecosystem-garden', pos: [18, 0, 8], accent: '#8affc9', url: '/models/props/greenhouse.glb', h: 5.0, rotY: -0.4 },
 ]
+
+function setCursor(on: boolean) {
+  if (typeof document !== 'undefined') document.body.style.cursor = on ? 'pointer' : 'auto'
+}
+/** enter a region from the Journey map (a click on its marker fast-travels you into that world) */
+function travelToWorld(world: WorldId) {
+  // the marker unmounts on travel (atlas closes), so onPointerOut never fires — clear the cursor here
+  setCursor(false)
+  useProgress.getState().travelTo(world)
+}
 
 const ARENA_POS: [number, number, number] = [3, 10.5, -34] // far peak, backdrop
 
 export function AtlasScene() {
+  // ensure the hover cursor never survives the map closing (Esc / Exit / travel while hovered)
+  useEffect(() => () => setCursor(false), [])
   return (
     <>
       <JourneySky />
@@ -269,12 +283,25 @@ function ArenaPeak() {
       ))}
       <pointLight ref={glow} position={[ax, ay + 2, az + 1]} intensity={26} color="#e0a6ff" distance={48} />
       <pointLight position={[ax, ay + 3, az - 2]} intensity={30} color="#ff8ad0" distance={30} />
+      {/* clickable travel-catcher over the peak → fast-travel into the Final Arena */}
+      <mesh
+        position={[ax, ay + 2, az]}
+        onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); travelToWorld('final-arena') }}
+        onPointerOver={(e) => { e.stopPropagation(); setCursor(true) }}
+        onPointerOut={() => setCursor(false)}
+      >
+        <sphereGeometry args={[7, 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       <Billboard position={[ax + 9, ay + 4, az]}>
         <Text fontSize={1.0} color="#f2eaff" anchorX="left" outlineWidth={0.02} outlineColor="#140b26">
           Arena
         </Text>
         <Text position={[0, -0.9, 0]} fontSize={0.5} color="#c9b8ff" anchorX="left">
           Prove mastery · Compete
+        </Text>
+        <Text position={[0, -1.6, 0]} fontSize={0.42} color="#ffe27a" anchorX="left">
+          ▶ click to travel here
         </Text>
       </Billboard>
     </group>
@@ -446,6 +473,18 @@ function RegionMarker({ region }: { region: Region }) {
         <circleGeometry args={[3.6, 40]} />
         <meshBasicMaterial color={region.accent} transparent opacity={0.1} side={THREE.DoubleSide} toneMapped={false} depthWrite={false} />
       </mesh>
+      {/* invisible click-catcher (sits just above the ground disc + stopPropagation so it wins over
+          click-to-move): click a region on the map → fast-travel straight into that world */}
+      <mesh
+        position={[0, 0.42, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); travelToWorld(region.world) }}
+        onPointerOver={(e) => { e.stopPropagation(); setCursor(true) }}
+        onPointerOut={() => setCursor(false)}
+      >
+        <circleGeometry args={[3.6, 40]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       <pointLight position={[0, 4, 0]} intensity={16} color={region.accent} distance={13} />
 
       {/* numbered badge + name + tagline, like the reference callouts */}
@@ -457,6 +496,7 @@ function RegionMarker({ region }: { region: Region }) {
         <Text position={[-1.15, 0.02, 0]} fontSize={0.4} color="#140b26" anchorX="center" anchorY="middle">{region.n}</Text>
         <Text position={[-0.6, 0.16, 0]} fontSize={0.44} color="#f4eeff" anchorX="left" anchorY="middle" outlineWidth={0.012} outlineColor="#0b0618">{region.name}</Text>
         <Text position={[-0.6, -0.28, 0]} fontSize={0.24} color={region.accent} anchorX="left" anchorY="middle">{region.tag}</Text>
+        <Text position={[-0.6, -0.62, 0]} fontSize={0.2} color="#ffe27a" anchorX="left" anchorY="middle">▶ click to travel here</Text>
       </Billboard>
     </group>
   )

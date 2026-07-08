@@ -70,7 +70,7 @@ function Scene() {
           <AtlasScene />
         </Suspense>
         {/* clicks stop short of the rim fence so click-to-move never targets the very edge */}
-        <ClickGround center={[-1, 0]} radius={22} />
+        <ClickGround center={[0, 0]} radius={24} />
         {/* stable key: keep the SAME Player instance across the atlas⇄world toggle so its
             teleport-on-transition (watching atlasOpen) fires instead of a silent remount */}
         <Player key="player" />
