@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { DecorScatter } from './DecorScatter'
 
 /**
  * Lush, lantern-lit dressing to bring the diorama closer to the references:
@@ -14,8 +15,23 @@ export function Decor() {
       <Trees />
       <HangingTree position={[-13, 0, 4]} />
       <FlowerPatches />
+      <RockClusters />
     </>
   )
+}
+
+/** A few detailed mossy rock-cluster GLBs for foreground/mid dressing (violet-tinted to the camp). */
+function RockClusters() {
+  const items = useMemo(
+    () => ([
+      { pos: [-9, 0, 3] as [number, number, number], h: 1.5, rot: 0.4, tint: '#2e2450' },
+      { pos: [10, 0, 3] as [number, number, number], h: 1.8, rot: 2.1, tint: '#2e2450' },
+      { pos: [-3, 0, -4] as [number, number, number], h: 1.3, rot: 1.2, tint: '#2e2450' },
+      { pos: [15, 0, -6] as [number, number, number], h: 2.0, rot: 3.0, tint: '#2e2450' },
+    ]),
+    []
+  )
+  return <DecorScatter url="/models/props/rock-cluster.glb" items={items} emissiveBoost={0} />
 }
 
 const LANTERN_SPOTS: [number, number, number][] = [
@@ -70,38 +86,18 @@ const TREE_SPOTS: [number, number, number, number][] = [
   [-4, 0, -6, 0.85], [21, 0, -14, 1], [6, 0, -12, 0.95],
 ]
 
+/** Detailed canopy-tree GLBs (replaced the old icosahedron-blob canopies). */
 function Trees() {
-  return (
-    <group>
-      {TREE_SPOTS.map(([x, , z, s], i) => (
-        <Tree key={i} position={[x, 0, z]} scale={s} tint={i % 2 === 0 ? '#a855ff' : '#ff6bd0'} />
-      ))}
-    </group>
+  const items = useMemo(
+    () => TREE_SPOTS.map(([x, , z, s], i) => ({
+      pos: [x, 0, z] as [number, number, number],
+      h: 3.4 * s,
+      rot: i * 1.7,
+      tint: i % 2 === 0 ? undefined : '#ff6bd0',
+    })),
+    []
   )
-}
-
-function Tree({ position, scale, tint }: { position: [number, number, number]; scale: number; tint: string }) {
-  return (
-    <group position={position} scale={scale}>
-      {/* trunk */}
-      <mesh position={[0, 1, 0]} castShadow>
-        <cylinderGeometry args={[0.14, 0.24, 2, 6]} />
-        <meshStandardMaterial color="#241832" roughness={1} />
-      </mesh>
-      {/* glowing canopy blobs */}
-      {[
-        [0, 2.4, 0, 1.1],
-        [0.5, 2.1, 0.3, 0.8],
-        [-0.4, 2.2, -0.3, 0.75],
-        [0.1, 2.9, 0.1, 0.7],
-      ].map(([x, y, z, r], i) => (
-        <mesh key={i} position={[x, y, z]} castShadow>
-          <icosahedronGeometry args={[r, 0]} />
-          <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.5} roughness={0.6} flatShading />
-        </mesh>
-      ))}
-    </group>
-  )
+  return <DecorScatter url="/models/props/canopy-tree.glb" items={items} emissiveBoost={0.22} />
 }
 
 /** Big tree with hanging lanterns — the signature reference look. */
@@ -154,44 +150,11 @@ const FLOWER_PATCHES: [number, number][] = [
   [-5, 6], [4, 9], [12, 6], [-10, 2], [8, -4], [19, -11], [0, 10],
 ]
 
+/** Detailed flower-cluster GLBs at each patch (replaced the old sphere-flower blobs). */
 function FlowerPatches() {
-  return (
-    <group>
-      {FLOWER_PATCHES.map(([x, z], i) => (
-        <FlowerPatch key={i} x={x} z={z} seed={i} />
-      ))}
-    </group>
+  const items = useMemo(
+    () => FLOWER_PATCHES.map(([x, z], i) => ({ pos: [x, 0, z] as [number, number, number], h: 1.0 + (i % 3) * 0.25, rot: i * 1.3 })),
+    []
   )
-}
-
-function FlowerPatch({ x, z, seed }: { x: number; z: number; seed: number }) {
-  const flowers = useMemo(() => {
-    const cols = ['#ff6bd0', '#7ad0ff', '#ffd36b', '#a855ff', '#8affc9']
-    return Array.from({ length: 10 }).map((_, i) => {
-      const ang = seed * 2.3 + i * 1.7
-      const rad = 0.4 + ((i * 31 + seed * 7) % 10) * 0.22
-      return {
-        x: Math.cos(ang) * rad,
-        z: Math.sin(ang) * rad,
-        h: 0.18 + ((i * 13) % 5) * 0.05,
-        c: cols[(i + seed) % cols.length],
-      }
-    })
-  }, [x, z, seed])
-  return (
-    <group position={[x, 0, z]}>
-      {flowers.map((f, i) => (
-        <group key={i} position={[f.x, 0, f.z]}>
-          <mesh position={[0, f.h / 2, 0]}>
-            <cylinderGeometry args={[0.015, 0.015, f.h, 4]} />
-            <meshStandardMaterial color="#3a6b3a" />
-          </mesh>
-          <mesh position={[0, f.h, 0]}>
-            <sphereGeometry args={[0.07, 8, 8]} />
-            <meshStandardMaterial color={f.c} emissive={f.c} emissiveIntensity={0.7} toneMapped={false} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  )
+  return <DecorScatter url="/models/props/flower-cluster.glb" items={items} emissiveBoost={0.3} />
 }
