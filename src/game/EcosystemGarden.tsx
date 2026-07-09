@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
 import { GroundDressing } from './GroundDressing'
 import { worldTheme } from './worldThemes'
+import { DecorScatter, scatterGrid } from './DecorScatter'
 import { Ambiance } from './Ambiance'
 import { ValleyDecor } from './ValleyDecor'
 import { RoutePath } from './Environment'
@@ -384,45 +385,10 @@ function ChurnFog({ position }: { position: [number, number, number] }) {
 /* Diverse flower field                                                */
 /* ------------------------------------------------------------------ */
 
+/** A lush flowerbed of DETAILED flower-cluster GLBs (replacing the old icosahedron-blob field). */
 function FlowerField() {
-  const flowers = useMemo(() => {
-    const palette = ['#ff6bd0', '#6bd0ff', '#ffd36b', '#8affc9', '#c08bff', '#ff9b6b', '#ff5f8f']
-    const out: { pos: [number, number, number]; color: string; h: number; tilt: number }[] = []
-    // a patch to the foreground-right of the path (matches the reference flowerbed)
-    let seed = 91
-    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
-    for (let i = 0; i < 46; i++) {
-      const x = 5 + rnd() * 8
-      const z = 2 + rnd() * 6
-      out.push({ pos: [x, 0, z], color: palette[i % palette.length], h: 0.4 + rnd() * 0.5, tilt: (rnd() - 0.5) * 0.4 })
-    }
-    return out
-  }, [])
-  const grp = useRef<THREE.Group>(null)
-  useFrame((state) => {
-    if (grp.current) {
-      const t = state.clock.elapsedTime
-      grp.current.children.forEach((c, i) => {
-        c.rotation.z = Math.sin(t * 1.2 + i * 0.6) * 0.08
-      })
-    }
-  })
-  return (
-    <group ref={grp}>
-      {flowers.map((f, i) => (
-        <group key={i} position={f.pos} rotation={[0, 0, f.tilt]}>
-          <mesh position={[0, f.h / 2, 0]}>
-            <cylinderGeometry args={[0.02, 0.02, f.h, 5]} />
-            <meshStandardMaterial color="#3f7a4a" emissive="#2a5236" emissiveIntensity={0.35} />
-          </mesh>
-          <mesh position={[0, f.h + 0.08, 0]}>
-            <icosahedronGeometry args={[0.13, 0]} />
-            <meshStandardMaterial color={f.color} emissive={f.color} emissiveIntensity={1.15} toneMapped={false} flatShading />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  )
+  const items = useMemo(() => scatterGrid(5, 2, 8.5, 6.5, 11, [1.0, 1.55], 91), [])
+  return <DecorScatter url="/models/props/flower-cluster.glb" items={items} emissiveBoost={0.35} />
 }
 
 /* ------------------------------------------------------------------ */
