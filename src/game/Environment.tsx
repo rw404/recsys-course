@@ -177,6 +177,9 @@ export function RoutePath({ world }: { world: WorldId }) {
 
   return (
     <group>
+      {/* a physical paved road bed under the chevrons — the reference always shows a real path, the
+          old chevrons floated on a flat void. One ribbon threading the world's whole node sequence. */}
+      <PathRibbon world={world} />
       {segments.map((seg) => {
         const isActive = seg.to === nextId || seg.from === nextId
         const isDone = completed[seg.to]
@@ -198,6 +201,99 @@ export function RoutePath({ world }: { world: WorldId }) {
         )
       })}
     </group>
+  )
+}
+
+/** Shared paved-road texture: dark tiled stone with faint glowing edge rails, tiled along length. */
+let roadTex: THREE.CanvasTexture | null = null
+function roadTexture(): THREE.CanvasTexture {
+  if (roadTex) return roadTex
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 128
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#241d40'
+  ctx.fillRect(0, 0, 64, 128)
+  // paving bands across the width
+  for (let y = 0; y < 128; y += 16) {
+    ctx.fillStyle = (y / 16) % 2 ? '#2a2350' : '#322a5e'
+    ctx.fillRect(6, y + 1, 52, 14)
+  }
+  // glowing edge rails
+  ctx.fillStyle = '#a884ff'
+  ctx.fillRect(2, 0, 3, 128)
+  ctx.fillRect(59, 0, 3, 128)
+  const t = new THREE.CanvasTexture(c)
+  t.wrapT = THREE.RepeatWrapping
+  t.colorSpace = THREE.SRGBColorSpace
+  roadTex = t
+  return t
+}
+
+/** A flat paved road ribbon threading the world's ordered nodes, so the glowing chevrons ride a real
+ *  path instead of floating over void. Built once per world from a CatmullRom through node positions. */
+function PathRibbon({ world }: { world: WorldId }) {
+  const tex = useMemo(() => roadTexture(), [])
+  const geo = useMemo(() => {
+    const ids = NODE_ORDER.filter((id) => NODES[id].worldId === world)
+    if (ids.length < 2) return null
+    const pts = ids.map((id) => {
+      const p = NODES[id].position
+      return new THREE.Vector3(p[0], 0.05, p[2])
+    })
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.25)
+    const N = 90
+    const width = 2.1
+    const pos: number[] = []
+    const uv: number[] = []
+    const idx: number[] = []
+    const up = new THREE.Vector3(0, 1, 0)
+    const tan = new THREE.Vector3()
+    const side = new THREE.Vector3()
+    let acc = 0
+    let prev = curve.getPoint(0)
+    for (let i = 0; i <= N; i++) {
+      const t = i / N
+      const p = curve.getPoint(t)
+      curve.getTangent(t, tan)
+      tan.y = 0
+      if (tan.lengthSq() < 1e-6) tan.set(0, 0, 1)
+      else tan.normalize()
+      side.crossVectors(up, tan).normalize()
+      if (i > 0) acc += p.distanceTo(prev)
+      prev = p.clone()
+      pos.push(p.x + side.x * (width / 2), p.y, p.z + side.z * (width / 2))
+      pos.push(p.x - side.x * (width / 2), p.y, p.z - side.z * (width / 2))
+      uv.push(0, acc / 3, 1, acc / 3)
+      if (i < N) {
+        const a = i * 2
+        idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3)
+      }
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    g.setIndex(idx)
+    g.computeVertexNormals()
+    return g
+  }, [world])
+  if (!geo) return null
+  return (
+    <mesh geometry={geo} receiveShadow>
+      <meshStandardMaterial
+        map={tex}
+        emissiveMap={tex}
+        emissive="#7b5fd0"
+        emissiveIntensity={0.35}
+        color="#6a5a9a"
+        roughness={0.9}
+        metalness={0.05}
+        side={THREE.DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
+      />
+    </mesh>
   )
 }
 
