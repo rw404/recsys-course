@@ -156,8 +156,11 @@ export function Player() {
       stuckTime.current = 0
     }
 
-    // no jumping in the Atlas — it is one flat continuous island (matches the "no jumps" brief)
-    if (!frozen && !atlas && (wantsJump || autoJump) && grounded) vy = JUMP_V
+    // No player-facing JUMP (the design brief: no jumps / platforming). We keep only the invisible
+    // auto-hop so click-to-move can never get permanently stuck on a ledge. `wantsJump` is still
+    // consumed above so the key does nothing rather than buffering.
+    void wantsJump
+    if (!frozen && !atlas && autoJump && grounded) vy = JUMP_V
     rb.setLinvel({ x: current.current.x, y: vy, z: current.current.z }, true)
 
     // publish position + speed for camera, stations and the character animator

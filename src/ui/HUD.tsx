@@ -128,9 +128,8 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
       <div className="controls panel">
         <span className="grp"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
-        <span className="grp"><kbd>🖱</kbd> Click to move</span>
+        <span className="grp"><kbd>🖱</kbd> Click a station to go + interact</span>
         <span className="grp"><kbd>Shift</kbd> Run</span>
-        {!atlasOpen && <span className="grp"><kbd>Space</kbd> Jump</span>}
         {!atlasOpen && <span className="grp"><kbd>E</kbd> Interact</span>}
         <span className="grp"><kbd>C</kbd> Catalog</span>
       </div>

@@ -56,16 +56,23 @@ export function MeshyProp({
       if (m.isMesh) {
         m.castShadow = true
         m.receiveShadow = true
-        const mat = m.material as THREE.MeshStandardMaterial
-        if (mat && 'emissive' in mat) {
-          if (emissiveBoost > 0) {
-            mat.emissive = new THREE.Color('#7b3ff7')
-            mat.emissiveIntensity = emissiveBoost
+        // `scene.clone(true)` clones the graph but SHARES materials with the cached GLTF, so
+        // mutating emissive/tint here would bleed across every prop using the same model. Clone
+        // the material(s) first so per-prop tint/emissive is isolated.
+        if ((emissiveBoost > 0 || tint) && m.material) {
+          const apply = (mat: THREE.MeshStandardMaterial) => {
+            if (!('emissive' in mat)) return mat
+            const c = mat.clone()
+            if (emissiveBoost > 0) {
+              c.emissive = new THREE.Color('#7b3ff7')
+              c.emissiveIntensity = emissiveBoost
+            }
+            if (tint) c.color = c.color.clone().lerp(new THREE.Color(tint), tintAmount)
+            return c
           }
-          // blend the baked base colour toward `tint` (e.g. push a frosty conifer to dark green)
-          if (tint) {
-            mat.color = mat.color.clone().lerp(new THREE.Color(tint), tintAmount)
-          }
+          m.material = Array.isArray(m.material)
+            ? m.material.map((mm) => apply(mm as THREE.MeshStandardMaterial))
+            : apply(m.material as THREE.MeshStandardMaterial)
         }
       }
     })
