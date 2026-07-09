@@ -4,6 +4,8 @@ import { Billboard, Text } from '@react-three/drei'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
+import { GroundDressing } from './GroundDressing'
+import { worldTheme } from './worldThemes'
 import { Ambiance } from './Ambiance'
 import { ValleyDecor } from './ValleyDecor'
 import { RoutePath } from './Environment'
@@ -50,6 +52,7 @@ export function RetrievalValley() {
       <pointLight position={[6.5, 2.5, -8]} intensity={7} color="#ffc27a" distance={6} />
 
       <ValleyTerrain />
+      <GroundDressing theme={worldTheme('retrieval-valley')} center={[1, 0, -2]} radius={21} />
       <ValleyBoundaries />
 
       {/* rich set-dressing toward the reference: crystals, lanterns, flora, waterfalls, banners */}

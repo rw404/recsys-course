@@ -4,6 +4,8 @@ import { Billboard, Text } from '@react-three/drei'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
+import { GroundDressing } from './GroundDressing'
+import { worldTheme } from './worldThemes'
 import { Ambiance } from './Ambiance'
 import { RoutePath } from './Environment'
 import { useProgress } from '../state/progress'
@@ -45,6 +47,7 @@ export function FinalArena() {
       <pointLight position={[2, 8, -16]} intensity={34} color="#7b6bff" distance={34} />
 
       <ArenaTerrain />
+      <GroundDressing theme={worldTheme('final-arena')} center={[1, 0, -2]} radius={21} />
       <ArenaBoundaries />
 
       {/* the glowing victory portal — the capstone challenge entrance (at the arena node) */}

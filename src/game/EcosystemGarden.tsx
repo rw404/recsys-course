@@ -4,6 +4,8 @@ import { Billboard, Text } from '@react-three/drei'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
+import { GroundDressing } from './GroundDressing'
+import { worldTheme } from './worldThemes'
 import { Ambiance } from './Ambiance'
 import { ValleyDecor } from './ValleyDecor'
 import { RoutePath } from './Environment'
@@ -47,6 +49,7 @@ export function EcosystemGarden() {
       <pointLight position={[2, 8, -16]} intensity={34} color="#7b6bff" distance={34} />
 
       <GardenTerrain />
+      <GroundDressing theme={worldTheme('ecosystem-garden')} center={[1, 0, -2]} radius={21} />
       <GardenBoundaries />
 
       <ValleyDecor />

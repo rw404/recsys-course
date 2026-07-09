@@ -4,6 +4,8 @@ import { Billboard, Text } from '@react-three/drei'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { MeshyProp } from './MeshyProp'
+import { GroundDressing } from './GroundDressing'
+import { worldTheme } from './worldThemes'
 import { Ambiance } from './Ambiance'
 import { ValleyDecor } from './ValleyDecor'
 import { RoutePath } from './Environment'
@@ -45,6 +47,7 @@ export function SequentialCity() {
       <pointLight position={[2, 8, -16]} intensity={38} color="#7b6bff" distance={34} />
 
       <CityTerrain />
+      <GroundDressing theme={worldTheme('sequential-city')} center={[1, 0, -2]} radius={21} />
       <CityBoundaries />
 
       <ValleyDecor />
