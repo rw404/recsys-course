@@ -14,6 +14,8 @@ import { useInput } from './useInput'
 import { runtime } from './shared'
 import { touchControls } from './controls'
 import { MeshyProp } from './MeshyProp'
+import { GroundAO } from './GroundAO'
+import { worldTheme } from './worldThemes'
 
 const STATE_COLOR: Record<ProgressNodeState, string> = {
   locked_for_credit: '#4a3b6b',
@@ -172,6 +174,7 @@ function StationBody({
   color: string
 }) {
   const locked = state === 'locked_for_credit'
+  const themeAccent = worldTheme(node.worldId).accent // recolour the shared model to the world's hue
   switch (node.kind) {
     case 'npc':
       // The guide is now the rigged Guide Astra (rendered by <LessonStage/> at the lesson node);
@@ -182,18 +185,18 @@ function StationBody({
       // in Environment, standing behind Guide Astra who is the interactable). No separate statue.
       return null
     case 'widget':
-      // detailed arcane holo-console (replaces the old primitive box) + a state-coloured base glow
+      // detailed arcane holo-console (replaces the old primitive box), tinted to the world's hue
       return (
         <group>
-          <MeshyProp url="/models/props/arcane-console.glb" position={[0, 0, 0]} targetHeight={2.2} emissiveBoost={locked ? 0 : 0.35} solid colliderScale={0.55} />
+          <MeshyProp url="/models/props/arcane-console.glb" position={[0, 0, 0]} targetHeight={2.2} emissiveBoost={locked ? 0 : 0.32} tint={locked ? '#3a3350' : themeAccent} tintAmount={locked ? 0.5 : 0.26} solid colliderScale={0.55} />
           <StationBaseGlow color={color} />
         </group>
       )
     case 'quiz':
-      // detailed rune checkpoint gateway (replaces the old primitive gate-posts) + base glow
+      // detailed rune checkpoint gateway (replaces the old primitive gate-posts), world-tinted
       return (
         <group>
-          <MeshyProp url="/models/props/checkpoint-arch.glb" position={[0, 0, 0]} targetHeight={3.8} emissiveBoost={locked ? 0 : 0.4} solid colliderScale={0.4} />
+          <MeshyProp url="/models/props/checkpoint-arch.glb" position={[0, 0, 0]} targetHeight={3.8} emissiveBoost={locked ? 0 : 0.38} tint={locked ? '#3a3350' : themeAccent} tintAmount={locked ? 0.5 : 0.24} solid colliderScale={0.4} />
           <StationBaseGlow color={color} />
         </group>
       )
@@ -346,11 +349,12 @@ function GlowRing({ color }: { color: string }) {
   )
 }
 
-/** A state-coloured glow footprint under a detailed station model, so its status still reads. */
+/** A state-coloured glow footprint + AO under a detailed station model, so it's seated + status reads. */
 function StationBaseGlow({ color }: { color: string }) {
   return (
     <group>
-      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <GroundAO radius={2.0} opacity={0.8} />
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[1.6, 2.1, 44]} />
         <meshBasicMaterial color={color} transparent opacity={0.32} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>

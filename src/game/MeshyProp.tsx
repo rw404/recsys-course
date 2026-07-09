@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
+import { GroundAO } from './GroundAO'
 
 /**
  * Loads a (static, non-skinned) Meshy GLB, auto-fits it to a target height and plants it
@@ -20,6 +21,7 @@ export function MeshyProp({
   idleMotion = false,
   tint,
   tintAmount = 0.5,
+  ao,
 }: {
   url: string
   position: [number, number, number]
@@ -31,7 +33,10 @@ export function MeshyProp({
   idleMotion?: boolean
   tint?: string
   tintAmount?: number
+  /** lay a soft ground-AO decal to seat the prop on the floor (default on for grounded props) */
+  ao?: boolean
 }) {
+  const showAO = ao ?? !idleMotion
   const { scene } = useGLTF(url)
   const cloned = useMemo(() => scene.clone(true), [scene])
   const [fit, setFit] = useState({ scale: 1, y: 0, hx: 0, hy: 0, hz: 0, cy: 0 })
@@ -90,6 +95,7 @@ export function MeshyProp({
     })
   }, [cloned, targetHeight, emissiveBoost, colliderScale, tint, tintAmount])
 
+  const aoR = Math.max(fit.hx, fit.hz, targetHeight * 0.25) * 1.45
   const visual = (
     <group ref={animRef} scale={fit.scale} position={[0, fit.y, 0]}>
       <primitive object={cloned} />
@@ -101,12 +107,14 @@ export function MeshyProp({
       <RigidBody type="fixed" colliders={false} position={position} rotation={[0, rotationY, 0]}>
         <CuboidCollider args={[fit.hx, fit.hy, fit.hz]} position={[0, fit.cy, 0]} />
         {visual}
+        {showAO && fit.hy > 0 && <GroundAO radius={aoR} />}
       </RigidBody>
     )
   }
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       {visual}
+      {showAO && fit.hy > 0 && <GroundAO radius={aoR} />}
     </group>
   )
 }
