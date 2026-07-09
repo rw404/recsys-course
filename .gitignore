@@ -17,3 +17,6 @@ tsconfig.tsbuildinfo
 *cap.mjs
 gen-*.mjs
 gen-*.log
+measure-*.mjs
+survey*.mjs
+*sweep*.mjs
