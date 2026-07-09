@@ -20,3 +20,4 @@ gen-*.log
 measure-*.mjs
 survey*.mjs
 *sweep*.mjs
+optimize-pine.mjs
