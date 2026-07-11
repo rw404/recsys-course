@@ -17,9 +17,9 @@ import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
 import { GlbViewer } from './game/GlbViewer'
 import { VSmithViewer } from './game/VSmithViewer'
-import { IsoPropViewer } from './game/IsoPropViewer'
 
 const SystemBuilder = lazy(() => import('./ui/SystemBuilder').then((module) => ({ default: module.SystemBuilder })))
+const FoundryAssetViewer = lazy(() => import('./game/FoundryAssetViewer'))
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
 
@@ -64,8 +64,12 @@ export function App() {
       </div>
     )
   }
-  if (VIEW === 'isoprop') {
-    return <IsoPropViewer />
+  if (VIEW === 'foundry-asset') {
+    return (
+      <Suspense fallback={null}>
+        <FoundryAssetViewer />
+      </Suspense>
+    )
   }
   return <Game />
 }

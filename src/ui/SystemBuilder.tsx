@@ -162,6 +162,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('blend')
   const [selectedMovieId, setSelectedMovieId] = useState<string | null>(initialResult.recommendations[0]?.movieId ?? null)
   const [result, setResult] = useState<SimulationResult>(initialResult)
+  const [resultViewerId, setResultViewerId] = useState('u104')
   const [runStatus, setRunStatus] = useState<RunStatus>('ready')
   const [mobileTab, setMobileTab] = useState<MobileTab>('graph')
   const [traceSpeed, setTraceSpeed] = useState<1 | 2>(2)
@@ -181,12 +182,6 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     const sequence = Object.keys(nextResult.trace)
     const stepMs = traceSpeed === 2 ? 46 : 92
     setRunStatus('running')
-    setResult(nextResult)
-    setSelectedMovieId((current) => (
-      current && nextResult.recommendations.some((candidate) => candidate.movieId === current)
-        ? current
-        : nextResult.recommendations[0]?.movieId ?? null
-    ))
     setNodes((current) => current.map((node) => ({
       ...node,
       data: { ...node.data, trace: undefined, runState: 'queued' },
@@ -236,6 +231,13 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
               animated: false,
               className: 'foundry-edge is-traced',
             })))
+            setResult(nextResult)
+            setResultViewerId(activeViewerId)
+            setSelectedMovieId((current) => (
+              current && nextResult.recommendations.some((candidate) => candidate.movieId === current)
+                ? current
+                : nextResult.recommendations[0]?.movieId ?? null
+            ))
             setRunStatus(nextResult.error ? 'error' : 'complete')
           }, traceSpeed === 2 ? 70 : 130)
           timers.current.push(finishTimer)
@@ -256,19 +258,6 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     animateRun(nodes, edges, viewerId)
   }, [animateRun, edges, nodes, viewerId])
 
-  useEffect(() => {
-    if (runStatus !== 'dirty') return
-    const timer = window.setTimeout(() => {
-      const preview = simulatePipeline(viewerId, specsFromNodes(nodes), specsFromEdges(edges))
-      setResult(preview)
-      setSelectedMovieId((current) => (
-        current && preview.recommendations.some((candidate) => candidate.movieId === current)
-          ? current
-          : preview.recommendations[0]?.movieId ?? null
-      ))
-    }, 90)
-    return () => window.clearTimeout(timer)
-  }, [edges, nodes, runStatus, viewerId])
 
   // A stable signature of the graph *topology* (which nodes exist + how they wire
   // together) — deliberately ignores node positions so that manual drags never
@@ -301,6 +290,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   }, [topologySignature, viewMode, nodes, edges, flow, setNodes, templateId])
 
   const loadTemplate = useCallback((id: SystemTemplateId) => {
+    clearTimers()
     const template = SYSTEM_TEMPLATES[id]
     const diagramNodes = nodesFromTemplate(template)
     const nextEdges = edgesFromTemplate(template, viewMode)
@@ -316,13 +306,12 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     setNodes(nextNodes)
     setEdges(nextEdges)
     setSelectedNodeId(nextNodes.find((node) => node.data.moduleType === 'blend')?.id ?? nextNodes[0]?.id ?? null)
-    setRunStatus('ready')
+    setRunStatus('dirty')
     const timer = window.setTimeout(() => {
       if (flow) focusLayoutView(flow, id, viewMode, 480)
-      animateRun(nextNodes, nextEdges, viewerId)
     }, 80)
     timers.current.push(timer)
-  }, [animateRun, flow, setEdges, setNodes, viewerId, viewMode])
+  }, [clearTimers, flow, setEdges, setNodes, viewMode])
 
   const switchViewMode = useCallback((nextMode: LayoutMode) => {
     if (nextMode === viewMode) return
@@ -347,17 +336,18 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   }, [edges, flow, nodes, setEdges, setNodes, templateId, viewMode])
 
   const markDirty = useCallback(() => {
+    clearTimers()
     setRunStatus('dirty')
     setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, runState: 'idle', trace: undefined } })))
     setEdges((current) => current.map((edge) => ({ ...edge, animated: false, className: 'foundry-edge' })))
-  }, [setEdges, setNodes])
+  }, [clearTimers, setEdges, setNodes])
 
   const updateConfig = useCallback((nodeId: string, key: string, value: number | boolean) => {
     setNodes((current) => current.map((node) => node.id === nodeId
       ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value }, trace: undefined, runState: 'idle' } }
       : node))
-    setRunStatus('dirty')
-  }, [setNodes])
+    markDirty()
+  }, [markDirty, setNodes])
 
   const addModule = useCallback((moduleType: PipelineModuleType, position?: { x: number; y: number }) => {
     nodeCounter.current += 1
@@ -382,16 +372,16 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     setNodes((current) => [...current, node])
     setSelectedNodeId(id)
     setMobileTab('graph')
-    setRunStatus('dirty')
-  }, [flow, setNodes, viewMode])
+    markDirty()
+  }, [flow, markDirty, setNodes, viewMode])
 
   const removeSelectedNode = useCallback(() => {
     if (!selectedNodeId) return
     setNodes((current) => current.filter((node) => node.id !== selectedNodeId))
     setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId))
     setSelectedNodeId(null)
-    setRunStatus('dirty')
-  }, [selectedNodeId, setEdges, setNodes])
+    markDirty()
+  }, [markDirty, selectedNodeId, setEdges, setNodes])
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((current) => addEdge({
@@ -446,7 +436,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
           viewerId={viewerId}
           templateId={templateId}
           runStatus={runStatus}
-          onViewerChange={(id) => { setViewerId(id); setRunStatus('dirty') }}
+          onViewerChange={(id) => { setViewerId(id); markDirty() }}
           onTemplateChange={loadTemplate}
           onReset={() => loadTemplate(templateId)}
           onRun={runPipeline}
@@ -530,7 +520,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
         </div>
 
         <FoundryResults
-          viewerId={viewerId}
+          viewerId={resultViewerId}
           result={result}
           runStatus={runStatus}
           selectedMovieId={selectedMovieId}
@@ -771,7 +761,7 @@ function FoundryResults({
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 4)
   return (
-    <section className={`foundry-results${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' is-live-preview' : ''}`}>
+    <section className={`foundry-results${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' has-pending-changes' : ''}`}>
       <div className="foundry-viewer-card">
         <span><UserRound size={18} /></span>
         <div><small>{viewer.id.toUpperCase()}</small><strong>{viewer.name}</strong><em>{viewer.cohort}</em></div>
@@ -808,8 +798,8 @@ function FoundryResults({
       <div className="foundry-slate">
         <header>
           <div>
-            <span>Live recommendation slate</span>
-            <em>{runStatus === 'dirty' ? 'Preview updated' : runStatus === 'running' ? 'Request in motion' : 'Click a film to inspect'}</em>
+            <span>Recommendation slate</span>
+            <em>{runStatus === 'dirty' ? 'Last run · Draft not applied' : runStatus === 'running' ? 'Running · Showing last completed run' : 'Click a film to inspect'}</em>
           </div>
           <strong>{result.recommendations.length} films</strong>
         </header>
@@ -961,14 +951,15 @@ function SystemModuleNode({ id, data, selected }: NodeProps<BuilderNode>) {
       </div>
       <footer><span>{trace ? `${trace.latencyMs} ms` : 'not traced'}</span><strong>{data.runState === 'error' ? 'check input' : data.runState === 'active' ? 'processing' : data.runState === 'complete' ? 'ready' : 'idle'}</strong></footer>
 
-      {/* Isometric-mode form: a Meshy-generated 3D device baked into a 24-frame
-          sway sprite. It plays a steps() loop, levitates over a breathing shadow,
-          with a label under it and a trace chip above. */}
+      {/* True 3D render baked from the same camera, lighting and materials as the world map. */}
       <span className="iso-shadow" aria-hidden="true" />
       <div className="system-iso-cube" aria-hidden="true">
-        <span
-          className="iso-sprite"
-          style={{ backgroundImage: `url(/assets/foundry/${data.moduleType}.png)` }}
+        <img
+          className="iso-render-3d"
+          src={`/assets/foundry3d/${data.moduleType}.png`}
+          alt=""
+          draggable={false}
+          decoding="async"
         />
       </div>
       <div className="system-iso-plate"><strong>{definition.shortLabel}</strong><small>{FAMILY_LABELS[definition.family]}</small></div>

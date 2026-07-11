@@ -38,6 +38,8 @@ await page.waitForTimeout(2400)
 const initialViewMode = await page.locator('.system-builder').getAttribute('data-view-mode')
 assert.equal(initialViewMode, 'isometric')
 await page.screenshot({ path: 'artifacts/foundry-isometric-light.png' })
+const loaded3dAssets = await page.locator('.iso-render-3d').evaluateAll((images) => images.filter((image) => image.complete && image.naturalWidth > 0).length)
+assert.equal(loaded3dAssets, 11)
 
 const firstNode = page.locator('.react-flow__node').first()
 const beforeDrag = await firstNode.boundingBox()
@@ -72,27 +74,60 @@ await page.locator('.react-flow__node').filter({ hasText: 'Ranker' }).click()
 const affinity = page.locator('.inspector-range').filter({ hasText: 'Affinity' }).locator('input')
 await affinity.fill('0.5')
 await page.getByText('Pipeline changed', { exact: true }).waitFor()
-await page.getByText('Preview updated', { exact: true }).waitFor()
-await page.waitForTimeout(160)
-const previewAffinityWeight = await affinityBreakdown.locator('span em').textContent()
+await page.getByText('Last run · Draft not applied', { exact: true }).waitFor()
+await page.waitForTimeout(180)
+const pendingMovies = await page.locator('.foundry-movie-card').allTextContents()
+const pendingAffinityWeight = await affinityBreakdown.locator('span em').textContent()
+const resultHeldUntilRun = initialMovies.join('|') === pendingMovies.join('|') && initialAffinityWeight === pendingAffinityWeight
+assert.equal(resultHeldUntilRun, true)
+await page.screenshot({ path: 'artifacts/foundry-pending-run.png' })
 await page.getByRole('button', { name: 'Run pipeline' }).click()
+await page.getByText('Running · Showing last completed run', { exact: true }).waitFor()
+await page.waitForTimeout(180)
+const runningMovies = await page.locator('.foundry-movie-card').allTextContents()
+const runningAffinityWeight = await affinityBreakdown.locator('span em').textContent()
+const resultHeldDuringRun = initialMovies.join('|') === runningMovies.join('|')
+  && initialAffinityWeight === runningAffinityWeight
+assert.equal(resultHeldDuringRun, true)
 await page.waitForTimeout(420)
 await page.screenshot({ path: 'artifacts/foundry-trace.png' })
 await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 10000 })
+const appliedAffinityWeight = await affinityBreakdown.locator('span em').textContent()
+const runAppliedChanges = initialAffinityWeight !== appliedAffinityWeight
+assert.equal(runAppliedChanges, true)
 await page.screenshot({ path: 'artifacts/foundry-tuned.png' })
+const tunedMovies = await page.locator('.foundry-movie-card').allTextContents()
 
+const resultViewerBefore = await page.locator('.foundry-viewer-card > span + div small').textContent()
 await page.getByLabel('Viewer').selectOption('u337')
+await page.getByText('Last run · Draft not applied', { exact: true }).waitFor()
+const pendingViewer = await page.locator('.foundry-viewer-card > span + div small').textContent()
+const viewerHeldUntilRun = resultViewerBefore === pendingViewer
+assert.equal(viewerHeldUntilRun, true)
+const pendingViewerMovies = await page.locator('.foundry-movie-card').allTextContents()
+assert.deepEqual(pendingViewerMovies, tunedMovies)
 await page.getByRole('button', { name: 'Run pipeline' }).click()
+await page.getByText('Running · Showing last completed run', { exact: true }).waitFor()
+const runningViewer = await page.locator('.foundry-viewer-card > span + div small').textContent()
+const viewerHeldDuringRun = resultViewerBefore === runningViewer
+assert.equal(viewerHeldDuringRun, true)
 await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 10000 })
+const resultViewerAfter = await page.locator('.foundry-viewer-card > span + div small').textContent()
+assert.equal(resultViewerAfter, 'U337')
 const leilaMovies = await page.locator('.foundry-movie-card').allTextContents()
 
 await page.locator('.template-select select').selectOption('fast')
-await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 10000 })
+await page.getByText('Last run · Draft not applied', { exact: true }).waitFor()
 const fastNodes = await page.locator('.react-flow__node').count()
-
+const pendingFastMovies = await page.locator('.foundry-movie-card').allTextContents()
+assert.deepEqual(pendingFastMovies, leilaMovies)
+await page.getByRole('button', { name: 'Run pipeline' }).click()
+await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 10000 })
 await page.locator('.template-select select').selectOption('blank')
-await page.getByText('Path needs attention', { exact: true }).waitFor({ timeout: 10000 })
+await page.getByText('Last run · Draft not applied', { exact: true }).waitFor()
 const blankNodes = await page.locator('.react-flow__node').count()
+await page.getByRole('button', { name: 'Run pipeline' }).click()
+await page.getByText('Path needs attention', { exact: true }).waitFor({ timeout: 10000 })
 await page.locator('.foundry-palette-module').filter({ hasText: 'Popularity' }).click()
 await page.waitForTimeout(700)
 const sourceNode = page.locator('.react-flow__node').filter({ hasText: 'Ratings' })
@@ -109,7 +144,7 @@ await page.getByRole('button', { name: 'Run pipeline' }).click()
 await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 15000 })
 const assembledMovies = await page.locator('.foundry-movie-card').count()
 await page.getByRole('button', { name: 'Reset template' }).click()
-await page.getByText('Path needs attention', { exact: true }).waitFor({ timeout: 10000 })
+await page.getByText('Pipeline changed', { exact: true }).waitFor({ timeout: 10000 })
 const resetNodes = await page.locator('.react-flow__node').count()
 
 await page.getByRole('button', { name: 'Close Foundry' }).click()
@@ -174,7 +209,12 @@ console.log(JSON.stringify({
   diagramViewMode,
   restoredViewMode,
   isoDragMoved,
-  livePreviewChanged: initialAffinityWeight !== previewAffinityWeight,
+  loaded3dAssets,
+  resultHeldUntilRun,
+  resultHeldDuringRun,
+  runAppliedChanges,
+  viewerHeldUntilRun,
+  viewerHeldDuringRun,
   initialMovies: initialMovies.map((text) => text.replace(/\s+/g, ' ').trim()),
   leilaMovies: leilaMovies.map((text) => text.replace(/\s+/g, ' ').trim()),
   recommendationChanged: initialMovies.join('|') !== leilaMovies.join('|'),
