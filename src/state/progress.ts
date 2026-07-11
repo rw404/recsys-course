@@ -631,8 +631,10 @@ export const useProgress = create<ProgressState>((set, get) => ({
   reducedMotion: prefersReducedMotion(),
   lessonPage: 0,
   capstoneScore: 0,
-  // ?atlas=1 opens the combined overview scene on load (deep-link + headless capture)
-  atlasOpen: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('atlas'),
+  // The course opens as one readable world map. A ?world= deep-link starts focused instead.
+  atlasOpen: typeof window === 'undefined'
+    ? true
+    : !new URLSearchParams(window.location.search).has('world'),
   totalArtifacts: 5,
 
   getNodeState: (id) => {

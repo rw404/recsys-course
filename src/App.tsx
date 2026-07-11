@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { World } from './game/World'
 import { HUD } from './ui/HUD'
 import { StudyMode } from './ui/StudyMode'
@@ -17,6 +17,8 @@ import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
 import { GlbViewer } from './game/GlbViewer'
 import { VSmithViewer } from './game/VSmithViewer'
+
+const SystemBuilder = lazy(() => import('./ui/SystemBuilder').then((module) => ({ default: module.SystemBuilder })))
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
 
@@ -72,6 +74,7 @@ function Game() {
   const completed = useProgress((s) => s.completed)
 
   const [catalogOpen, setCatalogOpen] = useState(false)
+  const [builderOpen, setBuilderOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
   // toast when a new artifact is forged or a gate onward lights up
@@ -105,27 +108,33 @@ function Game() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
       if (e.key === 'Escape') {
-        if (activeNodeId) {
+        if (builderOpen) setBuilderOpen(false)
+        else if (activeNodeId) {
           runtime.cameraSkip = true
           closeNode()
         } else if (catalogOpen) setCatalogOpen(false)
       }
       if (e.key.toLowerCase() === 'c' && !activeNodeId) setCatalogOpen((v) => !v)
+      if (e.key.toLowerCase() === 'b' && !activeNodeId && !catalogOpen) setBuilderOpen((v) => !v)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [activeNodeId, catalogOpen, closeNode])
+  }, [activeNodeId, builderOpen, catalogOpen, closeNode])
 
   return (
-    <>
-      <div className="canvas-wrap">
-        <World />
-      </div>
+    <div className={`course-app mode-${mode}`}>
+      {!builderOpen && (
+        <div className="canvas-wrap">
+          <World />
+        </div>
+      )}
 
-      <HUD onOpenCatalog={() => setCatalogOpen(true)} />
-      <MobileControls />
+      {!catalogOpen && !builderOpen && (
+        <HUD onOpenCatalog={() => setCatalogOpen(true)} onOpenBuilder={() => setBuilderOpen(true)} />
+      )}
+      {!catalogOpen && !builderOpen && <MobileControls />}
 
       {toast && <div className="toast panel">{toast}</div>}
 
@@ -142,6 +151,11 @@ function Game() {
       {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
 
       {catalogOpen && <Catalog onClose={() => setCatalogOpen(false)} />}
-    </>
+      {builderOpen && (
+        <Suspense fallback={<div className="foundry-loading" aria-label="Loading system Foundry"><span /></div>}>
+          <SystemBuilder onClose={() => setBuilderOpen(false)} />
+        </Suspense>
+      )}
+    </div>
   )
 }

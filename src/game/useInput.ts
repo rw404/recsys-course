@@ -1,83 +1,93 @@
-import { useEffect, useRef } from 'react'
+import type { MutableRefObject } from 'react'
 
 export interface InputState {
-  forward: number // -1..1 (W/S)
-  strafe: number // -1..1 (A/D)
+  forward: number
+  strafe: number
   run: boolean
-  interactPressed: boolean // edge-triggered, consumed by reader
-  jumpPressed: boolean // edge-triggered, consumed by reader
+  interactPressed: boolean
+  jumpPressed: boolean
   mapToggled: boolean
 }
 
-/**
- * Keyboard input as a ref (no re-renders in the render loop).
- * `interactPressed` and `mapToggled` are edge flags — consume them each frame.
- */
-export function useInput() {
-  const state = useRef<InputState>({
-    forward: 0,
-    strafe: 0,
-    run: false,
-    interactPressed: false,
-    jumpPressed: false,
-    mapToggled: false,
+type InputRegistry = {
+  state: MutableRefObject<InputState>
+  keys: Record<string, boolean>
+  installed: boolean
+}
+
+const createRegistry = (): InputRegistry => ({
+  state: {
+    current: {
+      forward: 0,
+      strafe: 0,
+      run: false,
+      interactPressed: false,
+      jumpPressed: false,
+      mapToggled: false,
+    },
+  },
+  keys: {},
+  installed: false,
+})
+
+const browserWindow = typeof window !== 'undefined'
+  ? window as typeof window & { __recsysInputRegistry?: InputRegistry }
+  : null
+
+const registry = browserWindow
+  ? (browserWindow.__recsysInputRegistry ??= createRegistry())
+  : createRegistry()
+
+function installListeners() {
+  if (!browserWindow || registry.installed) return
+  registry.installed = true
+
+  const moveCodes = new Set([
+    'KeyW', 'KeyA', 'KeyS', 'KeyD',
+    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space',
+  ])
+
+  const isTypingTarget = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null
+    if (!element) return false
+    return element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable
+  }
+
+  const recompute = () => {
+    const keys = registry.keys
+    registry.state.current.forward =
+      (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0)
+    registry.state.current.strafe =
+      (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0)
+    registry.state.current.run = Boolean(keys.ShiftLeft || keys.ShiftRight)
+  }
+
+  browserWindow.addEventListener('keydown', (event) => {
+    if (isTypingTarget(event.target)) return
+    const code = event.code
+    if (code === 'KeyE' && !registry.keys.KeyE) registry.state.current.interactPressed = true
+    if (code === 'KeyM' && !registry.keys.KeyM) registry.state.current.mapToggled = true
+    if (code === 'Space' && !registry.keys.Space) registry.state.current.jumpPressed = true
+    registry.keys[code] = true
+    if (moveCodes.has(code)) event.preventDefault()
+    recompute()
   })
-  const keys = useRef<Record<string, boolean>>({})
 
-  useEffect(() => {
-    const isTypingTarget = (el: EventTarget | null) => {
-      const t = el as HTMLElement | null
-      if (!t) return false
-      const tag = t.tagName
-      return tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable
-    }
+  browserWindow.addEventListener('keyup', (event) => {
+    registry.keys[event.code] = false
+    recompute()
+  })
 
-    // Key off e.code (physical key position), NOT e.key. e.key is layout-dependent: with a
-    // Cyrillic (or other non-Latin) layout active, the WASD keys emit 'ц/ф/ы/в', so 'w'/'a'
-    // checks silently fail while Space (layout-independent) still works. e.code is the same
-    // regardless of layout.
-    const MOVE_CODES = [
-      'KeyW', 'KeyA', 'KeyS', 'KeyD',
-      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space',
-    ]
+  browserWindow.addEventListener('blur', () => {
+    registry.keys = {}
+    recompute()
+  })
+}
 
-    const recompute = () => {
-      const k = keys.current
-      const fwd = (k['KeyW'] || k['ArrowUp'] ? 1 : 0) - (k['KeyS'] || k['ArrowDown'] ? 1 : 0)
-      const str = (k['KeyD'] || k['ArrowRight'] ? 1 : 0) - (k['KeyA'] || k['ArrowLeft'] ? 1 : 0)
-      state.current.forward = fwd
-      state.current.strafe = str
-      state.current.run = !!(k['ShiftLeft'] || k['ShiftRight'])
-    }
+installListeners()
 
-    const down = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target)) return
-      const code = e.code
-      if (code === 'KeyE' && !keys.current['KeyE']) state.current.interactPressed = true
-      if (code === 'KeyM' && !keys.current['KeyM']) state.current.mapToggled = true
-      if (code === 'Space' && !keys.current['Space']) state.current.jumpPressed = true
-      keys.current[code] = true
-      if (MOVE_CODES.includes(code)) e.preventDefault()
-      recompute()
-    }
-    const up = (e: KeyboardEvent) => {
-      keys.current[e.code] = false
-      recompute()
-    }
-    const blur = () => {
-      keys.current = {}
-      recompute()
-    }
-
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
-    window.addEventListener('blur', blur)
-    return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
-      window.removeEventListener('blur', blur)
-    }
-  }, [])
-
-  return state
+/** Shared keyboard state for the player and the interaction system. */
+export function useInput() {
+  installListeners()
+  return registry.state
 }

@@ -1,0 +1,1150 @@
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Html, Line, RoundedBox, Sparkles } from '@react-three/drei'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import * as THREE from 'three'
+import {
+  COURSE_WORLDS,
+  COURSE_WORLD_BY_ID,
+  type CourseWorldDefinition,
+} from '../data/worlds'
+import {
+  NODES,
+  NODE_ORDER,
+  useProgress,
+  type CourseNode,
+  type NodeId,
+  type ProgressNodeState,
+  type WorldId,
+} from '../state/progress'
+import { runtime } from './shared'
+import { useInput } from './useInput'
+import { touchControls } from './controls'
+import { PorterGLB } from './PorterGLB'
+import { AstraGLB } from './AstraGLB'
+import { VectorSmithGLB } from './VectorSmithGLB'
+
+const PLAYER_Y = 0.76
+const ISLAND_RADIUS = 4.75
+const WALK_RADIUS = 4.05
+const CAMERA_OFFSET = new THREE.Vector3(24, 27, 34)
+const OVERVIEW_TARGET = new THREE.Vector3(0, -0.3, 0)
+const FORWARD = new THREE.Vector3(-0.58, 0, -0.82)
+const RIGHT = new THREE.Vector3(0.82, 0, -0.58)
+
+const NODE_SLOTS: [number, number, number][] = [
+  [-2.75, 0.32, 1.65],
+  [2.75, 0.32, 1.55],
+  [-2.55, 0.32, -2.15],
+  [2.55, 0.32, -2.2],
+]
+
+const WORLD_NODE_IDS = COURSE_WORLDS.reduce((acc, world) => {
+  acc[world.id] = NODE_ORDER.filter((id) => {
+    const node = NODES[id]
+    return node.worldId === world.id && node.kind !== 'npc'
+  })
+  return acc
+}, {} as Record<WorldId, NodeId[]>)
+
+const CLOUD_BANKS: [number, number, number, number][] = [
+  [-29, -2.9, 17, 3.2], [-13, -3.1, 22, 2.7], [10, -3, 22, 3], [29, -3, 16, 3.1],
+  [-32, -3.1, 0, 3.5], [32, -3.1, -1, 3.5],
+  [-28, -3.2, -18, 3.4], [-10, -3.2, -22, 2.9], [11, -3.1, -22, 3.1], [29, -3.2, -17, 3.3],
+]
+
+const BRIDGE_CONNECTIONS: [WorldId, WorldId][] = [
+  ['foundations-camp', 'retrieval-valley'],
+  ['retrieval-valley', 'sequential-city'],
+  ['foundations-camp', 'policy-tower'],
+  ['retrieval-valley', 'ecosystem-garden'],
+  ['sequential-city', 'final-arena'],
+  ['policy-tower', 'ecosystem-garden'],
+  ['ecosystem-garden', 'final-arena'],
+]
+
+export function CloudCourseWorld() {
+  const atlasOpen = useProgress((state) => state.atlasOpen)
+  const currentWorld = useProgress((state) => state.currentWorld)
+  const activeNodeId = useProgress((state) => state.activeNodeId)
+  const activeLessonId = activeNodeId && NODES[activeNodeId].kind === 'lesson' ? activeNodeId : null
+
+  return (
+    <>
+      <SkyDome />
+      <OceanSurface />
+      <ambientLight intensity={0.94} color="#dff5ff" />
+      <hemisphereLight args={['#ffffff', '#315f78', 1.18]} />
+      <directionalLight
+        castShadow
+        color="#fff6e8"
+        intensity={2.4}
+        position={[-14, 25, 18]}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-35}
+        shadow-camera-right={35}
+        shadow-camera-top={35}
+        shadow-camera-bottom={-35}
+      />
+
+      <IslandBridges />
+      <CourseRoute />
+      {COURSE_WORLDS.map((world) => (
+        <ChapterIsland key={world.id} world={world} />
+      ))}
+
+      {CLOUD_BANKS.map(([x, y, z, scale], index) => (
+        <CloudCluster key={index} position={[x, y, z]} scale={scale} opacity={0.88} />
+      ))}
+      <Sparkles count={90} scale={[55, 10, 38]} position={[0, 2, 0]} size={1.8} speed={0.18} color="#ffffff" opacity={0.58} />
+
+      {!atlasOpen && <CourseTraveler key={`traveler-${currentWorld}`} worldId={currentWorld} />}
+      {!atlasOpen && <CloudReveal key={`reveal-${currentWorld}`} worldId={currentWorld} />}
+      <Suspense fallback={null}>
+        {activeLessonId && <ChapterNarrator nodeId={activeLessonId} />}
+      </Suspense>
+      <IsometricCamera />
+    </>
+  )
+}
+
+function IsometricCamera() {
+  const { camera, size } = useThree()
+  const currentWorld = useProgress((state) => state.currentWorld)
+  const atlasOpen = useProgress((state) => state.atlasOpen)
+  const activeNodeId = useProgress((state) => state.activeNodeId)
+  const reducedMotion = useProgress((state) => state.reducedMotion)
+  const lookAt = useRef(OVERVIEW_TARGET.clone())
+  const nextLook = useRef(new THREE.Vector3())
+  const nextPosition = useRef(new THREE.Vector3())
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.16)
+    const portrait = size.height > size.width * 1.08
+    const world = COURSE_WORLD_BY_ID[currentWorld]
+    if (activeNodeId) {
+      nextLook.current.copy(nodeWorldPosition(activeNodeId)).addScaledVector(RIGHT, -2.35).setY(0.55)
+    } else {
+      nextLook.current.set(
+        atlasOpen ? OVERVIEW_TARGET.x : world.position[0],
+        atlasOpen ? OVERVIEW_TARGET.y : 0.25,
+        atlasOpen ? OVERVIEW_TARGET.z : world.position[2],
+      )
+    }
+
+    const ortho = camera as THREE.OrthographicCamera
+    const targetZoom = activeNodeId
+      ? portrait ? 29 : 72
+      : atlasOpen
+      ? portrait ? 8.1 : 21.5
+      : portrait ? 26 : 62
+    const lambda = atlasOpen ? 3.4 : 4.5
+    const alpha = reducedMotion ? 1 : 1 - Math.exp(-lambda * dt)
+
+    lookAt.current.lerp(nextLook.current, alpha)
+    nextPosition.current.copy(lookAt.current).add(CAMERA_OFFSET)
+    camera.position.lerp(nextPosition.current, alpha)
+    ortho.zoom = THREE.MathUtils.lerp(ortho.zoom, targetZoom, alpha)
+    ortho.updateProjectionMatrix()
+    camera.lookAt(lookAt.current)
+  })
+
+  return null
+}
+
+function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
+  const shell = useRef<THREE.Group>(null)
+  const [hovered, setHovered] = useState(false)
+  const atlasOpen = useProgress((state) => state.atlasOpen)
+  const currentWorld = useProgress((state) => state.currentWorld)
+  const mode = useProgress((state) => state.mode)
+  const travelTo = useProgress((state) => state.travelTo)
+  const completed = useProgress((state) => state.completed)
+  const focused = !atlasOpen && currentWorld === world.id
+  const nodes = WORLD_NODE_IDS[world.id]
+  const done = nodes.filter((id) => completed[id]).length
+  const progress = Math.round((done / Math.max(1, nodes.length)) * 100)
+  const turfColor = useMemo(
+    () => new THREE.Color(world.surface).lerp(new THREE.Color('#469b50'), 0.79).getStyle(),
+    [world],
+  )
+
+  useFrame((_, dt) => {
+    if (!shell.current) return
+    const target = hovered && atlasOpen ? 1.035 : 1
+    const value = THREE.MathUtils.damp(shell.current.scale.x, target, 8, dt)
+    shell.current.scale.setScalar(value)
+  })
+
+  useEffect(() => {
+    return () => {
+      if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+    }
+  }, [])
+
+  const focusWorld = () => {
+    if (mode !== 'explore') return
+    travelTo(world.id)
+  }
+
+  const onGround = (event: ThreeEvent<PointerEvent>) => {
+    if (event.button !== 0 || mode !== 'explore') return
+    event.stopPropagation()
+    if (!focused) {
+      focusWorld()
+      return
+    }
+    runtime.pendingOpen = null
+    runtime.moveTarget = new THREE.Vector3(event.point.x, PLAYER_Y, event.point.z)
+  }
+
+  return (
+    <group position={world.position}>
+      <group ref={shell}>
+        <mesh position={[0, -1.02, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[4.45, 3.45, 1.9, 12]} />
+          <meshStandardMaterial color="#677b7e" roughness={0.84} flatShading />
+        </mesh>
+        <mesh position={[0, -2.55, 0]} castShadow>
+          <coneGeometry args={[3.45, 2.15, 12]} />
+          <meshStandardMaterial color="#53686f" roughness={0.94} flatShading />
+        </mesh>
+        <mesh position={[0, -0.03, 0]} castShadow receiveShadow onPointerDown={onGround}>
+          <cylinderGeometry args={[ISLAND_RADIUS, 4.45, 0.28, 48]} />
+          <meshStandardMaterial color={turfColor} roughness={0.78} />
+        </mesh>
+        <mesh position={[0, 0.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[3.88, 4.2, 64]} />
+          <meshBasicMaterial color={world.accent} transparent opacity={focused ? 0.28 : 0.14} side={THREE.DoubleSide} />
+        </mesh>
+        <IslandTerraces world={world} />
+        <CloudRim world={world} />
+        <IslandDetails world={world} focused={focused} />
+        <WorldLandmark world={world} focused={focused} />
+        {focused && nodes.map((id, index) => (
+          <CourseNodeMarker key={id} nodeId={id} slot={NODE_SLOTS[index]} world={world} />
+        ))}
+      </group>
+
+      {atlasOpen && (
+        <Html position={[0, 4.9, 0]} center zIndexRange={[30, 10]} wrapperClass="chapter-label-anchor">
+          <button
+            type="button"
+            className={`chapter-map-label${world.id === 'foundations-camp' ? ' is-edge-start' : ''}${world.id === 'final-arena' ? ' is-edge-end' : ''}`}
+            style={{ '--world-accent': world.accent } as CSSProperties}
+            onClick={focusWorld}
+            onPointerEnter={() => setHovered(true)}
+            onPointerLeave={() => setHovered(false)}
+          >
+            <span className="chapter-map-index">{world.number}</span>
+            <span className="chapter-map-copy">
+              <small>{world.eyebrow}</small>
+              <strong>{world.name}</strong>
+              <em>{world.question}</em>
+            </span>
+            <span className="chapter-map-progress">{progress}%</span>
+          </button>
+        </Html>
+      )}
+
+      <mesh
+        position={[0, 1.1, 0]}
+        onPointerDown={(event) => {
+          if (atlasOpen) onGround(event)
+        }}
+        onPointerOver={(event) => {
+          if (!atlasOpen) return
+          event.stopPropagation()
+          setHovered(true)
+          if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={() => {
+          setHovered(false)
+          if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+        }}
+      >
+        <cylinderGeometry args={[5.15, 5.15, 2.3, 32]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function IslandTerraces({ world }: { world: CourseWorldDefinition }) {
+  return (
+    <group>
+      <mesh position={[0, 0.14, 0]} receiveShadow>
+        <cylinderGeometry args={[2.3, 2.42, 0.18, 32]} />
+        <meshStandardMaterial color="#83b665" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 0.25, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.02, 2.24, 48]} />
+        <meshBasicMaterial color={world.accent} transparent opacity={0.18} side={THREE.DoubleSide} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <RoundedBox key={side} args={[0.9, 0.16, 2.3]} radius={0.08} smoothness={3} position={[side * 3.25, 0.18, 0]} rotation={[0, side * 0.13, 0]}>
+          <meshStandardMaterial color="#dfcfa9" roughness={0.76} />
+        </RoundedBox>
+      ))}
+    </group>
+  )
+}
+
+function CloudRim({ world }: { world: CourseWorldDefinition }) {
+  const rocks = useMemo(() => Array.from({ length: 18 }, (_, index) => {
+    const angle = (index / 18) * Math.PI * 2
+    const radius = 4.42 + (index % 3) * 0.16
+    return {
+      position: [Math.cos(angle) * radius, -0.42 - (index % 2) * 0.09, Math.sin(angle) * radius] as [number, number, number],
+      rotation: [index * 0.31, angle, index * 0.17] as [number, number, number],
+      scale: [0.62 + (index % 4) * 0.08, 0.48 + (index % 3) * 0.07, 0.66 + ((index + 2) % 4) * 0.08] as [number, number, number],
+    }
+  }), [])
+
+  return (
+    <group>
+      {rocks.map((rock, index) => (
+        <mesh key={index} position={rock.position} rotation={rock.rotation} scale={rock.scale} castShadow receiveShadow>
+          <dodecahedronGeometry args={[0.72, 0]} />
+          <meshStandardMaterial
+            color={index % 3 === 0 ? '#788982' : index % 3 === 1 ? '#60777b' : world.accentDark}
+            roughness={0.9}
+            flatShading
+          />
+        </mesh>
+      ))}
+      {[0, 1, 2, 3].map((index) => {
+        const angle = index * Math.PI * 0.5 + 0.4
+        return (
+          <CloudCluster
+            key={`under-cloud-${index}`}
+            position={[Math.cos(angle) * 4.1, -1.55, Math.sin(angle) * 4.1]}
+            scale={0.58 + (index % 2) * 0.08}
+            opacity={0.8}
+            tint={index % 2 ? '#f7fbff' : world.surface}
+          />
+        )
+      })}
+    </group>
+  )
+}
+
+function OceanSurface() {
+  const material = useRef<THREE.MeshPhysicalMaterial>(null)
+  const currents = useMemo(() => Array.from({ length: 13 }, (_, row) => {
+    const z = -20 + row * 3.25
+    return Array.from({ length: 18 }, (_, index) => {
+      const x = -40 + index * 4.8
+      return new THREE.Vector3(x, -0.435, z + Math.sin(index * 0.72 + row * 0.58) * 0.34)
+    })
+  }), [])
+  useFrame((state) => {
+    if (!material.current) return
+    material.current.clearcoatRoughness = 0.19 + Math.sin(state.clock.elapsedTime * 0.38) * 0.035
+  })
+  return (
+    <group>
+      <mesh position={[0, -0.47, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[240, 180, 1, 1]} />
+        <meshPhysicalMaterial
+          ref={material}
+          color="#087fb8"
+          roughness={0.24}
+          metalness={0.06}
+          clearcoat={0.92}
+          clearcoatRoughness={0.2}
+          transparent
+          opacity={0.96}
+        />
+      </mesh>
+      {currents.map((points, index) => (
+        <Line
+          key={index}
+          points={points}
+          color={index % 3 === 0 ? '#c6f3ff' : '#56b9d4'}
+          lineWidth={index % 3 === 0 ? 0.7 : 0.45}
+          transparent
+          opacity={index % 3 === 0 ? 0.17 : 0.1}
+        />
+      ))}
+      {COURSE_WORLDS.map((world, index) => (
+        <mesh key={world.id} position={[world.position[0], -0.44, world.position[2]]} rotation={[-Math.PI / 2, 0, index * 0.15]}>
+          <ringGeometry args={[5.15, 5.23, 80]} />
+          <meshBasicMaterial color="#b9f4ff" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function IslandBridges() {
+  return (
+    <group>
+      {BRIDGE_CONNECTIONS.map(([from, to]) => <IslandBridge key={`${from}-${to}`} from={from} to={to} />)}
+    </group>
+  )
+}
+
+function IslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
+  const geometry = useMemo(() => {
+    const fromWorld = COURSE_WORLD_BY_ID[from]
+    const toWorld = COURSE_WORLD_BY_ID[to]
+    const fromCenter = new THREE.Vector3(fromWorld.position[0], 0.15, fromWorld.position[2])
+    const toCenter = new THREE.Vector3(toWorld.position[0], 0.15, toWorld.position[2])
+    const direction = toCenter.clone().sub(fromCenter).setY(0).normalize()
+    const start = fromCenter.clone().addScaledVector(direction, 4.35)
+    const end = toCenter.clone().addScaledVector(direction, -4.35)
+    const length = start.distanceTo(end)
+    const count = Math.max(3, Math.ceil(length / 0.72))
+    const angle = Math.atan2(direction.x, direction.z)
+    return {
+      angle,
+      segments: Array.from({ length: count }, (_, index) => ({
+        position: start.clone().lerp(end, count === 1 ? 0.5 : index / (count - 1)),
+        lift: Math.sin((index / Math.max(1, count - 1)) * Math.PI) * 0.08,
+      })),
+    }
+  }, [from, to])
+
+  return (
+    <group>
+      {geometry.segments.map((segment, index) => (
+        <group key={index} position={[segment.position.x, segment.position.y + segment.lift, segment.position.z]} rotation={[0, geometry.angle, 0]}>
+          <RoundedBox args={[0.86, 0.16, 0.62]} radius={0.06} smoothness={3} castShadow receiveShadow>
+            <meshStandardMaterial color={index % 2 ? '#d8c59d' : '#ede0bd'} roughness={0.82} />
+          </RoundedBox>
+          {[-1, 1].map((side) => (
+            <mesh key={side} position={[side * 0.43, 0.18, 0]} castShadow>
+              <cylinderGeometry args={[0.055, 0.07, 0.34, 8]} />
+              <meshStandardMaterial color="#6d7a78" roughness={0.72} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function IslandDetails({ world, focused }: { world: CourseWorldDefinition; focused: boolean }) {
+  const trees = useMemo(() => Array.from({ length: 15 }, (_, index) => {
+    const chapterOffset = Number(world.number) * 0.27
+    const angle = (index / 15) * Math.PI * 2 + chapterOffset
+    const radius = 3.34 + (index % 4) * 0.17
+    return {
+      position: [Math.cos(angle) * radius, 0.16, Math.sin(angle) * radius] as [number, number, number],
+      scale: 0.78 + (index % 4) * 0.075,
+    }
+  }), [world])
+
+  const district = useMemo(() => Array.from({ length: 6 }, (_, index) => {
+    const angle = (index / 6) * Math.PI * 2 + 0.24
+    const radius = 2.28 + (index % 2) * 0.13
+    return [
+      Math.cos(angle) * radius,
+      0.18,
+      Math.sin(angle) * radius,
+      0.72 + (index % 3) * 0.17,
+    ] as [number, number, number, number]
+  }), [])
+
+  return (
+    <group>
+      {trees.map((tree, index) => (
+        <group key={index} position={tree.position} scale={tree.scale}>
+          <mesh position={[0, 0.27, 0]} castShadow>
+            <cylinderGeometry args={[0.08, 0.11, 0.55, 7]} />
+            <meshStandardMaterial color="#765541" roughness={0.92} />
+          </mesh>
+          <mesh position={[0, 0.72, 0]} castShadow>
+            <coneGeometry args={[0.36, 0.9, 8]} />
+            <meshStandardMaterial color={index % 3 === 0 ? '#2e8c57' : index % 3 === 1 ? '#3da464' : '#276f50'} roughness={0.82} />
+          </mesh>
+          <mesh position={[0, 1.02, 0]} castShadow>
+            <coneGeometry args={[0.27, 0.64, 8]} />
+            <meshStandardMaterial color={index % 2 ? '#4bb675' : '#359760'} roughness={0.8} />
+          </mesh>
+        </group>
+      ))}
+      {!focused && district.map(([x, y, z, height], index) => (
+        <group key={index} position={[x, y, z]}>
+          <RoundedBox args={[0.52, height, 0.52]} radius={0.09} smoothness={3} position={[0, height / 2, 0]} castShadow>
+            <meshStandardMaterial color={index % 2 ? world.accent : '#edf4e7'} roughness={0.48} />
+          </RoundedBox>
+          <mesh position={[0, height + 0.18, 0]} castShadow>
+            <coneGeometry args={[0.38, 0.42, 8]} />
+            <meshStandardMaterial color={world.accentDark} roughness={0.44} />
+          </mesh>
+          <mesh position={[0, height * 0.62, 0.28]}>
+            <boxGeometry args={[0.19, 0.12, 0.03]} />
+            <meshStandardMaterial color="#d9fbff" emissive={world.accent} emissiveIntensity={0.55} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function WorldLandmark({ world, focused }: { world: CourseWorldDefinition; focused: boolean }) {
+  const scale = focused ? 1 : 0.9
+  return (
+    <group scale={scale}>
+      {world.id === 'foundations-camp' && <FoundationsLandmark world={world} />}
+      {world.id === 'retrieval-valley' && <RetrievalLandmark world={world} />}
+      {world.id === 'sequential-city' && <SequenceLandmark world={world} />}
+      {world.id === 'policy-tower' && <PolicyLandmark world={world} />}
+      {world.id === 'ecosystem-garden' && <EcosystemLandmark world={world} />}
+      {world.id === 'final-arena' && <FinalLandmark world={world} />}
+    </group>
+  )
+}
+
+function FoundationsLandmark({ world }: { world: CourseWorldDefinition }) {
+  const bars = [0.95, 1.75, 1.2, 2.45, 1.5]
+  return (
+    <group position={[0, 0.32, 0]}>
+      {bars.map((height, index) => (
+        <RoundedBox key={index} args={[0.48, height, 0.58]} radius={0.12} smoothness={4} position={[(index - 2) * 0.62, height / 2, 0]} castShadow>
+          <meshStandardMaterial color={index === 3 ? world.accent : '#f9c8b8'} roughness={0.52} />
+        </RoundedBox>
+      ))}
+      <mesh position={[0, 1.45, -0.68]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[1.45, 0.07, 12, 64, Math.PI * 1.35]} />
+        <meshStandardMaterial color={world.accentDark} emissive={world.accent} emissiveIntensity={0.16} />
+      </mesh>
+      <mesh position={[0.65, 2.15, -0.65]}>
+        <sphereGeometry args={[0.15, 20, 20]} />
+        <meshStandardMaterial color="#ffffff" emissive={world.accent} emissiveIntensity={0.8} />
+      </mesh>
+    </group>
+  )
+}
+
+function RetrievalLandmark({ world }: { world: CourseWorldDefinition }) {
+  const points = useMemo(() => {
+    const curve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-1.2, 2.2, 0),
+      new THREE.Vector3(0, 3.35, 0),
+      new THREE.Vector3(1.2, 2.2, 0),
+    )
+    return curve.getPoints(28)
+  }, [])
+  return (
+    <group position={[0, 0.34, 0]}>
+      {[-1.2, 1.2].map((x, index) => (
+        <group key={x} position={[x, 0, 0]}>
+          <RoundedBox args={[1.05, 2.25, 1.05]} radius={0.2} smoothness={4} position={[0, 1.15, 0]} castShadow>
+            <meshStandardMaterial color={index === 0 ? '#d9f6f0' : world.accent} roughness={0.42} />
+          </RoundedBox>
+          {[0.55, 1.15, 1.75].map((y) => (
+            <mesh key={y} position={[0, y, 0.55]}>
+              <boxGeometry args={[0.52, 0.09, 0.04]} />
+              <meshBasicMaterial color={index === 0 ? world.accentDark : '#ffffff'} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <Line points={points} color={world.accentDark} lineWidth={2.4} transparent opacity={0.72} />
+      {[-0.62, 0, 0.62].map((x, index) => (
+        <mesh key={x} position={[x, 2.8 - Math.abs(x) * 0.5, 0]}>
+          <octahedronGeometry args={[0.13 + index * 0.02]} />
+          <meshStandardMaterial color="#ffffff" emissive={world.accent} emissiveIntensity={1.1} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function SequenceLandmark({ world }: { world: CourseWorldDefinition }) {
+  return (
+    <group position={[0, 0.35, 0]}>
+      {[-2, -1, 0, 1, 2].map((step, index) => {
+        const height = 0.75 + (index % 3) * 0.34
+        return (
+          <group key={step} position={[step * 0.72, 0, Math.sin(index * 0.8) * 0.22]}>
+            <RoundedBox args={[0.58, height, 0.72]} radius={0.12} smoothness={4} position={[0, height / 2, 0]} castShadow>
+              <meshStandardMaterial color={index === 2 ? world.accent : '#ffe4a3'} roughness={0.5} />
+            </RoundedBox>
+            <mesh position={[0, height + 0.16, 0]}>
+              <sphereGeometry args={[0.11, 16, 16]} />
+              <meshBasicMaterial color={index === 2 ? '#ffffff' : world.accentDark} />
+            </mesh>
+          </group>
+        )
+      })}
+      {[0, 1, 2].map((row) => {
+        const curve = new THREE.QuadraticBezierCurve3(
+          new THREE.Vector3(-1.45, 1.25 + row * 0.22, 0),
+          new THREE.Vector3(0, 2.55 + row * 0.35, -0.2),
+          new THREE.Vector3(1.45, 1.25 + row * 0.22, 0),
+        )
+        return <Line key={row} points={curve.getPoints(24)} color={row === 1 ? world.accentDark : world.accent} lineWidth={1.5} transparent opacity={0.46} />
+      })}
+    </group>
+  )
+}
+
+function PolicyLandmark({ world }: { world: CourseWorldDefinition }) {
+  const ring = useRef<THREE.Group>(null)
+  useFrame((_, dt) => {
+    if (ring.current) ring.current.rotation.y += dt * 0.42
+  })
+  return (
+    <group position={[0, 0.34, 0]}>
+      <mesh position={[0, 1.25, 0]} castShadow>
+        <cylinderGeometry args={[0.85, 1.25, 2.5, 12]} />
+        <meshStandardMaterial color="#ffd2df" roughness={0.46} />
+      </mesh>
+      <mesh position={[0, 2.62, 0]}>
+        <coneGeometry args={[0.82, 0.78, 12]} />
+        <meshStandardMaterial color={world.accent} roughness={0.4} />
+      </mesh>
+      <group ref={ring} position={[0, 1.55, 0]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.65, 0.065, 12, 64]} />
+          <meshStandardMaterial color={world.accentDark} emissive={world.accent} emissiveIntensity={0.2} />
+        </mesh>
+        {[0, 1, 2].map((index) => {
+          const angle = (index / 3) * Math.PI * 2
+          return (
+            <mesh key={index} position={[Math.cos(angle) * 1.65, 0, Math.sin(angle) * 1.65]}>
+              <sphereGeometry args={[0.19, 18, 18]} />
+              <meshStandardMaterial color={index === 0 ? '#ffffff' : world.accent} emissive={world.accent} emissiveIntensity={0.45} />
+            </mesh>
+          )
+        })}
+      </group>
+    </group>
+  )
+}
+
+function EcosystemLandmark({ world }: { world: CourseWorldDefinition }) {
+  const orbit = useRef<THREE.Group>(null)
+  useFrame((_, dt) => {
+    if (orbit.current) orbit.current.rotation.y -= dt * 0.28
+  })
+  return (
+    <group position={[0, 0.34, 0]}>
+      <mesh position={[0, 0.85, 0]} castShadow>
+        <cylinderGeometry args={[0.28, 0.42, 1.7, 9]} />
+        <meshStandardMaterial color="#8c694e" roughness={0.9} />
+      </mesh>
+      {[[0, 2.0, 0], [-0.72, 1.68, 0.12], [0.72, 1.72, -0.08], [0.05, 1.72, 0.72], [-0.1, 1.8, -0.65]].map((position, index) => (
+        <mesh key={index} position={position as [number, number, number]} castShadow>
+          <sphereGeometry args={[0.72 - (index % 2) * 0.08, 20, 14]} />
+          <meshStandardMaterial color={index === 0 ? world.accent : index % 2 ? '#96d99e' : '#c3e9bb'} roughness={0.72} />
+        </mesh>
+      ))}
+      <group ref={orbit} position={[0, 1.2, 0]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.8, 0.055, 10, 64]} />
+          <meshStandardMaterial color={world.accentDark} transparent opacity={0.58} />
+        </mesh>
+        {[0, 1, 2, 3].map((index) => {
+          const angle = index * Math.PI * 0.5
+          return (
+            <mesh key={index} position={[Math.cos(angle) * 1.8, 0, Math.sin(angle) * 1.8]}>
+              <dodecahedronGeometry args={[0.17]} />
+              <meshStandardMaterial color={index % 2 ? '#ffcf68' : '#ffffff'} />
+            </mesh>
+          )
+        })}
+      </group>
+    </group>
+  )
+}
+
+function FinalLandmark({ world }: { world: CourseWorldDefinition }) {
+  const crystal = useRef<THREE.Mesh>(null)
+  useFrame((state, dt) => {
+    if (!crystal.current) return
+    crystal.current.rotation.y += dt * 0.42
+    crystal.current.position.y = 2.55 + Math.sin(state.clock.elapsedTime * 1.2) * 0.12
+  })
+  return (
+    <group position={[0, 0.34, 0]}>
+      {[2.1, 1.55, 1.0].map((radius, index) => (
+        <mesh key={radius} position={[0, index * 0.24, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[radius, radius + 0.16, 0.25, 32]} />
+          <meshStandardMaterial color={index === 2 ? world.accent : index === 1 ? '#cfcaf7' : '#ffffff'} roughness={0.5} />
+        </mesh>
+      ))}
+      <mesh ref={crystal} position={[0, 2.55, 0]} castShadow>
+        <octahedronGeometry args={[0.72, 0]} />
+        <meshPhysicalMaterial color={world.accent} emissive={world.accent} emissiveIntensity={0.28} roughness={0.16} metalness={0.12} />
+      </mesh>
+      {[0, 1, 2, 3].map((index) => (
+        <RoundedBox key={index} args={[0.22, 1.7, 0.22]} radius={0.08} smoothness={3} position={[Math.cos(index * Math.PI / 2) * 1.5, 1.15, Math.sin(index * Math.PI / 2) * 1.5]}>
+          <meshStandardMaterial color="#ffffff" emissive={world.accent} emissiveIntensity={0.12} />
+        </RoundedBox>
+      ))}
+    </group>
+  )
+}
+
+function CourseNodeMarker({
+  nodeId,
+  slot,
+  world,
+}: {
+  nodeId: NodeId
+  slot: [number, number, number]
+  world: CourseWorldDefinition
+}) {
+  const node = NODES[nodeId]
+  const state = useProgress((store) => store.getNodeState(nodeId))
+  const mode = useProgress((store) => store.mode)
+  const [hovered, setHovered] = useState(false)
+  const group = useRef<THREE.Group>(null)
+  const locked = state === 'locked_for_credit'
+  const actionable = !locked
+
+  useFrame((stateFrame, dt) => {
+    if (!group.current) return
+    const pulse = state === 'next_required' ? 1 + Math.sin(stateFrame.clock.elapsedTime * 3.4) * 0.035 : 1
+    const target = (hovered && actionable ? 1.08 : 1) * pulse
+    const scale = THREE.MathUtils.damp(group.current.scale.x, target, 10, dt)
+    group.current.scale.setScalar(scale)
+  })
+
+  const requestNode = () => {
+    if (!actionable || useProgress.getState().mode !== 'explore') return
+    const target = nodeWorldPosition(nodeId)
+    runtime.pendingOpen = nodeId
+    runtime.moveTarget = target
+  }
+
+  const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    requestNode()
+  }
+
+  return (
+    <group ref={group} position={slot}>
+      <group
+        onPointerDown={onPointerDown}
+        onPointerOver={(event) => {
+          event.stopPropagation()
+          setHovered(true)
+          if (actionable && typeof document !== 'undefined') document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={() => {
+          setHovered(false)
+          if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+        }}
+      >
+        <NodeSculpture node={node} state={state} world={world} />
+        <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.72, 0.88, 48]} />
+          <meshBasicMaterial color={stateColor(state, world)} transparent opacity={state === 'next_required' ? 0.72 : 0.28} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, 0.8, 0]}>
+          <cylinderGeometry args={[0.92, 0.92, 1.8, 24]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      </group>
+
+      {mode === 'explore' && (
+        <Html position={[0, 2.05, 0]} center zIndexRange={[35, 12]} wrapperClass="lecture-label-anchor">
+          <button
+            type="button"
+            className={`lecture-stack-label state-${state}`}
+            style={{ '--world-accent': world.accent } as CSSProperties}
+            onClick={requestNode}
+            onPointerEnter={() => setHovered(true)}
+            onPointerLeave={() => setHovered(false)}
+            disabled={!actionable}
+          >
+            <span>{stateLabel(state, node)}</span>
+            <strong>{node.title}</strong>
+          </button>
+        </Html>
+      )}
+    </group>
+  )
+}
+
+function ChapterNarrator({ nodeId }: { nodeId: NodeId }) {
+  const node = NODES[nodeId]
+  const target = nodeWorldPosition(nodeId)
+  const position = target.clone().addScaledVector(RIGHT, 1.45).setY(0.12)
+  const yaw = Math.atan2(CAMERA_OFFSET.x, CAMERA_OFFSET.z)
+  return (
+    <group position={position.toArray()} rotation={[0, yaw, 0]}>
+      <pointLight position={[0.4, 2.8, 1.4]} color="#fff2dc" intensity={6.5} distance={7} decay={1.6} />
+      {node.worldId === 'retrieval-valley' ? <VectorSmithGLB /> : <AstraGLB />}
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.5, 32]} />
+        <meshBasicMaterial color="#345d68" transparent opacity={0.16} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function NodeSculpture({ node, state, world }: { node: CourseNode; state: ProgressNodeState; world: CourseWorldDefinition }) {
+  const muted = state === 'locked_for_credit'
+  const color = muted ? '#b8c3c8' : state === 'completed' ? '#48ad73' : world.accent
+  const white = muted ? '#d8e0e3' : '#ffffff'
+
+  if (node.kind === 'lesson') {
+    return (
+      <group position={[0, 0.16, 0]}>
+        {[0, 1, 2].map((index) => (
+          <RoundedBox key={index} args={[1.05 - index * 0.08, 0.14, 0.72]} radius={0.06} smoothness={3} position={[index * 0.07, index * 0.15, -index * 0.04]} rotation={[0, 0.08 - index * 0.07, 0]} castShadow>
+            <meshStandardMaterial color={index === 2 ? color : white} roughness={0.52} />
+          </RoundedBox>
+        ))}
+        <RoundedBox args={[0.72, 0.86, 0.12]} radius={0.07} smoothness={3} position={[0, 0.78, 0]} rotation={[0.08, 0, 0]} castShadow>
+          <meshStandardMaterial color={color} roughness={0.45} />
+        </RoundedBox>
+      </group>
+    )
+  }
+
+  if (node.kind === 'widget' || node.kind === 'arena') {
+    return (
+      <group position={[0, 0.2, 0]}>
+        <RoundedBox args={[0.78, 0.42, 0.78]} radius={0.12} smoothness={4} position={[0, 0.25, 0]} castShadow>
+          <meshStandardMaterial color={white} roughness={0.45} />
+        </RoundedBox>
+        <mesh position={[0, 0.85, 0]} castShadow>
+          <octahedronGeometry args={[0.38]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={muted ? 0 : 0.2} roughness={0.32} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.53, 0.36, 0]}>
+            <sphereGeometry args={[0.12, 16, 16]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+
+  if (node.kind === 'quiz') {
+    return (
+      <group position={[0, 0.15, 0]}>
+        <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <torusGeometry args={[0.52, 0.13, 16, 48]} />
+          <meshStandardMaterial color={color} roughness={0.38} />
+        </mesh>
+        <mesh position={[0, 0.5, 0]}>
+          <sphereGeometry args={[0.18, 20, 20]} />
+          <meshStandardMaterial color={white} emissive={color} emissiveIntensity={muted ? 0 : 0.32} />
+        </mesh>
+        <mesh position={[0, 0.02, 0]}>
+          <cylinderGeometry args={[0.58, 0.72, 0.18, 32]} />
+          <meshStandardMaterial color={white} roughness={0.6} />
+        </mesh>
+      </group>
+    )
+  }
+
+  return (
+    <group position={[0, 0.12, 0]}>
+      {[-0.48, 0.48].map((x) => (
+        <RoundedBox key={x} args={[0.24, 1.12, 0.24]} radius={0.08} smoothness={3} position={[x, 0.56, 0]} castShadow>
+          <meshStandardMaterial color={color} roughness={0.46} />
+        </RoundedBox>
+      ))}
+      <mesh position={[0, 0.86, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.09, 0.09, 0.82, 16]} />
+        <meshStandardMaterial color={white} />
+      </mesh>
+      <mesh position={[0, 0.42, 0]}>
+        <torusGeometry args={[0.38, 0.08, 12, 36, Math.PI]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+    </group>
+  )
+}
+
+function CourseTraveler({ worldId }: { worldId: WorldId }) {
+  const group = useRef<THREE.Group>(null)
+  const visual = useRef<THREE.Group>(null)
+  const input = useInput()
+  const mode = useProgress((state) => state.mode)
+  const setNearby = useProgress((state) => state.setNearby)
+  const openNode = useProgress((state) => state.openNode)
+  const world = COURSE_WORLD_BY_ID[worldId]
+  const center = useMemo(() => new THREE.Vector3(world.position[0], PLAYER_Y, world.position[2]), [world])
+  const position = useRef(center.clone().add(new THREE.Vector3(0, 0, 3.35)))
+  const velocity = useRef(new THREE.Vector3())
+  const desired = useRef(new THREE.Vector3())
+  const delta = useRef(new THREE.Vector3())
+
+  useEffect(() => {
+    runtime.playerPosition.copy(position.current)
+    runtime.moveTarget = null
+    runtime.pendingOpen = null
+    runtime.cameraSkip = true
+    return () => setNearby(null)
+  }, [setNearby])
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.1)
+    if (!group.current) return
+
+    desired.current.set(0, 0, 0)
+    if (mode === 'explore') {
+      const forward = input.current.forward + touchControls.moveY
+      const strafe = input.current.strafe + touchControls.moveX
+      const manual = Math.abs(forward) > 0.02 || Math.abs(strafe) > 0.02
+
+      if (manual) {
+        runtime.moveTarget = null
+        runtime.pendingOpen = null
+        desired.current.addScaledVector(FORWARD, forward).addScaledVector(RIGHT, strafe)
+        if (desired.current.lengthSq() > 1) desired.current.normalize()
+        desired.current.multiplyScalar(input.current.run ? 5.2 : 3.35)
+      } else if (runtime.moveTarget) {
+        delta.current.copy(runtime.moveTarget).sub(position.current).setY(0)
+        const distance = delta.current.length()
+        if (distance < 0.22) {
+          runtime.moveTarget = null
+        } else {
+          desired.current.copy(delta.current).normalize().multiplyScalar(distance > 2.4 ? 4.8 : 3.2)
+        }
+      }
+    }
+
+    velocity.current.lerp(desired.current, 1 - Math.exp(-11 * dt))
+    position.current.addScaledVector(velocity.current, dt)
+    delta.current.copy(position.current).sub(center).setY(0)
+    if (delta.current.length() > WALK_RADIUS) {
+      delta.current.setLength(WALK_RADIUS)
+      position.current.set(center.x + delta.current.x, PLAYER_Y, center.z + delta.current.z)
+      runtime.moveTarget = null
+      runtime.pendingOpen = null
+    }
+    position.current.y = PLAYER_Y
+
+    group.current.position.copy(position.current)
+    runtime.playerPosition.copy(position.current)
+    runtime.playerSpeed = velocity.current.length()
+    if (runtime.playerSpeed > 0.12 && visual.current) {
+      const targetYaw = Math.atan2(-velocity.current.x, -velocity.current.z)
+      runtime.playerFacing = dampAngle(runtime.playerFacing, targetYaw, 12, dt)
+      visual.current.rotation.y = runtime.playerFacing
+    }
+
+    const store = useProgress.getState()
+    let nearby: NodeId | null = null
+    let nearbyDistance = Infinity
+    for (const id of WORLD_NODE_IDS[worldId]) {
+      if (store.getNodeState(id) === 'locked_for_credit') continue
+      const nodePosition = nodeWorldPosition(id)
+      const distance = Math.hypot(position.current.x - nodePosition.x, position.current.z - nodePosition.z)
+      if (distance < 1.25 && distance < nearbyDistance) {
+        nearby = id
+        nearbyDistance = distance
+      }
+    }
+    setNearby(nearby)
+
+    const pending = runtime.pendingOpen as NodeId | null
+    if (pending && NODES[pending]?.worldId === worldId) {
+      const target = nodeWorldPosition(pending)
+      const distance = Math.hypot(position.current.x - target.x, position.current.z - target.z)
+      if (distance < 0.62) {
+        runtime.pendingOpen = null
+        runtime.moveTarget = null
+        openNode(pending)
+      }
+    }
+
+    const interact = input.current.interactPressed || touchControls.interactEdge
+    if (interact) {
+      input.current.interactPressed = false
+      touchControls.interactEdge = false
+      if (nearby) openNode(nearby)
+    }
+    input.current.jumpPressed = false
+    touchControls.jumpEdge = false
+  })
+
+  return (
+    <group ref={group} position={position.current.toArray()}>
+      <group ref={visual} scale={0.72}>
+        <PorterGLB />
+      </group>
+      <mesh position={[0, -0.57, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.42, 32]} />
+        <meshBasicMaterial color="#476675" transparent opacity={0.18} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function CourseRoute() {
+  const curve = useMemo(() => {
+    const points = COURSE_WORLDS.map((world) => new THREE.Vector3(world.position[0], -0.38, world.position[2]))
+    return new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.34)
+  }, [])
+  const points = useMemo(() => curve.getPoints(180), [curve])
+
+  return (
+    <group>
+      <Line points={points} color="#79a9b8" lineWidth={2.1} transparent opacity={0.42} dashed dashSize={0.22} gapSize={0.15} />
+      {[0, 0.24, 0.48, 0.72].map((offset) => <RoutePacket key={offset} curve={curve} offset={offset} />)}
+    </group>
+  )
+}
+
+function RoutePacket({ curve, offset }: { curve: THREE.CatmullRomCurve3; offset: number }) {
+  const ref = useRef<THREE.Mesh>(null)
+  useFrame((state) => {
+    if (!ref.current) return
+    const t = (state.clock.elapsedTime * 0.025 + offset) % 1
+    ref.current.position.copy(curve.getPointAt(t)).setY(0.25)
+  })
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.13, 16, 16]} />
+      <meshStandardMaterial color="#ffffff" emissive="#58b9ca" emissiveIntensity={0.8} />
+    </mesh>
+  )
+}
+
+function CloudReveal({ worldId }: { worldId: WorldId }) {
+  const world = COURSE_WORLD_BY_ID[worldId]
+  return (
+    <group>
+      {Array.from({ length: 12 }, (_, index) => (
+        <PartingCloud key={index} world={world} index={index} />
+      ))}
+    </group>
+  )
+}
+
+function PartingCloud({ world, index }: { world: CourseWorldDefinition; index: number }) {
+  const group = useRef<THREE.Group>(null)
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    color: index % 3 === 0 ? world.surface : '#ffffff',
+    transparent: true,
+    opacity: 0.9,
+    roughness: 1,
+    depthWrite: false,
+  }), [index, world])
+  const progress = useRef(-index * 0.025)
+  const angle = (index / 12) * Math.PI * 2 + (index % 2) * 0.14
+  const start = useMemo(() => new THREE.Vector3(
+    world.position[0] + Math.cos(angle) * 0.9,
+    4.4 + (index % 3) * 0.24,
+    world.position[2] + Math.sin(angle) * 0.9,
+  ), [angle, index, world])
+  const end = useMemo(() => new THREE.Vector3(
+    world.position[0] + Math.cos(angle) * (6.8 + (index % 3) * 0.65),
+    3.2 + (index % 2) * 0.5,
+    world.position[2] + Math.sin(angle) * (6.8 + (index % 3) * 0.65),
+  ), [angle, index, world])
+
+  useEffect(() => () => material.dispose(), [material])
+  useFrame((_, dt) => {
+    if (!group.current) return
+    progress.current = Math.min(1, progress.current + dt * 0.72)
+    const raw = THREE.MathUtils.clamp(progress.current, 0, 1)
+    const eased = 1 - Math.pow(1 - raw, 3)
+    group.current.position.lerpVectors(start, end, eased)
+    group.current.scale.setScalar(1.35 + eased * 0.65)
+    material.opacity = Math.max(0, 0.92 * (1 - eased))
+    group.current.visible = material.opacity > 0.01
+  })
+
+  return (
+    <group ref={group} position={start} renderOrder={12}>
+      {[[-0.45, 0, 0], [0.35, 0.08, 0.05], [0, 0.22, -0.18], [0.08, -0.08, 0.34]].map((position, puff) => (
+        <mesh key={puff} position={position as [number, number, number]} material={material}>
+          <sphereGeometry args={[0.72 - puff * 0.06, 18, 14]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function CloudCluster({
+  position,
+  scale,
+  opacity,
+  tint = '#ffffff',
+}: {
+  position: [number, number, number]
+  scale: number
+  opacity: number
+  tint?: string
+}) {
+  return (
+    <group position={position} scale={scale}>
+      {[[-0.58, 0, 0], [0.42, 0.05, 0.02], [-0.02, 0.24, -0.12], [0.08, -0.06, 0.4]].map((puff, index) => (
+        <mesh key={index} position={puff as [number, number, number]} renderOrder={-1}>
+          <sphereGeometry args={[0.72 - index * 0.06, 16, 12]} />
+          <meshStandardMaterial color={tint} transparent opacity={opacity} roughness={1} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function SkyDome() {
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      topColor: { value: new THREE.Color('#4baed9') },
+      middleColor: { value: new THREE.Color('#98dced') },
+      bottomColor: { value: new THREE.Color('#eaf8ff') },
+    },
+    vertexShader: `
+      varying vec3 vPosition;
+      void main() {
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 middleColor;
+      uniform vec3 bottomColor;
+      varying vec3 vPosition;
+      void main() {
+        float h = normalize(vPosition).y * 0.5 + 0.5;
+        vec3 lower = mix(bottomColor, middleColor, smoothstep(0.05, 0.58, h));
+        vec3 color = mix(lower, topColor, smoothstep(0.58, 1.0, h));
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
+  }), [])
+  useEffect(() => () => material.dispose(), [material])
+  return (
+    <mesh scale={85} material={material}>
+      <sphereGeometry args={[1, 32, 20]} />
+    </mesh>
+  )
+}
+
+function nodeWorldPosition(id: NodeId): THREE.Vector3 {
+  const node = NODES[id]
+  const world = COURSE_WORLD_BY_ID[node.worldId]
+  const index = Math.max(0, WORLD_NODE_IDS[node.worldId].indexOf(id))
+  const slot = NODE_SLOTS[index] ?? NODE_SLOTS[0]
+  return new THREE.Vector3(world.position[0] + slot[0], PLAYER_Y, world.position[2] + slot[2])
+}
+
+function stateColor(state: ProgressNodeState, world: CourseWorldDefinition): string {
+  if (state === 'completed') return '#48ad73'
+  if (state === 'locked_for_credit') return '#aebbc1'
+  return world.accent
+}
+
+function stateLabel(state: ProgressNodeState, node: CourseNode): string {
+  if (state === 'completed') return 'Completed'
+  if (state === 'next_required') return 'Next field note'
+  if (state === 'locked_for_credit') return 'Locked'
+  return node.subtitle
+}
+
+function dampAngle(current: number, target: number, lambda: number, dt: number): number {
+  let difference = target - current
+  while (difference > Math.PI) difference -= Math.PI * 2
+  while (difference < -Math.PI) difference += Math.PI * 2
+  return current + difference * (1 - Math.exp(-lambda * dt))
+}

@@ -1,143 +1,184 @@
+import {
+  Accessibility,
+  ArrowRight,
+  BookOpen,
+  Check,
+  Compass,
+  Diamond,
+  Map,
+  MousePointer2,
+  Network,
+} from 'lucide-react'
+import type { CSSProperties } from 'react'
+import { COURSE_WORLDS, COURSE_WORLD_BY_ID } from '../data/worlds'
 import { NODES, useProgress, type NodeId, type WorldId } from '../state/progress'
 
-/** Static course map; live state (done/active/locked) is derived from progress below. */
-const WORLD_MAP: { n: string; id: WorldId | null; name: string }[] = [
-  { n: '01', id: 'foundations-camp', name: 'Foundations Camp' },
-  { n: '02', id: 'retrieval-valley', name: 'Retrieval Valley' },
-  { n: '03', id: 'sequential-city', name: 'Sequential City' },
-  { n: '04', id: 'policy-tower', name: 'Policy Tower' },
-  { n: '05', id: 'ecosystem-garden', name: 'Ecosystem Garden' },
-  { n: '06', id: 'final-arena', name: 'Final Arena' },
-]
+export function HUD({
+  onOpenCatalog,
+  onOpenBuilder,
+}: {
+  onOpenCatalog: () => void
+  onOpenBuilder: () => void
+}) {
+  const next = useProgress((state) => state.nextRequiredAction())
+  const nearbyId = useProgress((state) => state.nearbyNodeId)
+  const mode = useProgress((state) => state.mode)
+  const collected = useProgress((state) => state.collectedArtifacts())
+  const totalArtifacts = useProgress((state) => state.totalArtifacts)
+  const reduced = useProgress((state) => state.reducedMotion)
+  const setReduced = useProgress((state) => state.setReducedMotion)
+  const currentWorld = useProgress((state) => state.currentWorld)
+  const completed = useProgress((state) => state.completed)
+  const atlasOpen = useProgress((state) => state.atlasOpen)
+  const toggleAtlas = useProgress((state) => state.toggleAtlas)
+  const travelTo = useProgress((state) => state.travelTo)
+  const openNode = useProgress((state) => state.openNode)
 
-const WORLD_BADGE: Record<WorldId, { kicker: string; name: string }> = {
-  'foundations-camp': { kicker: 'World 01', name: 'Foundations Camp' },
-  'retrieval-valley': { kicker: 'World 02', name: 'Retrieval Valley' },
-  'sequential-city': { kicker: 'World 03', name: 'Sequential City' },
-  'policy-tower': { kicker: 'World 04', name: 'Policy Tower' },
-  'ecosystem-garden': { kicker: 'World 05', name: 'Ecosystem Garden' },
-  'final-arena': { kicker: 'World 06', name: 'Final Arena' },
-}
+  const worldProgress = Object.fromEntries(
+    COURSE_WORLDS.map((world) => {
+      const nodes = Object.values(NODES).filter((node) => node.worldId === world.id && node.kind !== 'npc')
+      const done = nodes.filter((node) => completed[node.id]).length
+      return [world.id, Math.round((done / Math.max(nodes.length, 1)) * 100)]
+    }),
+  ) as Record<WorldId, number>
 
-// Reference shows the full-course artifact goal, not just this slice's four.
-const COURSE_ARTIFACTS = 24
+  const countedNodes = Object.values(NODES).filter((node) => node.kind !== 'npc')
+  const courseDone = countedNodes.filter((node) => completed[node.id]).length
+  const courseProgress = Math.round((courseDone / countedNodes.length) * 100)
+  const nextNode = next.nodeId ? NODES[next.nodeId] : null
+  const nearbyNode = nearbyId ? NODES[nearbyId] : null
+  const activeWorld = COURSE_WORLD_BY_ID[currentWorld]
+  const activeIndex = COURSE_WORLDS.findIndex((world) => world.id === currentWorld)
 
-export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
-  const next = useProgress((s) => s.nextRequiredAction())
-  const nearbyId = useProgress((s) => s.nearbyNodeId)
-  const mode = useProgress((s) => s.mode)
-  const collected = useProgress((s) => s.collectedArtifacts())
-  const reduced = useProgress((s) => s.reducedMotion)
-  const setReduced = useProgress((s) => s.setReducedMotion)
-  const currentWorld = useProgress((s) => s.currentWorld)
-  const campDone = useProgress((s) => s.completed['retrieval-bridge'])
-  const valleyDone = useProgress((s) => s.completed['world3-gate'])
-  const cityDone = useProgress((s) => s.completed['world4-gate'])
-  const towerDone = useProgress((s) => s.completed['world5-gate'])
-  const gardenDone = useProgress((s) => s.completed['graduation'])
-  const courseDone = useProgress((s) => s.completed['champion'])
-  const atlasOpen = useProgress((s) => s.atlasOpen)
-  const toggleAtlas = useProgress((s) => s.toggleAtlas)
-  const travelTo = useProgress((s) => s.travelTo)
-  const activeNodeId = useProgress((s) => s.activeNodeId)
-
-  const worlds = WORLD_MAP.map((w) => {
-    let state: 'active' | 'locked' | 'done' = 'locked'
-    if (w.id === 'foundations-camp') state = campDone ? 'done' : 'active'
-    else if (w.id === 'retrieval-valley') {
-      state = valleyDone ? 'done' : currentWorld === 'retrieval-valley' ? 'active' : campDone ? 'active' : 'locked'
-    } else if (w.id === 'sequential-city') {
-      state = cityDone ? 'done' : currentWorld === 'sequential-city' ? 'active' : valleyDone ? 'active' : 'locked'
-    } else if (w.id === 'policy-tower') {
-      state = towerDone ? 'done' : currentWorld === 'policy-tower' ? 'active' : cityDone ? 'active' : 'locked'
-    } else if (w.id === 'ecosystem-garden') {
-      state = gardenDone ? 'done' : currentWorld === 'ecosystem-garden' ? 'active' : towerDone ? 'active' : 'locked'
-    } else if (w.id === 'final-arena') {
-      state = courseDone ? 'done' : currentWorld === 'final-arena' ? 'active' : gardenDone ? 'active' : 'locked'
+  const continueCourse = () => {
+    if (!nextNode) return
+    if (atlasOpen || nextNode.worldId !== currentWorld) {
+      travelTo(nextNode.worldId)
+      return
     }
-    return { ...w, state }
-  })
-  const badge = atlasOpen ? { kicker: 'World Map', name: 'The Journey' } : WORLD_BADGE[currentWorld]
+    openNode(nextNode.id)
+  }
 
-  const showPressE = mode === 'explore' && nearbyId !== null
+  const continueLabel = atlasOpen || (nextNode && nextNode.worldId !== currentWorld)
+    ? `Explore ${nextNode ? COURSE_WORLD_BY_ID[nextNode.worldId].short : activeWorld.short}`
+    : 'Open next field note'
 
   return (
-    <div className="hud">
-      <div className="objective panel">
-        <div className="gem" />
-        <div>
-          <div className="label">Next objective</div>
-          <div className="value">{next.label}</div>
-        </div>
-      </div>
+    <div className={`cloud-hud${atlasOpen ? ' is-overview' : ' is-focused'}${mode !== 'explore' ? ' is-learning' : ''}`}>
+      <header className="cloud-topbar">
+        <button
+          type="button"
+          className="cloud-brand"
+          onClick={() => { if (!atlasOpen) toggleAtlas() }}
+          aria-label="Open course world map"
+        >
+          <span className="cloud-brand-mark"><Compass size={20} /></span>
+          <span><strong>REC.SYS</strong><small>World course</small></span>
+        </button>
 
-      <div className="progress-track panel">
-        <span className="title">Course Progress <em className="travel-hint">· click to travel</em></span>
-        {worlds.map((w, i) => {
-          const here = !atlasOpen && currentWorld === w.id
+        <div className="cloud-course-progress" aria-label={`${courseProgress}% course complete`}>
+          <span><strong>{courseProgress}%</strong><small>Course progress</small></span>
+          <i style={{ '--course-progress': `${courseProgress}%` } as CSSProperties}><b /></i>
+        </div>
+
+        <div className="cloud-tools">
+          <span className="cloud-artifacts" title="Artifacts collected">
+            <Diamond size={15} /><strong>{collected}</strong><small>/ {totalArtifacts}</small>
+          </span>
+          <button
+            type="button"
+            className={`cloud-icon-button${atlasOpen ? ' is-active' : ''}`}
+            onClick={() => { if (!atlasOpen) toggleAtlas() }}
+            aria-label="Course world map"
+            data-tooltip="World map"
+          >
+            <Map size={18} />
+          </button>
+          <button type="button" className="cloud-icon-button" onClick={onOpenCatalog} aria-label="Course index" data-tooltip="Course index">
+            <BookOpen size={18} />
+          </button>
+          <button type="button" className="cloud-icon-button" onClick={onOpenBuilder} aria-label="Open system Foundry" data-tooltip="System Foundry">
+            <Network size={18} />
+          </button>
+          <button
+            type="button"
+            className={`cloud-icon-button${reduced ? ' is-active' : ''}`}
+            onClick={() => setReduced(!reduced)}
+            aria-label="Toggle reduced motion"
+            data-tooltip={reduced ? 'Reduced motion' : 'Full motion'}
+          >
+            <Accessibility size={18} />
+          </button>
+        </div>
+      </header>
+
+      <nav className="cloud-chapter-nav" aria-label="Course chapters">
+        {COURSE_WORLDS.map((world) => {
+          const progress = worldProgress[world.id]
+          const active = !atlasOpen && currentWorld === world.id
           return (
-            <div key={w.n} style={{ display: 'flex', alignItems: 'center' }}>
-              {i > 0 && <div className={`step-link ${w.state === 'done' ? 'done' : ''}`} />}
-              <button
-                className={`wstep ${w.state} ${here ? 'here' : ''}`}
-                onClick={() => { if (activeNodeId || !w.id) return; travelTo(w.id) }}
-                title={activeNodeId ? 'Close this panel to travel' : w.id ? `Travel to ${w.name}` : w.name}
-                disabled={!w.id || activeNodeId !== null}
-              >
-                <div className="wdot" />
-                <div className="wcap">
-                  <span className="wnum">{w.n}</span> {w.name}
-                </div>
-              </button>
-            </div>
+            <button
+              type="button"
+              key={world.id}
+              className={`${active ? 'is-current' : ''}${progress === 100 ? ' is-complete' : ''}`}
+              style={{ '--world-accent': world.accent, '--world-progress': `${progress}%` } as CSSProperties}
+              onClick={() => travelTo(world.id)}
+              aria-label={`Open ${world.name}`}
+            >
+              <span>{progress === 100 ? <Check size={13} /> : world.number}</span>
+              <strong>{world.short}</strong>
+            </button>
           )
         })}
-        <div className="crown" title="Course mastery">♛</div>
-      </div>
+      </nav>
 
-      <div className="world-badge panel">
-        <div className="wb-text">
-          <div className="wb-kicker">{badge.kicker}</div>
-          <div className="wb-name">{badge.name}</div>
-        </div>
-        <div className="wb-emblem" />
-      </div>
-
-      <div className="hud-buttons">
-        <button className={`btn ${atlasOpen ? 'primary' : 'ghost'}`} onClick={toggleAtlas} title="See the whole course as one connected journey">
-          {atlasOpen ? '✕ Exit map' : '🗺 The Journey'}
-        </button>
-        <button className="btn ghost" onClick={() => setReduced(!reduced)} title="Toggle cinematic camera motion">
-          {reduced ? 'Motion: reduced' : 'Motion: on'}
-        </button>
-        <button className="btn ghost" onClick={onOpenCatalog}>
-          Catalog
-        </button>
-      </div>
-
-      <div className="artifacts panel">
-        <div className="gem" />
-        <div>
-          <div className="n">
-            {collected} <span style={{ fontSize: 13, color: 'var(--muted)' }}>/ {COURSE_ARTIFACTS}</span>
+      {atlasOpen ? (
+        <section className="cloud-map-intro">
+          <span className="cloud-kicker">Interactive course atlas</span>
+          <h1>Recommender<br />Systems</h1>
+          <p>Six connected worlds, from the first ranking signal to a complete production system.</p>
+          <div className="cloud-map-meta">
+            <span><strong>06</strong><small>worlds</small></span>
+            <span><strong>{countedNodes.length.toString().padStart(2, '0')}</strong><small>field notes</small></span>
+            <span><strong>{collected}/{totalArtifacts}</strong><small>artifacts</small></span>
           </div>
-          <div className="sub">Artifacts Collected</div>
-          {courseDone && <div className="course-complete">Course Completed! ✓</div>}
-        </div>
-      </div>
+          <button type="button" className="cloud-primary-action" onClick={continueCourse} disabled={!nextNode}>
+            {continueLabel}<ArrowRight size={17} />
+          </button>
+          <button type="button" className="cloud-builder-action" onClick={onOpenBuilder}>
+            <Network size={16} /><strong>Build a recommender</strong><span>MovieLens-style lab</span><ArrowRight size={15} />
+          </button>
+        </section>
+      ) : (
+        <section className="cloud-chapter-brief" style={{ '--world-accent': activeWorld.accent } as CSSProperties}>
+          <div className="cloud-brief-meta">
+            <span>Chapter {activeWorld.number} / {COURSE_WORLDS.length.toString().padStart(2, '0')}</span>
+            <strong>{worldProgress[currentWorld]}% complete</strong>
+          </div>
+          <span className="cloud-kicker">{activeWorld.eyebrow}</span>
+          <h1>{activeWorld.name}</h1>
+          <p>{activeWorld.question}</p>
+          <button type="button" className="cloud-primary-action" onClick={continueCourse} disabled={!nextNode}>
+            {continueLabel}<ArrowRight size={17} />
+          </button>
+        </section>
+      )}
 
-      <div className="controls panel">
-        <span className="grp"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
-        <span className="grp"><kbd>🖱</kbd> Click a station to go + interact</span>
-        <span className="grp"><kbd>Shift</kbd> Run</span>
-        {!atlasOpen && <span className="grp"><kbd>E</kbd> Interact</span>}
-        <span className="grp"><kbd>C</kbd> Catalog</span>
-      </div>
+      {!atlasOpen && nearbyNode && mode === 'explore' && (
+        <section className="cloud-context-action" aria-label="Nearby field note">
+          <span className="cloud-context-icon"><MousePointer2 size={17} /></span>
+          <div><small>{nearbyNode.subtitle}</small><strong>{nearbyNode.title}</strong></div>
+          <button type="button" onClick={() => openNode(nearbyNode.id)}>
+            {promptFor(nearbyNode.id)}<ArrowRight size={15} />
+          </button>
+        </section>
+      )}
 
-      {showPressE && nearbyId && (
-        <div className="press-e panel">
-          <kbd>E</kbd>
-          <span>{promptFor(nearbyId)}</span>
+      {!atlasOpen && (
+        <div className="cloud-world-counter" aria-hidden="true">
+          <span>{(activeIndex + 1).toString().padStart(2, '0')}</span>
+          <i />
+          <span>{COURSE_WORLDS.length.toString().padStart(2, '0')}</span>
         </div>
       )}
     </div>
@@ -147,22 +188,11 @@ export function HUD({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 function promptFor(id: NodeId): string {
   const node = NODES[id]
   switch (node.action) {
-    case 'talk': return `Talk to ${node.title}`
-    case 'open_lesson': return `Open lesson · ${node.title}`
-    case 'open_lab': return `Enter lab · ${node.title}`
-    case 'open_quiz': return `Attempt · ${node.title}`
-    case 'unlock_bridge':
-      return id === 'champion'
-        ? 'Claim the champion’s crown'
-        : id === 'graduation'
-        ? 'Enter the Final Arena'
-        : id === 'world5-gate'
-        ? 'Pass the Garden Gate'
-        : id === 'world4-gate'
-        ? 'Cross the Policy Bridge'
-        : id === 'world3-gate'
-        ? 'Pass the Two-Tower Gate'
-        : 'Cross to Retrieval Valley'
-    default: return 'Interact'
+    case 'talk': return 'Talk'
+    case 'open_lesson': return 'Open lesson'
+    case 'open_lab': return 'Enter lab'
+    case 'open_quiz': return 'Take quiz'
+    case 'unlock_bridge': return id === 'champion' ? 'Complete course' : 'Continue'
+    default: return 'Open'
   }
 }

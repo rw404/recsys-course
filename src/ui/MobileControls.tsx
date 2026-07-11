@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { MousePointer2 } from 'lucide-react'
 import { NODES, useProgress } from '../state/progress'
 import { touchControls, resetTouchMove } from '../game/controls'
 
@@ -33,6 +34,7 @@ export function MobileControls() {
   const isMobile = useIsMobile()
   const mode = useProgress((s) => s.mode)
   const nearbyId = useProgress((s) => s.nearbyNodeId)
+  const atlasOpen = useProgress((s) => s.atlasOpen)
 
   const baseRef = useRef<HTMLDivElement>(null)
   const [thumb, setThumb] = useState({ x: 0, y: 0 })
@@ -47,7 +49,7 @@ export function MobileControls() {
     }
   }, [mode])
 
-  if (!isMobile || mode !== 'explore') return null
+  if (!isMobile || mode !== 'explore' || atlasOpen) return null
 
   const start = (e: React.PointerEvent) => {
     activePointer.current = e.pointerId
@@ -97,13 +99,14 @@ export function MobileControls() {
 
       <button
         className={`interact-btn ${prompt ? 'active' : ''}`}
+        aria-label={prompt ?? 'No nearby station'}
+        title={prompt ?? 'No nearby station'}
         onPointerDown={(e) => {
           e.preventDefault()
           if (prompt) touchControls.interactEdge = true
         }}
       >
-        <span className="ico">✦</span>
-        <span className="lbl">{prompt ?? 'Move to a station'}</span>
+        <MousePointer2 size={22} />
       </button>
     </div>
   )

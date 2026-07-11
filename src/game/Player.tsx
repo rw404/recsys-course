@@ -1,6 +1,6 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { RigidBody, CapsuleCollider, type RapierRigidBody } from '@react-three/rapier'
+import { RigidBody, CapsuleCollider, useRapier, type RapierCollider, type RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useInput } from './useInput'
 import { runtime, ATLAS_SPAWN } from './shared'
@@ -8,10 +8,9 @@ import { touchControls } from './controls'
 import { PorterGLB } from './PorterGLB'
 import { useProgress, WORLD_SPAWN, type WorldId } from '../state/progress'
 
-const WALK_SPEED = 2.2
-const RUN_SPEED = 4.2
-const ACCEL = 9 // lower = smoother ramp to speed
-const JUMP_V = 7.5
+const WALK_SPEED = 3
+const RUN_SPEED = 5.5
+const ACCEL = 12
 // Below this Y the player has fallen through the world → respawn (the island floor sits at y≈0).
 const RESPAWN_Y = -8
 // Camera-forward basis on the ground plane (camera sits behind +Z, above).
@@ -20,15 +19,17 @@ const RIGHT = new THREE.Vector3(1, 0, 0)
 
 export function Player() {
   const body = useRef<RapierRigidBody>(null)
+  const collider = useRef<RapierCollider>(null)
   const visual = useRef<THREE.Group>(null)
   const input = useInput()
+  const { world: physicsWorld } = useRapier()
+  const controller = useRef<ReturnType<typeof physicsWorld.createCharacterController> | null>(null)
 
   const desired = useRef(new THREE.Vector3())
   const current = useRef(new THREE.Vector3())
   const world = useRef<WorldId>(useProgress.getState().currentWorld)
   const atlasBefore = useRef(useProgress.getState().atlasOpen)
   // click-to-move bookkeeping
-  const stuckTime = useRef(0) // how long we've wanted to move but been blocked (→ auto-hop)
   const stallTime = useRef(0) // how long a click-move has made no progress (→ give up)
   const lastDist = useRef(Infinity)
   const prevTarget = useRef<THREE.Vector3 | null>(null)
@@ -38,8 +39,22 @@ export function Player() {
   // real one to avoid a duplicate character in frame.
   const hideVisual = mode === 'study'
 
+  useEffect(() => {
+    const characterController = physicsWorld.createCharacterController(0.03)
+    characterController.setSlideEnabled(true)
+    characterController.enableAutostep(0.38, 0.18, false)
+    characterController.enableSnapToGround(0.32)
+    controller.current = characterController
+    return () => {
+      controller.current = null
+      physicsWorld.removeCharacterController(characterController)
+    }
+  }, [physicsWorld])
+
   useFrame((_, dtRaw) => {
-    const dt = Math.min(dtRaw, 0.05)
+    // Kinematic collision queries remain stable with a larger frame cap, and low-FPS devices no
+    // longer experience the severe slow-motion caused by the old 50ms clamp.
+    const dt = Math.min(dtRaw, 0.15)
     const rb = body.current
     if (!rb) return
 
@@ -47,7 +62,6 @@ export function Player() {
     // toggle, and by the fall-through safety net below).
     const placeAt = (sx: number, sy: number, sz: number) => {
       rb.setTranslation({ x: sx, y: sy, z: sz }, true)
-      rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
       runtime.playerPosition.set(sx, sy, sz)
       runtime.moveTarget = null // don't chase a target from the old region
       runtime.cameraSkip = true
@@ -133,40 +147,28 @@ export function Player() {
     // smooth toward desired (feels responsive but not twitchy)
     current.current.lerp(desired.current, 1 - Math.exp(-ACCEL * dt))
 
-    const linvel = rb.linvel()
-    let vy = linvel.y
-    // jump when grounded (resting → |vy| small). Also honours the mobile jump button.
-    const grounded = Math.abs(linvel.y) < 1.2
-    const wantsJump = inp.jumpPressed || touchControls.jumpEdge
+    // The course has no platforming. Consume stale jump edges without applying vertical impulses.
     inp.jumpPressed = false
     touchControls.jumpEdge = false
 
-    // auto-hop: if we want to move but are blocked (near-zero actual speed while grounded), jump so
-    // click-to-move / walking doesn't get stuck on a ledge or small obstacle.
-    const wantMove = desired.current.lengthSq() > 0.25
-    const actualPlanar = Math.hypot(linvel.x, linvel.z)
-    let autoJump = false
-    if (!frozen && wantMove && grounded && actualPlanar < 0.6) {
-      stuckTime.current += dt
-      if (stuckTime.current > 0.25) {
-        autoJump = true
-        stuckTime.current = 0
-      }
-    } else {
-      stuckTime.current = 0
+    // Rapier's kinematic controller resolves the requested delta against the world and slides the
+    // capsule along obstacles. This is deterministic for keyboard, touch and click-to-move alike.
+    const translation = rb.translation()
+    let movement = { x: current.current.x * dt, y: -0.08, z: current.current.z * dt }
+    if (controller.current && collider.current) {
+      controller.current.computeColliderMovement(collider.current, movement)
+      movement = controller.current.computedMovement()
     }
+    const nextPosition = {
+      x: translation.x + movement.x,
+      y: translation.y + movement.y,
+      z: translation.z + movement.z,
+    }
+    rb.setNextKinematicTranslation(nextPosition)
 
-    // No player-facing JUMP (the design brief: no jumps / platforming). We keep only the invisible
-    // auto-hop so click-to-move can never get permanently stuck on a ledge. `wantsJump` is still
-    // consumed above so the key does nothing rather than buffering.
-    void wantsJump
-    if (!frozen && !atlas && autoJump && grounded) vy = JUMP_V
-    rb.setLinvel({ x: current.current.x, y: vy, z: current.current.z }, true)
-
-    // publish position + speed for camera, stations and the character animator
-    const t = rb.translation()
-    runtime.playerPosition.set(t.x, t.y, t.z)
-    const planarSpeed = Math.hypot(current.current.x, current.current.z)
+    // Publish the scheduled position + actual resolved speed for camera, stations and animation.
+    runtime.playerPosition.set(nextPosition.x, nextPosition.y, nextPosition.z)
+    const planarSpeed = Math.hypot(movement.x, movement.z) / Math.max(dt, 0.001)
     runtime.playerSpeed = planarSpeed
 
     // Face the movement direction. The model's native front is +Z and PorterGLB adds a
@@ -182,17 +184,15 @@ export function Player() {
   return (
     <RigidBody
       ref={body}
+      type="kinematicPosition"
       position={[runtime.playerPosition.x, runtime.playerPosition.y, runtime.playerPosition.z]}
       colliders={false}
-      mass={1}
-      linearDamping={0.9}
       enabledRotations={[false, false, false]}
-      canSleep={false}
     >
       {/* frictionless: the character is velocity-controlled (we set linvel every frame), so we
           don't want wall/floor friction — it would stick the player to obstacles and, crucially,
           kill the upward jump velocity when pressed against a wall (breaking the auto-hop). */}
-      <CapsuleCollider args={[0.45, 0.42]} friction={0} />
+      <CapsuleCollider ref={collider} args={[0.45, 0.42]} friction={0} />
       <group ref={visual} visible={!hideVisual}>
         <PorterGLB />
       </group>
