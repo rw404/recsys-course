@@ -1,4 +1,5 @@
 import {
+  BaseEdge,
   Background,
   BackgroundVariant,
   Controls,
@@ -13,6 +14,7 @@ import {
   useNodesState,
   type Connection,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
   type ReactFlowInstance,
@@ -48,6 +50,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -65,6 +68,7 @@ import {
   type SystemTemplate,
   type SystemTemplateId,
 } from '../data/systemTemplates'
+import { IsoModuleFigure } from './isoIcons'
 import {
   PIPELINE_MODULES,
   simulatePipeline,
@@ -78,6 +82,8 @@ import {
 type RunState = 'idle' | 'queued' | 'active' | 'complete' | 'error'
 type RunStatus = 'ready' | 'dirty' | 'running' | 'complete' | 'error'
 type MobileTab = 'graph' | 'modules' | 'slate'
+type LayoutMode = 'diagram' | 'isometric'
+type NodePositionMap = Record<string, { x: number; y: number }>
 
 interface BuilderNodeData extends Record<string, unknown> {
   moduleType: PipelineModuleType
@@ -90,6 +96,7 @@ type BuilderNode = Node<BuilderNodeData, 'systemModule'>
 type BuilderEdge = Edge<Record<string, unknown>>
 
 const NODE_TYPES = { systemModule: SystemModuleNode }
+const EDGE_TYPES = { isometric: IsometricEdge }
 const FAMILY_ORDER: ModuleFamily[] = ['data', 'retrieval', 'control', 'ranking', 'evaluation', 'output']
 const FAMILY_LABELS: Record<ModuleFamily, string> = {
   data: 'Data',
@@ -123,9 +130,12 @@ const MODULE_ICONS: Record<PipelineModuleType, LucideIcon> = {
   output: Film,
 }
 
+const INITIAL_LAYOUT_MODE: LayoutMode = 'isometric'
 const initialTemplate = SYSTEM_TEMPLATES.hybrid
-const initialNodes = nodesFromTemplate(initialTemplate)
-const initialEdges = edgesFromTemplate(initialTemplate)
+const initialDiagramNodes = nodesFromTemplate(initialTemplate)
+const initialEdges = edgesFromTemplate(initialTemplate, INITIAL_LAYOUT_MODE)
+const initialIsoPositions = createIsometricLayout(initialDiagramNodes, initialEdges)
+const initialNodes = applyNodePositions(initialDiagramNodes, initialIsoPositions)
 const initialResult = simulatePipeline('u104', specsFromNodes(initialNodes), specsFromEdges(initialEdges))
 
 export function SystemBuilder({ onClose }: { onClose: () => void }) {
@@ -141,6 +151,10 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const timers = useRef<number[]>([])
   const nodeCounter = useRef(0)
   const hasAnimatedInitial = useRef(false)
+  const positionsByMode = useRef<Record<LayoutMode, NodePositionMap>>({
+    diagram: positionsFromNodes(initialDiagramNodes),
+    isometric: initialIsoPositions,
+  })
   const [flow, setFlow] = useState<ReactFlowInstance<BuilderNode, BuilderEdge> | null>(null)
   const [nodes, setNodes, onNodesChange] = useNodesState<BuilderNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<BuilderEdge>(initialEdges)
@@ -152,6 +166,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [runStatus, setRunStatus] = useState<RunStatus>('ready')
   const [mobileTab, setMobileTab] = useState<MobileTab>('graph')
   const [traceSpeed, setTraceSpeed] = useState<1 | 2>(2)
+  const [viewMode, setViewMode] = useState<LayoutMode>(INITIAL_LAYOUT_MODE)
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
   const clearTimers = useCallback(() => {
@@ -256,21 +271,81 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     return () => window.clearTimeout(timer)
   }, [edges, nodes, runStatus, viewerId])
 
+  // A stable signature of the graph *topology* (which nodes exist + how they wire
+  // together) — deliberately ignores node positions so that manual drags never
+  // trigger a relayout, only structural edits do.
+  const topologySignature = useMemo(() => {
+    const nodeKey = nodes.map((node) => node.id).sort().join('|')
+    const edgeKey = edges.map((edge) => `${edge.source}>${edge.target}`).sort().join('|')
+    return `${nodeKey}::${edgeKey}`
+  }, [nodes, edges])
+  const lastTopology = useRef(topologySignature)
+
+  // In isometric mode the graph *is* the diorama: whenever the wiring changes
+  // (module added, connected, or removed) re-flow the isometric layers so the
+  // scene visibly reacts to the edit instead of ignoring it.
+  useEffect(() => {
+    if (viewMode !== 'isometric') {
+      lastTopology.current = topologySignature
+      return
+    }
+    if (lastTopology.current === topologySignature) return
+    lastTopology.current = topologySignature
+    const layout = createIsometricLayout(nodes, edges)
+    if (!Object.keys(layout).length) return
+    positionsByMode.current.isometric = layout
+    setNodes((current) => applyNodePositions(current, layout))
+    const timer = window.setTimeout(() => {
+      if (flow) focusLayoutView(flow, templateId, 'isometric', 420)
+    }, 60)
+    timers.current.push(timer)
+  }, [topologySignature, viewMode, nodes, edges, flow, setNodes, templateId])
+
   const loadTemplate = useCallback((id: SystemTemplateId) => {
     const template = SYSTEM_TEMPLATES[id]
-    const nextNodes = nodesFromTemplate(template)
-    const nextEdges = edgesFromTemplate(template)
+    const diagramNodes = nodesFromTemplate(template)
+    const nextEdges = edgesFromTemplate(template, viewMode)
+    const isometricPositions = createIsometricLayout(diagramNodes, nextEdges)
+    positionsByMode.current = {
+      diagram: positionsFromNodes(diagramNodes),
+      isometric: isometricPositions,
+    }
+    const nextNodes = viewMode === 'isometric'
+      ? applyNodePositions(diagramNodes, isometricPositions)
+      : diagramNodes
     setTemplateId(id)
     setNodes(nextNodes)
     setEdges(nextEdges)
     setSelectedNodeId(nextNodes.find((node) => node.data.moduleType === 'blend')?.id ?? nextNodes[0]?.id ?? null)
     setRunStatus('ready')
     const timer = window.setTimeout(() => {
-      if (flow) focusTemplateView(flow, id, 480)
+      if (flow) focusLayoutView(flow, id, viewMode, 480)
       animateRun(nextNodes, nextEdges, viewerId)
     }, 80)
     timers.current.push(timer)
-  }, [animateRun, flow, setEdges, setNodes, viewerId])
+  }, [animateRun, flow, setEdges, setNodes, viewerId, viewMode])
+
+  const switchViewMode = useCallback((nextMode: LayoutMode) => {
+    if (nextMode === viewMode) return
+    positionsByMode.current[viewMode] = positionsFromNodes(nodes)
+    const stored = positionsByMode.current[nextMode]
+    const hasEveryPosition = nodes.every((node) => stored[node.id])
+    const computed = nextMode === 'isometric'
+      ? createIsometricLayout(nodes, edges)
+      : positionsFromNodes(nodes)
+    const nextPositions = hasEveryPosition ? stored : { ...computed, ...stored }
+    positionsByMode.current[nextMode] = nextPositions
+    setViewMode(nextMode)
+    setNodes((current) => applyNodePositions(current, nextPositions))
+    setEdges((current) => current.map((edge) => ({
+      ...edge,
+      type: edgeTypeForMode(nextMode),
+    })))
+    const timer = window.setTimeout(() => {
+      if (flow) focusLayoutView(flow, templateId, nextMode, 460)
+    }, 70)
+    timers.current.push(timer)
+  }, [edges, flow, nodes, setEdges, setNodes, templateId, viewMode])
 
   const markDirty = useCallback(() => {
     setRunStatus('dirty')
@@ -304,11 +379,12 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
         runState: 'idle',
       },
     }
+    positionsByMode.current[viewMode][id] = { ...node.position }
     setNodes((current) => [...current, node])
     setSelectedNodeId(id)
     setMobileTab('graph')
     setRunStatus('dirty')
-  }, [flow, setNodes])
+  }, [flow, setNodes, viewMode])
 
   const removeSelectedNode = useCallback(() => {
     if (!selectedNodeId) return
@@ -322,12 +398,12 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     setEdges((current) => addEdge({
       ...connection,
       id: `${connection.source}-${connection.target}-${Date.now()}`,
-      type: 'smoothstep',
+      type: edgeTypeForMode(viewMode),
       markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#8b7cff' },
       className: 'foundry-edge',
     }, current))
     markDirty()
-  }, [markDirty, setEdges])
+  }, [markDirty, setEdges, viewMode])
 
   const isValidConnection = useCallback((connection: Connection | BuilderEdge) => {
     const source = connection.source
@@ -366,7 +442,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="system-builder-overlay" role="dialog" aria-modal="true" aria-label="RecSys Foundry">
-      <div className="system-builder" data-mobile-tab={mobileTab}>
+      <div className="system-builder" data-mobile-tab={mobileTab} data-view-mode={viewMode}>
         <FoundryHeader
           viewerId={viewerId}
           templateId={templateId}
@@ -392,31 +468,35 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
               nodes={nodes}
               edges={edges}
               nodeTypes={NODE_TYPES}
+              edgeTypes={EDGE_TYPES}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              onNodeDragStop={(_, node) => {
+                positionsByMode.current[viewMode][node.id] = { ...node.position }
+              }}
               onConnect={onConnect}
               isValidConnection={isValidConnection}
               onInit={(instance) => {
                 setFlow(instance)
-                window.setTimeout(() => focusTemplateView(instance, templateId, 420), 80)
+                window.setTimeout(() => focusLayoutView(instance, templateId, viewMode, 420), 80)
               }}
               onNodeClick={(_, node) => setSelectedNodeId(node.id)}
               onPaneClick={() => setSelectedNodeId(null)}
               minZoom={0.34}
               maxZoom={1.65}
               defaultEdgeOptions={{
-                type: 'smoothstep',
+                type: edgeTypeForMode(viewMode),
                 markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#8b7cff' },
                 className: 'foundry-edge',
               }}
               colorMode="light"
               deleteKeyCode={['Backspace', 'Delete']}
             >
-              <Background variant={BackgroundVariant.Dots} gap={18} size={1.15} color="#38517d" />
+              {viewMode === 'diagram' && <Background variant={BackgroundVariant.Dots} gap={18} size={1.15} color="#aac2c5" />}
               <Controls showInteractive={false} />
               <MiniMap
                 nodeColor={(node) => FAMILY_COLORS[(node.data as BuilderNodeData).moduleType ? PIPELINE_MODULES[(node.data as BuilderNodeData).moduleType].family : 'data']}
-                maskColor="rgba(4, 13, 31, 0.78)"
+                maskColor="rgba(229, 239, 239, 0.82)"
                 pannable
                 zoomable
               />
@@ -424,6 +504,9 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
             <button type="button" className="foundry-fit-button" onClick={() => flow?.fitView({ padding: 0.16, duration: 380 })} aria-label="Fit graph" title="Fit graph">
               <Maximize2 size={16} />
             </button>
+            <div className="foundry-canvas-view-toggle">
+              <FoundryViewToggle viewMode={viewMode} onChange={switchViewMode} />
+            </div>
             <div className="foundry-canvas-status" aria-live="polite">
               <span className={`status-dot status-${runStatus}`} />
               <span>{statusLabel(runStatus)}</span>
@@ -504,6 +587,39 @@ function FoundryHeader({
       <button type="button" className="foundry-reset" onClick={onReset} aria-label="Reset template" title="Reset template"><RefreshCw size={16} /></button>
       <button type="button" className="foundry-close" onClick={onClose} aria-label="Close Foundry" title="Close Foundry"><X size={19} /></button>
     </header>
+  )
+}
+
+function FoundryViewToggle({
+  viewMode,
+  onChange,
+  compact = false,
+}: {
+  viewMode: LayoutMode
+  onChange: (mode: LayoutMode) => void
+  compact?: boolean
+}) {
+  return (
+    <div className={`foundry-view-toggle${compact ? ' is-compact' : ''}`} role="group" aria-label="Graph layout">
+      <button
+        type="button"
+        className={viewMode === 'diagram' ? 'is-active' : ''}
+        onClick={() => onChange('diagram')}
+        aria-pressed={viewMode === 'diagram'}
+        title="Diagram view"
+      >
+        <Network size={13} /><span>Diagram</span>
+      </button>
+      <button
+        type="button"
+        className={viewMode === 'isometric' ? 'is-active' : ''}
+        onClick={() => onChange('isometric')}
+        aria-pressed={viewMode === 'isometric'}
+        title="Isometric view"
+      >
+        <Boxes size={13} /><span>Isometric</span>
+      </button>
+    </div>
   )
 }
 
@@ -823,16 +939,21 @@ function MetricCell({ label, value, color }: { label: string; value: number; col
   )
 }
 
-function SystemModuleNode({ data, selected }: NodeProps<BuilderNode>) {
+function SystemModuleNode({ id, data, selected }: NodeProps<BuilderNode>) {
   const definition = PIPELINE_MODULES[data.moduleType]
   const Icon = MODULE_ICONS[data.moduleType]
   const trace = data.trace
+  // A stable per-node phase so the floating diorama breathes out of sync
+  // (each block bobs on its own offset instead of pulsing in lockstep).
+  const phase = -(hashPhase(id) * 3.6)
   return (
     <div
       className={`system-module-node family-${definition.family} run-${data.runState}${selected ? ' is-selected' : ''}`}
-      style={{ '--family-color': FAMILY_COLORS[definition.family] } as CSSProperties}
+      style={{ '--family-color': FAMILY_COLORS[definition.family], '--iso-phase': `${phase.toFixed(2)}s` } as CSSProperties}
     >
       {definition.acceptsInput && <Handle type="target" position={Position.Left} className="system-handle" />}
+
+      {/* Diagram-mode face: the flat information card. */}
       <header><span><Icon size={15} /></span><div><small>{FAMILY_LABELS[definition.family]}</small><strong>{definition.shortLabel}</strong></div><i /></header>
       <div className="system-node-flow">
         <span><small>IN</small><strong>{trace?.inputCount ?? '—'}</strong></span>
@@ -840,6 +961,20 @@ function SystemModuleNode({ data, selected }: NodeProps<BuilderNode>) {
         <span><small>OUT</small><strong>{trace?.outputCount ?? '—'}</strong></span>
       </div>
       <footer><span>{trace ? `${trace.latencyMs} ms` : 'not traced'}</span><strong>{data.runState === 'error' ? 'check input' : data.runState === 'active' ? 'processing' : data.runState === 'complete' ? 'ready' : 'idle'}</strong></footer>
+
+      {/* Isometric-mode form: a detailed isoflow-style device figure that gently
+          levitates over a breathing shadow, with a label under it and a trace
+          chip above. Each module type is its own little 3D machine. */}
+      <span className="iso-shadow" aria-hidden="true" />
+      <div className="system-iso-cube" aria-hidden="true">
+        <IsoModuleFigure type={data.moduleType} />
+      </div>
+      <div className="system-iso-plate"><strong>{definition.shortLabel}</strong><small>{FAMILY_LABELS[definition.family]}</small></div>
+      <div className="system-iso-trace">
+        <span><small>IN</small><b>{trace?.inputCount ?? '—'}</b></span>
+        <span><small>OUT</small><b>{trace?.outputCount ?? '—'}</b></span>
+      </div>
+
       {definition.emitsOutput && <Handle type="source" position={Position.Right} className="system-handle" />}
     </div>
   )
@@ -861,13 +996,169 @@ function nodesFromTemplate(template: SystemTemplate): BuilderNode[] {
   })
 }
 
-function edgesFromTemplate(template: SystemTemplate): BuilderEdge[] {
+function edgesFromTemplate(template: SystemTemplate, mode: LayoutMode): BuilderEdge[] {
   return template.edges.map((edge) => ({
     ...edge,
-    type: 'smoothstep',
+    type: edgeTypeForMode(mode),
     markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#8b7cff' },
     className: 'foundry-edge',
   }))
+}
+
+function edgeTypeForMode(mode: LayoutMode): 'smoothstep' | 'isometric' {
+  return mode === 'isometric' ? 'isometric' : 'smoothstep'
+}
+
+function positionsFromNodes(nodes: BuilderNode[]): NodePositionMap {
+  return Object.fromEntries(nodes.map((node) => [node.id, { ...node.position }]))
+}
+
+function applyNodePositions(nodes: BuilderNode[], positions: NodePositionMap): BuilderNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    position: positions[node.id] ? { ...positions[node.id] } : { ...node.position },
+  }))
+}
+
+function createIsometricLayout(nodes: BuilderNode[], edges: BuilderEdge[]): NodePositionMap {
+  if (!nodes.length) return {}
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  const validEdges = edges.filter((edge) => nodeById.has(edge.source) && nodeById.has(edge.target))
+  const outgoing = new Map<string, BuilderEdge[]>()
+  const indegree = new Map(nodes.map((node) => [node.id, 0]))
+  const minOriginalX = Math.min(...nodes.map((node) => node.position.x))
+  const layers = new Map(nodes.map((node) => [
+    node.id,
+    Math.max(0, Math.round((node.position.x - minOriginalX) / 230)),
+  ]))
+
+  for (const edge of validEdges) {
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge])
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1)
+  }
+
+  const queue = nodes
+    .filter((node) => (indegree.get(node.id) ?? 0) === 0)
+    .sort((a, b) => a.position.x - b.position.x)
+    .map((node) => node.id)
+  const visited = new Set<string>()
+
+  while (queue.length) {
+    const id = queue.shift()!
+    visited.add(id)
+    for (const edge of outgoing.get(id) ?? []) {
+      layers.set(edge.target, Math.max(layers.get(edge.target) ?? 0, (layers.get(id) ?? 0) + 1))
+      const nextIndegree = (indegree.get(edge.target) ?? 1) - 1
+      indegree.set(edge.target, nextIndegree)
+      if (nextIndegree === 0) queue.push(edge.target)
+    }
+  }
+
+  const grouped = new Map<number, BuilderNode[]>()
+  for (const node of nodes) {
+    const layer = layers.get(node.id) ?? (visited.has(node.id) ? 0 : Math.round(node.position.x / 230))
+    grouped.set(layer, [...(grouped.get(layer) ?? []), node])
+  }
+
+  const rawPositions: NodePositionMap = {}
+  for (const [layer, group] of grouped) {
+    const ordered = [...group].sort((a, b) => a.position.y - b.position.y)
+    const center = (ordered.length - 1) / 2
+    ordered.forEach((node, index) => {
+      const branchOffset = index - center
+      // Isometric axes at a 2:1 ratio: the pipeline marches down-right one tile
+      // per layer, and parallel branches fan out along the down-left axis so the
+      // cube pedestals sit on the grid without overlapping.
+      rawPositions[node.id] = {
+        x: layer * 204 - branchOffset * 140,
+        y: layer * 94 + branchOffset * 96,
+      }
+    })
+  }
+
+  const minX = Math.min(...Object.values(rawPositions).map((position) => position.x))
+  const minY = Math.min(...Object.values(rawPositions).map((position) => position.y))
+  return Object.fromEntries(Object.entries(rawPositions).map(([id, position]) => [
+    id,
+    { x: position.x - minX + 54, y: position.y - minY + 54 },
+  ]))
+}
+
+// Route an edge along the true isometric ground axes, isoflow-style.
+// Any displacement decomposes uniquely into a*e1 + b*e2 where
+// e1 = (cos30, +sin30) runs down-right and e2 = (cos30, -sin30) runs up-right,
+// giving a single rounded elbow whose both segments hug the floor grid.
+const ISO_COS = 0.8660254
+const ISO_SIN = 0.5
+
+function IsometricEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  markerEnd,
+  markerStart,
+  style,
+}: EdgeProps) {
+  const dx = targetX - sourceX
+  const dy = targetY - sourceY
+  const a = dx / (2 * ISO_COS) + dy / (2 * ISO_SIN)
+  const b = dx / (2 * ISO_COS) - dy / (2 * ISO_SIN)
+  const e1 = (t: number): [number, number] => [t * ISO_COS, t * ISO_SIN]
+  const e2 = (t: number): [number, number] => [t * ISO_COS, -t * ISO_SIN]
+
+  let path: string
+  if (Math.abs(a) < 6 || Math.abs(b) < 6) {
+    // Nearly a pure iso segment already — draw it straight.
+    path = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`
+  } else {
+    // Walk the iso grid: short displacements take one elbow; long ones split
+    // the dominant axis in half into a Z so the route stays near the nodes.
+    const splitLong = Math.max(Math.abs(a), Math.abs(b)) * ISO_COS > 150
+    const steps: Array<[number, number]> =
+      Math.abs(a) >= Math.abs(b)
+        ? splitLong ? [e1(a / 2), e2(b), e1(a / 2)] : [e1(a), e2(b)]
+        : splitLong ? [e2(b / 2), e1(a), e2(b / 2)] : [e2(b), e1(a)]
+    const points: Array<[number, number]> = [[sourceX, sourceY]]
+    for (const [stepX, stepY] of steps) {
+      const [lastX, lastY] = points[points.length - 1]
+      points.push([lastX + stepX, lastY + stepY])
+    }
+    path = roundedIsoPath(points, 13)
+  }
+
+  return (
+    <BaseEdge
+      id={id}
+      path={path}
+      markerStart={markerStart}
+      markerEnd={markerEnd}
+      style={style}
+      interactionWidth={18}
+    />
+  )
+}
+
+// Polyline -> SVG path with small quadratic fillets at every interior corner.
+function roundedIsoPath(points: Array<[number, number]>, radius: number): string {
+  let d = `M ${points[0][0]} ${points[0][1]}`
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const [px, py] = points[i - 1]
+    const [cx, cy] = points[i]
+    const [nx, ny] = points[i + 1]
+    const inLen = Math.hypot(cx - px, cy - py)
+    const outLen = Math.hypot(nx - cx, ny - cy)
+    const r = Math.min(radius, inLen / 2, outLen / 2)
+    const inX = cx - ((cx - px) / inLen) * r
+    const inY = cy - ((cy - py) / inLen) * r
+    const outX = cx + ((nx - cx) / outLen) * r
+    const outY = cy + ((ny - cy) / outLen) * r
+    d += ` L ${inX} ${inY} Q ${cx} ${cy} ${outX} ${outY}`
+  }
+  const [lastX, lastY] = points[points.length - 1]
+  return `${d} L ${lastX} ${lastY}`
 }
 
 function specsFromNodes(nodes: BuilderNode[]) {
@@ -892,6 +1183,15 @@ function formatFieldValue(value: number, step?: number): string {
   return step && step < 1 ? value.toFixed(step < 0.1 ? 2 : 1) : String(value)
 }
 
+// Deterministic 0..1 from a node id — used to phase-offset the float animation.
+function hashPhase(id: string): number {
+  let hash = 0
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) % 100000
+  }
+  return (hash % 1000) / 1000
+}
+
 function focusTemplateView(
   instance: ReactFlowInstance<BuilderNode, BuilderEdge>,
   templateId: SystemTemplateId,
@@ -900,4 +1200,26 @@ function focusTemplateView(
   const mobile = window.innerWidth <= 820
   const zoom = mobile ? 0.72 : templateId === 'fast' || templateId === 'blank' ? 0.76 : 0.68
   instance.setViewport({ x: mobile ? 18 : 34, y: mobile ? 165 : 82, zoom }, { duration })
+}
+
+function focusLayoutView(
+  instance: ReactFlowInstance<BuilderNode, BuilderEdge>,
+  templateId: SystemTemplateId,
+  mode: LayoutMode,
+  duration: number,
+) {
+  if (mode === 'isometric') {
+    const mobile = window.innerWidth <= 820
+    if (mobile) {
+      instance.setViewport({ x: 22, y: 148, zoom: 0.44 }, { duration })
+      return
+    }
+    instance.fitView({
+      padding: 0.1,
+      duration,
+      maxZoom: 0.92,
+    })
+    return
+  }
+  focusTemplateView(instance, templateId, duration)
 }

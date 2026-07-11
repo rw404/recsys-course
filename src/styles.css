@@ -5301,3 +5301,919 @@ body {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Foundry: Diagram / Isometric layout switch + live-reactive feedback
+   ========================================================================== */
+
+/* --- Layout toggle (segmented control, lives on the canvas top-left) ------ */
+.foundry-canvas-view-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 6;
+}
+
+.foundry-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(127, 149, 211, 0.24);
+  border-radius: 9px;
+  background: rgba(9, 22, 44, 0.86);
+  box-shadow: 0 10px 26px rgba(0, 6, 22, 0.32);
+  backdrop-filter: blur(10px);
+}
+
+.foundry-view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  color: #9db0d6;
+  background: transparent;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.foundry-view-toggle button:hover {
+  color: #eef3ff;
+  background: rgba(114, 88, 245, 0.16);
+}
+
+.foundry-view-toggle button.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6d59ed, #8b7bff);
+  box-shadow: 0 6px 16px rgba(109, 89, 237, 0.42);
+}
+
+.foundry-view-toggle.is-compact button span {
+  display: none;
+}
+
+/* --- Node glide: relayouts on graph edits animate into place ------------- */
+.system-builder[data-view-mode="isometric"] .react-flow__node {
+  transition: transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.system-builder[data-view-mode="isometric"] .react-flow__node.dragging {
+  transition: none;
+}
+
+/* --- Isometric ground: isoflow-style diamond grid + horizon vignette ----- */
+.system-builder[data-view-mode="isometric"] .foundry-canvas,
+.system-builder[data-view-mode="isometric"] .foundry-canvas .react-flow,
+.system-builder[data-view-mode="isometric"] .foundry-canvas .react-flow__pane {
+  background-color: #071b34;
+  background-image:
+    radial-gradient(130% 100% at 50% -18%, rgba(96, 128, 205, 0.18), transparent 62%),
+    repeating-linear-gradient(26.57deg, rgba(128, 160, 232, 0.10) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(-26.57deg, rgba(128, 160, 232, 0.10) 0 1px, transparent 1px 44px);
+}
+
+/* --- Isometric module: the node becomes a floating low-poly 3D figure ----- */
+/* The isometric furniture is only ever shown in isometric mode. */
+.system-iso-cube,
+.system-iso-plate,
+.system-iso-trace,
+.iso-shadow {
+  display: none;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node {
+  width: 164px;
+  height: 150px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node:hover,
+.system-builder[data-view-mode="isometric"] .system-module-node.is-selected {
+  box-shadow: none;
+}
+
+/* Hide the flat information card — its data lives on the block + inspector. */
+.system-builder[data-view-mode="isometric"] .system-module-node > header,
+.system-builder[data-view-mode="isometric"] .system-module-node > .system-node-flow,
+.system-builder[data-view-mode="isometric"] .system-module-node > footer {
+  display: none;
+}
+
+/* A soft ground shadow the figure floats over — breathes with the bob. */
+.system-builder[data-view-mode="isometric"] .iso-shadow {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 116px;
+  width: 116px;
+  height: 30px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 6, 20, 0.55), transparent 78%);
+  filter: blur(2px);
+  pointer-events: none;
+  animation: iso-shadow-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--iso-phase, 0s);
+}
+
+/* The figure wrapper — a detailed isometric device SVG that gently levitates. */
+.system-builder[data-view-mode="isometric"] .system-iso-cube {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 164px;
+  height: 150px;
+  filter: drop-shadow(0 16px 15px rgba(0, 5, 20, 0.4));
+  animation: iso-bob 3.6s ease-in-out infinite;
+  animation-delay: var(--iso-phase, 0s);
+  will-change: transform;
+}
+
+.system-builder[data-view-mode="isometric"] .iso-figure-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.system-builder[data-view-mode="isometric"] .iso-face {
+  position: absolute;
+  inset: 0;
+}
+
+.system-builder[data-view-mode="isometric"] .iso-top {
+  clip-path: polygon(50% 0%, 100% 34.7%, 50% 69.5%, 0% 34.7%);
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--family-color) 96%, #ffffff),
+    color-mix(in srgb, var(--family-color) 68%, #16305a));
+  overflow: hidden;
+}
+
+/* A slow light sheen sweeping the top face keeps the figure alive. */
+.system-builder[data-view-mode="isometric"] .iso-sheen {
+  position: absolute;
+  inset: -40% -10%;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.5) 50%, transparent 58%);
+  transform: translateX(-60%);
+  animation: iso-sheen-sweep 4.8s ease-in-out infinite;
+  animation-delay: var(--iso-phase, 0s);
+}
+
+.system-builder[data-view-mode="isometric"] .iso-left {
+  clip-path: polygon(0% 34.7%, 50% 69.5%, 50% 100%, 0% 65.3%);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--family-color) 52%, #0a1a30),
+    color-mix(in srgb, var(--family-color) 34%, #050f1e));
+}
+
+.system-builder[data-view-mode="isometric"] .iso-right {
+  clip-path: polygon(50% 69.5%, 100% 34.7%, 100% 65.3%, 50% 100%);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--family-color) 34%, #071223),
+    color-mix(in srgb, var(--family-color) 20%, #030a15));
+}
+
+/* The icon rides upright on the top face and gently turns in 3D. */
+.system-builder[data-view-mode="isometric"] .iso-crown {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  left: 50%;
+  top: 41px;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -62%);
+  transform-style: preserve-3d;
+  border-radius: 11px;
+  color: #ffffff;
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--family-color) 92%, #ffffff),
+    color-mix(in srgb, var(--family-color) 74%, #0c1c38));
+  box-shadow: 0 10px 18px rgba(0, 6, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  animation: iso-crown-turn 5.2s ease-in-out infinite;
+  animation-delay: var(--iso-phase, 0s);
+}
+
+/* Selection / hover: a bright rim traced along the top diamond. */
+.system-builder[data-view-mode="isometric"] .system-module-node:hover .iso-top,
+.system-builder[data-view-mode="isometric"] .system-module-node.is-selected .iso-top {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+/* Upright label plate under the cube. */
+.system-builder[data-view-mode="isometric"] .system-iso-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  position: absolute;
+  top: 122px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-plate strong {
+  color: #eef3ff;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-plate small {
+  color: #8ea3cf;
+  font-size: 6px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* Floating IN/OUT trace chip above the cube — the live-flow read-out. */
+.system-builder[data-view-mode="isometric"] .system-iso-trace {
+  display: inline-flex;
+  gap: 8px;
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border: 1px solid rgba(127, 149, 211, 0.24);
+  border-radius: 7px;
+  background: rgba(9, 22, 44, 0.92);
+  box-shadow: 0 8px 18px rgba(0, 6, 22, 0.4);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .system-iso-trace,
+.system-builder[data-view-mode="isometric"] .system-module-node.run-complete .system-iso-trace,
+.system-builder[data-view-mode="isometric"] .system-module-node.is-selected .system-iso-trace {
+  opacity: 1;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace small {
+  color: #8ea3cf;
+  font-size: 5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace b {
+  color: #eef3ff;
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: 8px;
+}
+
+/* Run-state coloring of the block. */
+.system-builder[data-view-mode="isometric"] .system-module-node.run-queued .system-iso-cube {
+  opacity: 0.5;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .system-iso-cube {
+  filter: drop-shadow(0 26px 34px color-mix(in srgb, var(--family-color) 55%, rgba(0, 6, 22, 0.4)));
+  animation: iso-bob-active 900ms ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .iso-top {
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--family-color) 96%, #ffffff),
+    color-mix(in srgb, var(--family-color) 70%, #0e2242));
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-error .iso-top {
+  background: linear-gradient(150deg, #e2705f, #93382f);
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-error .iso-left {
+  background: #7c2f27;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-error .iso-right {
+  background: #591f1a;
+}
+
+/* Pin the connection handles exactly onto the ground-tile side vertices so
+   routes visibly plug into the device platforms (not float in space).
+   The figure's ground plane projects to y=104 with tile vertices ~28/135px. */
+.system-builder[data-view-mode="isometric"] .system-handle.react-flow__handle-left {
+  top: 99px !important;
+  left: 24px !important;
+}
+
+.system-builder[data-view-mode="isometric"] .system-handle.react-flow__handle-right {
+  top: 99px !important;
+  right: 24px !important;
+}
+
+/* Run-error tints the whole figure with a red alarm glow. */
+.system-builder[data-view-mode="isometric"] .system-module-node.run-error .system-iso-cube {
+  filter: drop-shadow(0 16px 15px rgba(0, 5, 20, 0.4)) drop-shadow(0 0 6px rgba(226, 96, 79, 0.9));
+}
+
+/* --- Isometric conduits: brighter routes reading as ground channels ------ */
+.system-builder[data-view-mode="isometric"] .foundry-edge .react-flow__edge-path {
+  stroke-width: 2.4;
+  opacity: 0.82;
+}
+
+/* --- Live reactivity: the results react the moment the graph changes ------ */
+.foundry-results.is-live-preview {
+  box-shadow: inset 0 3px 0 -1px rgba(233, 148, 46, 0.55);
+}
+
+.foundry-results.is-live-preview .foundry-slate > header em {
+  color: #ffce7a;
+  animation: foundry-preview-pulse 1200ms ease-in-out infinite;
+}
+
+.foundry-results.is-live-preview .foundry-metric-cell > i b {
+  transition: width 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes foundry-preview-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* --- Floating-figure animations (world-style low-poly life) --------------- */
+@keyframes iso-bob {
+  0%, 100% { transform: translateY(2px); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes iso-bob-active {
+  0%, 100% { transform: translateY(-4px) scale(1.02); }
+  50% { transform: translateY(-13px) scale(1.04); }
+}
+
+@keyframes iso-shadow-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1.04); opacity: 0.5; }
+  50% { transform: translateX(-50%) scale(0.82); opacity: 0.3; }
+}
+
+@keyframes iso-crown-turn {
+  0%, 100% { transform: translate(-50%, -62%) rotateY(-24deg); }
+  50% { transform: translate(-50%, -62%) rotateY(24deg); }
+}
+
+@keyframes iso-sheen-sweep {
+  0%, 62% { transform: translateX(-62%); }
+  100% { transform: translateX(62%); }
+}
+
+/* ==========================================================================
+   Foundry v3: light technical workspace
+   ========================================================================== */
+
+.system-builder-overlay,
+.foundry-loading {
+  color: #173842;
+  background: #eaf2f1;
+}
+
+.foundry-loading span {
+  border-color: rgba(17, 181, 170, 0.18);
+  border-top-color: #0fb8ad;
+}
+
+.system-builder {
+  --foundry-ink: #173842;
+  --foundry-muted: #607b84;
+  --foundry-faint: #81969c;
+  --foundry-line: rgba(31, 75, 85, 0.14);
+  background: #eaf2f1;
+}
+
+.foundry-header {
+  border-color: var(--foundry-line);
+  background: rgba(250, 252, 251, 0.98);
+  box-shadow: 0 10px 30px rgba(27, 65, 74, 0.09);
+}
+
+.foundry-brand > span {
+  color: #fff;
+  background: #6657ea;
+  box-shadow: 0 8px 20px rgba(102, 87, 234, 0.25);
+}
+
+.foundry-brand strong,
+.foundry-dataset-chip strong {
+  color: #173842;
+}
+
+.foundry-brand small,
+.foundry-select > span,
+.foundry-dataset-chip span {
+  color: #71878e;
+}
+
+.foundry-dataset-chip,
+.foundry-select select {
+  color: #536d75;
+  border-color: var(--foundry-line);
+  background-color: #fff;
+  box-shadow: 0 5px 15px rgba(34, 70, 79, 0.05);
+}
+
+.foundry-select select {
+  color: #173842;
+}
+
+.foundry-select select:focus-visible {
+  outline-color: rgba(15, 184, 173, 0.46);
+}
+
+.foundry-run {
+  color: #fff;
+  background: #6657ea;
+  box-shadow: 0 9px 22px rgba(102, 87, 234, 0.25);
+}
+
+.foundry-run:hover:not(:disabled) {
+  box-shadow: 0 12px 27px rgba(102, 87, 234, 0.34);
+}
+
+.foundry-run.status-running {
+  background: #0eafa6;
+  box-shadow: 0 9px 22px rgba(14, 175, 166, 0.24);
+}
+
+.foundry-run.status-dirty {
+  background: #e98e25;
+  box-shadow: 0 9px 22px rgba(233, 142, 37, 0.23);
+}
+
+.foundry-close,
+.foundry-reset,
+.foundry-fit-button,
+.foundry-inspector header > button {
+  color: #5f7880;
+  border-color: var(--foundry-line);
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(35, 72, 81, 0.06);
+}
+
+.foundry-close:hover,
+.foundry-reset:hover,
+.foundry-fit-button:hover,
+.foundry-inspector header > button:hover {
+  color: #5748da;
+  border-color: rgba(102, 87, 234, 0.34);
+  background: #f5f3ff;
+}
+
+.foundry-palette {
+  border-color: var(--foundry-line);
+  background: #f7faf9;
+}
+
+.foundry-palette > header {
+  border-color: var(--foundry-line);
+}
+
+.foundry-palette > header span,
+.foundry-inspector.is-empty strong,
+.foundry-inspector h2 {
+  color: #173842;
+}
+
+.foundry-palette > header strong {
+  color: #607981;
+  background: #e7efee;
+}
+
+.foundry-palette h2,
+.inspector-trace small,
+.inspector-config h3 {
+  color: #7a9198;
+}
+
+.foundry-palette-module {
+  color: #49636b;
+}
+
+.foundry-palette-module:hover {
+  color: #173842;
+  border-color: color-mix(in srgb, var(--family-color) 38%, #cbd9d8);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(35, 72, 81, 0.08);
+}
+
+.foundry-palette-module > span {
+  background: color-mix(in srgb, var(--family-color) 13%, #fff);
+}
+
+.foundry-palette-module > svg {
+  color: #8ca0a5;
+}
+
+.foundry-canvas,
+.foundry-canvas .react-flow,
+.foundry-canvas .react-flow__pane {
+  background-color: #edf4f3;
+}
+
+.foundry-canvas .react-flow__controls {
+  border-color: var(--foundry-line);
+  box-shadow: 0 10px 24px rgba(31, 67, 76, 0.11);
+}
+
+.foundry-canvas .react-flow__controls-button {
+  color: #58727a;
+  border-color: var(--foundry-line);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.foundry-canvas .react-flow__controls-button:hover {
+  color: #5748da;
+  background: #f5f3ff;
+}
+
+.foundry-canvas .react-flow__minimap {
+  border-color: var(--foundry-line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(31, 67, 76, 0.11);
+}
+
+.foundry-canvas .react-flow__attribution {
+  color: #789097;
+  background: rgba(237, 244, 243, 0.82);
+}
+
+.foundry-canvas-status {
+  color: #567078;
+  border-color: var(--foundry-line);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 9px 22px rgba(31, 67, 76, 0.1);
+}
+
+.foundry-canvas-status strong {
+  color: #294b54;
+  border-color: var(--foundry-line);
+}
+
+.foundry-speed {
+  color: #6153da;
+  border-color: rgba(102, 87, 234, 0.25);
+  background: rgba(102, 87, 234, 0.08);
+}
+
+.foundry-speed:hover {
+  color: #4d3fd2;
+  background: rgba(102, 87, 234, 0.14);
+}
+
+.foundry-view-toggle {
+  border-color: rgba(31, 75, 85, 0.15);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(31, 67, 76, 0.12);
+}
+
+.foundry-view-toggle button {
+  color: #667f87;
+}
+
+.foundry-view-toggle button:hover {
+  color: #4f42cc;
+  background: rgba(102, 87, 234, 0.08);
+}
+
+.foundry-view-toggle button.is-active {
+  color: #fff;
+  background: #6657ea;
+  box-shadow: 0 6px 14px rgba(102, 87, 234, 0.25);
+}
+
+.system-module-node {
+  border-color: rgba(39, 78, 88, 0.16);
+  border-top-color: var(--family-color);
+  color: #183a43;
+  background: #fff;
+  box-shadow: 0 12px 25px rgba(29, 65, 73, 0.13);
+}
+
+.system-module-node:hover,
+.system-module-node.is-selected {
+  border-color: color-mix(in srgb, var(--family-color) 58%, #fff);
+  box-shadow: 0 16px 30px rgba(29, 65, 73, 0.16), 0 0 0 2px color-mix(in srgb, var(--family-color) 22%, transparent);
+}
+
+.system-builder[data-view-mode="isometric"] .foundry-canvas,
+.system-builder[data-view-mode="isometric"] .foundry-canvas .react-flow,
+.system-builder[data-view-mode="isometric"] .foundry-canvas .react-flow__pane {
+  background-color: #edf5f3;
+  background-image:
+    linear-gradient(26.57deg, rgba(61, 99, 108, 0.12) 1px, transparent 1px),
+    linear-gradient(-26.57deg, rgba(61, 99, 108, 0.12) 1px, transparent 1px);
+  background-position: 0 0, 0 0;
+  background-size: 44px 22px;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-cube {
+  filter: drop-shadow(0 20px 18px rgba(32, 68, 76, 0.18));
+}
+
+.system-builder[data-view-mode="isometric"] .iso-shadow {
+  background: rgba(39, 75, 82, 0.16);
+  filter: blur(5px);
+}
+
+.system-builder[data-view-mode="isometric"] .iso-top {
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--family-color) 49%, #fff),
+    color-mix(in srgb, var(--family-color) 66%, #dbe8e6));
+}
+
+.system-builder[data-view-mode="isometric"] .iso-left {
+  background: color-mix(in srgb, var(--family-color) 46%, #9db2b5);
+}
+
+.system-builder[data-view-mode="isometric"] .iso-right {
+  background: color-mix(in srgb, var(--family-color) 34%, #718b91);
+}
+
+.system-builder[data-view-mode="isometric"] .iso-crown {
+  color: #fff;
+  background: color-mix(in srgb, var(--family-color) 82%, #314e58);
+  box-shadow: 0 8px 15px rgba(37, 71, 79, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+.system-builder[data-view-mode="isometric"] .iso-status-lamp {
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 3px 7px rgba(33, 69, 77, 0.2);
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node:hover .iso-top,
+.system-builder[data-view-mode="isometric"] .system-module-node.is-selected .iso-top {
+  filter: brightness(1.06) saturate(1.08);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.92);
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-plate strong {
+  color: #173842;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-plate small {
+  color: #71878e;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace {
+  border-color: rgba(31, 75, 85, 0.15);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(31, 67, 76, 0.12);
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace small {
+  color: #7a9097;
+}
+
+.system-builder[data-view-mode="isometric"] .system-iso-trace b {
+  color: #24464f;
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .system-iso-cube {
+  filter: drop-shadow(0 22px 24px color-mix(in srgb, var(--family-color) 36%, rgba(36, 72, 80, 0.18)));
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .iso-top {
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--family-color) 76%, #fff),
+    color-mix(in srgb, var(--family-color) 74%, #c9dcda));
+}
+
+.foundry-edge .react-flow__edge-path {
+  stroke: #7769d8;
+  opacity: 0.66;
+}
+
+.foundry-edge.is-running .react-flow__edge-path {
+  stroke: #e89129;
+  filter: drop-shadow(0 0 4px rgba(232, 145, 41, 0.35));
+}
+
+.foundry-edge.is-traced .react-flow__edge-path {
+  stroke: #0fb8ad;
+  filter: drop-shadow(0 0 4px rgba(15, 184, 173, 0.3));
+}
+
+.foundry-inspector {
+  color: #31535c;
+  border-color: var(--foundry-line);
+  background: #f8faf9;
+}
+
+.foundry-inspector.is-empty {
+  color: #789097;
+}
+
+.foundry-inspector > header,
+.foundry-inspector > p,
+.inspector-trace {
+  border-color: var(--foundry-line);
+}
+
+.inspector-icon {
+  background: color-mix(in srgb, var(--family-color) 13%, #fff);
+}
+
+.foundry-inspector > p,
+.inspector-range,
+.inspector-number,
+.inspector-toggle {
+  color: #607a82;
+}
+
+.inspector-trace > i {
+  background: #dce7e5;
+}
+
+.inspector-range input[type="range"] {
+  background: linear-gradient(90deg, var(--family-color) 0 var(--range-progress), #d9e5e3 var(--range-progress) 100%);
+}
+
+.inspector-number input,
+.inspector-static {
+  color: #23464f;
+  border-color: var(--foundry-line);
+  background: #fff;
+}
+
+.inspector-toggle i {
+  background: #c8d6d4;
+}
+
+.foundry-results {
+  border-color: var(--foundry-line);
+  background: #f1f6f5;
+}
+
+.foundry-viewer-card,
+.foundry-slate,
+.foundry-metric-cell,
+.foundry-latency {
+  background: #fff;
+}
+
+.foundry-viewer-card {
+  border-color: var(--foundry-line);
+}
+
+.foundry-viewer-card small,
+.foundry-metric-cell small,
+.foundry-latency small,
+.foundry-slate > header em {
+  color: #7c9298;
+}
+
+.foundry-viewer-card strong,
+.foundry-slate > header span {
+  color: #173842;
+}
+
+.foundry-viewer-card em,
+.foundry-viewer-card p,
+.foundry-latency {
+  color: #5d777f;
+}
+
+.foundry-viewer-card .viewer-genres i {
+  color: #087f79;
+  border-color: rgba(15, 184, 173, 0.24);
+  background: rgba(15, 184, 173, 0.08);
+}
+
+.viewer-poster {
+  border-color: #fff;
+  box-shadow: 0 4px 10px rgba(31, 67, 76, 0.15);
+}
+
+.foundry-metrics {
+  border-color: var(--foundry-line);
+  background: var(--foundry-line);
+}
+
+.foundry-metric-cell > i,
+.movie-score > i,
+.why-score-breakdown > div > i {
+  background: #dce7e5;
+}
+
+.foundry-movie-card {
+  color: #274a53;
+  border-color: rgba(31, 75, 85, 0.14);
+  background: #fbfcfc;
+  box-shadow: 0 8px 18px rgba(31, 67, 76, 0.08);
+}
+
+.foundry-movie-card:hover,
+.foundry-movie-card.is-selected {
+  box-shadow: 0 11px 24px color-mix(in srgb, var(--movie-tone) 18%, rgba(31, 67, 76, 0.12));
+}
+
+.movie-cover {
+  box-shadow: 0 8px 17px rgba(31, 67, 76, 0.18);
+}
+
+.movie-copy strong {
+  color: #173842;
+}
+
+.movie-copy small {
+  color: #7b9197;
+}
+
+.movie-copy em {
+  color: #5e7880;
+}
+
+.recommendation-why {
+  color: #31535c;
+  background: #f8faf9;
+}
+
+.recommendation-why > header small,
+.recommendation-why > footer span,
+.why-score-breakdown span em {
+  color: #7c9298;
+}
+
+.recommendation-why > header strong,
+.recommendation-why > footer b,
+.why-score-breakdown span b {
+  color: #173842;
+}
+
+.recommendation-why > header > span {
+  color: #637d85;
+}
+
+.why-source-strip > span {
+  color: #49636b;
+  background: color-mix(in srgb, var(--signal-color) 8%, #fff);
+}
+
+.why-reasons span {
+  color: #58727a;
+}
+
+.foundry-results.is-live-preview {
+  box-shadow: inset 0 3px 0 -1px rgba(232, 145, 41, 0.5);
+}
+
+.foundry-results.is-live-preview .foundry-slate > header em {
+  color: #d27b13;
+}
+
+.foundry-result-error {
+  color: #a13e31;
+  border-color: rgba(204, 76, 59, 0.27);
+  background: rgba(204, 76, 59, 0.07);
+}
+
+@media (max-width: 820px) {
+  .foundry-header,
+  .foundry-mobile-tabs {
+    border-color: var(--foundry-line);
+    background: #fafcfb;
+  }
+
+  .foundry-mobile-tabs button {
+    color: #748a91;
+  }
+
+  .foundry-mobile-tabs button.is-active {
+    color: #5143d0;
+    border-bottom-color: #0fb8ad;
+  }
+
+  .foundry-results {
+    background: #f1f6f5;
+  }
+
+  .foundry-canvas-view-toggle {
+    top: 10px;
+    left: 10px;
+  }
+}
