@@ -73,7 +73,7 @@ export function HUD({
           aria-label="Open course world map"
         >
           <span className="cloud-brand-mark"><Compass size={20} /></span>
-          <span><strong>REC.SYS</strong><small>World course</small></span>
+          <span><strong>RecSys Odyssey</strong><small>Interactive course</small></span>
         </button>
 
         <div className="cloud-course-progress" aria-label={`${courseProgress}% course complete`}>
@@ -112,6 +112,7 @@ export function HUD({
         </div>
       </header>
 
+      {!atlasOpen && (
       <nav className="cloud-chapter-nav" aria-label="Course chapters">
         {COURSE_WORLDS.map((world) => {
           const progress = worldProgress[world.id]
@@ -131,25 +132,9 @@ export function HUD({
           )
         })}
       </nav>
+      )}
 
-      {atlasOpen ? (
-        <section className="cloud-map-intro">
-          <span className="cloud-kicker">Interactive course atlas</span>
-          <h1>Recommender<br />Systems</h1>
-          <p>Six connected worlds, from the first ranking signal to a complete production system.</p>
-          <div className="cloud-map-meta">
-            <span><strong>06</strong><small>worlds</small></span>
-            <span><strong>{countedNodes.length.toString().padStart(2, '0')}</strong><small>field notes</small></span>
-            <span><strong>{collected}/{totalArtifacts}</strong><small>artifacts</small></span>
-          </div>
-          <button type="button" className="cloud-primary-action" onClick={continueCourse} disabled={!nextNode}>
-            {continueLabel}<ArrowRight size={17} />
-          </button>
-          <button type="button" className="cloud-builder-action" onClick={onOpenBuilder}>
-            <Network size={16} /><strong>Build a recommender</strong><span>MovieLens-style lab</span><ArrowRight size={15} />
-          </button>
-        </section>
-      ) : (
+      {!atlasOpen && (
         <section className="cloud-chapter-brief" style={{ '--world-accent': activeWorld.accent } as CSSProperties}>
           <div className="cloud-brief-meta">
             <span>Chapter {activeWorld.number} / {COURSE_WORLDS.length.toString().padStart(2, '0')}</span>

@@ -12,6 +12,7 @@ import { QuizMode } from './ui/QuizMode'
 import { InteractDialog } from './ui/InteractDialog'
 import { Catalog } from './ui/Catalog'
 import { MobileControls } from './ui/MobileControls'
+import { JourneyScroll } from './ui/JourneyScroll'
 import { useProgress } from './state/progress'
 import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
@@ -80,6 +81,7 @@ function Game() {
   const closeNode = useProgress((s) => s.closeNode)
   const artifacts = useProgress((s) => s.artifacts)
   const completed = useProgress((s) => s.completed)
+  const atlasOpen = useProgress((s) => s.atlasOpen)
 
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [builderOpen, setBuilderOpen] = useState(false)
@@ -139,10 +141,14 @@ function Game() {
         </div>
       )}
 
+      {atlasOpen && !catalogOpen && !builderOpen && (
+        <JourneyScroll onOpenBuilder={() => setBuilderOpen(true)} />
+      )}
+
       {!catalogOpen && !builderOpen && (
         <HUD onOpenCatalog={() => setCatalogOpen(true)} onOpenBuilder={() => setBuilderOpen(true)} />
       )}
-      {!catalogOpen && !builderOpen && <MobileControls />}
+      {!atlasOpen && !catalogOpen && !builderOpen && <MobileControls />}
 
       {toast && <div className="toast panel">{toast}</div>}
 

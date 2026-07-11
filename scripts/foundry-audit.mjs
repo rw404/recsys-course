@@ -31,8 +31,8 @@ page.on('console', (message) => {
 })
 
 await page.goto(baseURL + '/?capture=1', { waitUntil: 'networkidle', timeout: 60000 })
-await page.getByRole('button', { name: /Build a recommender/i }).waitFor()
-await page.getByRole('button', { name: /Build a recommender/i }).click()
+await page.getByRole('button', { name: 'Open system Foundry' }).waitFor()
+await page.getByRole('button', { name: 'Open system Foundry' }).click()
 await page.locator('.system-builder').waitFor()
 await page.waitForTimeout(2400)
 const initialViewMode = await page.locator('.system-builder').getAttribute('data-view-mode')

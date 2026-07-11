@@ -29,7 +29,7 @@ export function World() {
         if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
       }}
     >
-      <fog attach="fog" args={['#8fd1e4', 58, 118]} />
+      <fog attach="fog" args={['#dceef3', 60, 126]} />
       <Suspense fallback={null}>
         <CloudCourseWorld />
         <NoFrustumCull />
