@@ -1,5 +1,6 @@
 // Headless logic tests for the parts that carry real bugs:
 // the metric math and the progress-store state machine.
+import * as THREE from 'three'
 import {
   ndcg, recallAtK, coverage, dcg, SANDBOX_ITEMS, SLATE_SIZE,
   simulateBandit, REGRET_BUDGET,
@@ -7,6 +8,13 @@ import {
   CAPSTONE_QUESTIONS, CAPSTONE_PER_Q, CAPSTONE_PASS, capstoneRank, HALL_OF_MASTERY,
 } from './src/data/course'
 import { useProgress, NODES } from './src/state/progress'
+import {
+  PLAYER_COLLISION_RADIUS,
+  planObstaclePath,
+  projectOutsideObstacles,
+  resolveObstacleCollisions,
+  steerAroundObstacles,
+} from './src/game/courseNavigation'
 
 let failed = 0
 function assert(name: string, cond: boolean, extra?: unknown) {
@@ -188,6 +196,48 @@ assert('champion label', s().nextRequiredAction().label.includes('Champion'))
 const WORLDS = ['foundations-camp', 'retrieval-valley', 'sequential-city', 'policy-tower', 'ecosystem-garden', 'final-arena']
 assert('all nodes have interaction radius > 0', Object.values(NODES).every((n) => n.interactionRadius > 0))
 assert('all nodes belong to a known world', Object.values(NODES).every((n) => WORLDS.includes(n.worldId)))
+
+console.log('course navigation:')
+{
+  const obstacle = { id: 'central-tower', x: 0, z: 0, radius: 2 }
+  const position = new THREE.Vector3(0, 0, 3.1)
+  const velocity = new THREE.Vector3()
+  const desired = new THREE.Vector3()
+  let minimumDistance = Infinity
+
+  for (let frame = 0; frame < 240; frame += 1) {
+    desired.set(0, 0, -3.2)
+    steerAroundObstacles(position, desired, [obstacle])
+    velocity.lerp(desired, 0.18)
+    position.addScaledVector(velocity, 1 / 60)
+    resolveObstacleCollisions(position, velocity, [obstacle])
+    minimumDistance = Math.min(minimumDistance, Math.hypot(position.x, position.z))
+  }
+
+  assert(
+    'character never penetrates a landmark collider',
+    minimumDistance >= obstacle.radius + PLAYER_COLLISION_RADIUS - 1e-6,
+    { minimumDistance },
+  )
+  assert('steering takes the character around the landmark', position.z < -0.4, { position: position.toArray() })
+
+  const path = planObstaclePath(
+    new THREE.Vector3(0, 0, 3.1),
+    new THREE.Vector3(0, 0, -3.1),
+    [obstacle],
+  )
+  assert('visibility path adds a waypoint around a blocked segment', path.length > 1, { path: path.map((point) => point.toArray()) })
+  const finalPathPoint = path[path.length - 1]
+  assert('visibility path preserves the requested destination', Math.hypot(finalPathPoint.x, finalPathPoint.z + 3.1) < 0.01)
+
+  const target = new THREE.Vector3(0, 0, 0)
+  projectOutsideObstacles(target, [obstacle])
+  assert(
+    'click targets inside geometry are projected to walkable ground',
+    Math.hypot(target.x, target.z) >= obstacle.radius + PLAYER_COLLISION_RADIUS,
+    { target: target.toArray() },
+  )
+}
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)

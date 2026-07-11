@@ -117,6 +117,33 @@ await page.keyboard.up('d')
 await page.waitForTimeout(180)
 const afterStrafe = await page.evaluate(() => window.__runtime.playerPosition.toArray())
 
+await page.evaluate(() => {
+  const runtime = window.__runtime
+  const probe = { minimumDistance: Infinity, timer: 0 }
+  probe.timer = window.setInterval(() => {
+    const position = runtime.playerPosition
+    probe.minimumDistance = Math.min(probe.minimumDistance, Math.hypot(position.x + 2.4, position.z - 30))
+  }, 16)
+  window.__collisionProbe = probe
+  if (!runtime.requestMove) throw new Error('Course path planner is not available')
+  runtime.requestMove(runtime.playerPosition.clone().set(-2.4, 0.76, 26.8))
+})
+await page.waitForTimeout(1400)
+await page.screenshot({ path: 'artifacts/journey-collision.png' })
+await page.waitForFunction(() => window.__runtime.moveTarget === null, null, { timeout: 30000 })
+const obstacleProbe = await page.evaluate(() => {
+  const runtime = window.__runtime
+  const probe = window.__collisionProbe
+  window.clearInterval(probe.timer)
+  const position = runtime.playerPosition.toArray()
+  runtime.moveTarget = null
+  return {
+    minimumDistance: probe.minimumDistance,
+    targetDistance: Math.hypot(position[0] + 2.4, position[2] - 26.8),
+    position,
+  }
+})
+
 await page.getByRole('button', { name: 'Course world map', exact: true }).click()
 await page.locator('.journey-shell').waitFor({ state: 'visible' })
 await page.waitForTimeout(900)
@@ -170,6 +197,9 @@ const report = {
   initialCanvas,
   movementForward: Number(movementForward.toFixed(2)),
   movementStrafe: Number(movementStrafe.toFixed(2)),
+  landmarkMinimumDistance: Number(obstacleProbe.minimumDistance.toFixed(2)),
+  obstacleTargetDistance: Number(obstacleProbe.targetDistance.toFixed(2)),
+  obstacleFinalPosition: obstacleProbe.position.map((value) => Number(value.toFixed(2))),
   touchVisible: await mobile.locator('.mobile-controls').isVisible(),
   explorerAssetsLoaded: explorerResponses.filter((response) => response.status === 200).length,
   desktopOverflow,
@@ -182,6 +212,8 @@ console.log(JSON.stringify(report, null, 2))
 
 assert.ok(movementForward > 0.5)
 assert.ok(movementStrafe > 0.5)
+assert.ok(obstacleProbe.minimumDistance >= 2.3)
+assert.ok(obstacleProbe.targetDistance < 0.65)
 assert.equal(desktopOverflow.x, 0)
 assert.equal(mobileOverflow.x, 0)
 assert.equal(failedResponses.length, 0)

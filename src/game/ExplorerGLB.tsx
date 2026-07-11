@@ -41,10 +41,15 @@ export function ExplorerGLB({ intro = true }: { intro?: boolean }) {
       mesh.receiveShadow = false
       mesh.frustumCulled = false
       const material = mesh.material as THREE.MeshStandardMaterial
-      if (material && 'emissive' in material) {
+      if (material?.isMeshStandardMaterial) {
         const copy = material.clone()
-        copy.emissive = new THREE.Color('#123a58')
-        copy.emissiveIntensity = 0.055
+        copy.color.multiplyScalar(1.12)
+        copy.metalness = 0.02
+        copy.roughness = 0.78
+        copy.envMapIntensity = 0.35
+        copy.emissive = new THREE.Color('#eef8ff')
+        copy.emissiveMap = copy.map
+        copy.emissiveIntensity = 0.16
         mesh.material = copy
       }
     })

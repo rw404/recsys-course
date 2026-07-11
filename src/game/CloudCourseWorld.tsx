@@ -22,13 +22,30 @@ import { touchControls } from './controls'
 import { ExplorerGLB } from './ExplorerGLB'
 import { AstraGLB } from './AstraGLB'
 import { VectorSmithGLB } from './VectorSmithGLB'
+import {
+  planObstaclePath,
+  projectOutsideObstacles,
+  resolveObstacleCollisions,
+  steerAroundObstacles,
+  type NavigationObstacle,
+} from './courseNavigation'
 
 const PLAYER_Y = 0.76
 const ISLAND_RADIUS = 4.75
-const WALK_RADIUS = 4.05
+const WALK_RADIUS = 4.22
+const PORTAL_OFFSET_Z = 2.92
 const CAMERA_OFFSET = new THREE.Vector3(24, 27, 34)
 const FORWARD = new THREE.Vector3(-0.58, 0, -0.82)
 const RIGHT = new THREE.Vector3(0.82, 0, -0.58)
+
+const LANDMARK_RADII: Record<WorldId, number> = {
+  'foundations-camp': 2.08,
+  'retrieval-valley': 1.82,
+  'sequential-city': 1.68,
+  'policy-tower': 1.9,
+  'ecosystem-garden': 1.98,
+  'final-arena': 2.18,
+}
 
 const NODE_SLOTS: [number, number, number][] = [
   [-2.75, 0.32, 1.65],
@@ -58,6 +75,84 @@ const BRIDGE_CONNECTIONS: [WorldId, WorldId][] = [
   ['policy-tower', 'ecosystem-garden'],
   ['ecosystem-garden', 'final-arena'],
 ]
+
+type IslandTreeLayout = {
+  position: [number, number, number]
+  scale: number
+}
+
+const DISTRICT_LAYOUT = Array.from({ length: 6 }, (_, index) => {
+  const angle = (index / 6) * Math.PI * 2 + 0.24
+  const radius = 2.28 + (index % 2) * 0.13
+  return [
+    Math.cos(angle) * radius,
+    0.18,
+    Math.sin(angle) * radius,
+    0.72 + (index % 3) * 0.17,
+  ] as [number, number, number, number]
+})
+
+function islandTreeLayout(world: CourseWorldDefinition): IslandTreeLayout[] {
+  return Array.from({ length: 15 }, (_, index) => {
+    const chapterOffset = Number(world.number) * 0.27
+    const angle = (index / 15) * Math.PI * 2 + chapterOffset
+    const radius = 3.34 + (index % 4) * 0.17
+    return {
+      position: [Math.cos(angle) * radius, 0.16, Math.sin(angle) * radius],
+      scale: 0.78 + (index % 4) * 0.075,
+    }
+  })
+}
+
+function worldNavigationObstacles(worldId: WorldId): NavigationObstacle[] {
+  const world = COURSE_WORLD_BY_ID[worldId]
+  const offsetX = world.position[0]
+  const offsetZ = world.position[2]
+  const obstacles: NavigationObstacle[] = [{
+    id: `${worldId}-landmark`,
+    x: offsetX,
+    z: offsetZ,
+    radius: LANDMARK_RADII[worldId],
+  }]
+
+  islandTreeLayout(world).forEach((tree, index) => {
+    obstacles.push({
+      id: `${worldId}-tree-${index}`,
+      x: offsetX + tree.position[0],
+      z: offsetZ + tree.position[2],
+      radius: 0.3 * tree.scale,
+    })
+  })
+
+  DISTRICT_LAYOUT.forEach(([x, , z], index) => {
+    obstacles.push({ id: `${worldId}-district-${index}`, x: offsetX + x, z: offsetZ + z, radius: 0.32 })
+  })
+
+  WORLD_NODE_IDS[worldId].forEach((id, index) => {
+    const slot = NODE_SLOTS[index]
+    if (slot) obstacles.push({ id, x: offsetX + slot[0], z: offsetZ + slot[2], radius: 0.32 })
+  })
+
+  return obstacles
+}
+
+function setCourseMoveTarget(worldId: WorldId, target: THREE.Vector3, targetMargin = 0.08): void {
+  const world = COURSE_WORLD_BY_ID[worldId]
+  const path = planObstaclePath(
+    runtime.playerPosition,
+    target,
+    worldNavigationObstacles(worldId),
+    targetMargin,
+    { x: world.position[0], z: world.position[2], radius: WALK_RADIUS - 0.04 },
+  )
+  runtime.moveTarget = path[0] ?? target.clone()
+  runtime.movePath = path.slice(1)
+}
+
+function clearCourseMoveTarget(): void {
+  runtime.moveTarget = null
+  runtime.movePath = []
+}
 
 export function CloudCourseWorld() {
   const atlasOpen = useProgress((state) => state.atlasOpen)
@@ -201,7 +296,8 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
       return
     }
     runtime.pendingOpen = null
-    runtime.moveTarget = new THREE.Vector3(event.point.x, PLAYER_Y, event.point.z)
+    const target = new THREE.Vector3(event.point.x, PLAYER_Y, event.point.z)
+    setCourseMoveTarget(world.id, target)
   }
 
   return (
@@ -413,26 +509,8 @@ function IslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
 }
 
 function IslandDetails({ world, focused }: { world: CourseWorldDefinition; focused: boolean }) {
-  const trees = useMemo(() => Array.from({ length: 15 }, (_, index) => {
-    const chapterOffset = Number(world.number) * 0.27
-    const angle = (index / 15) * Math.PI * 2 + chapterOffset
-    const radius = 3.34 + (index % 4) * 0.17
-    return {
-      position: [Math.cos(angle) * radius, 0.16, Math.sin(angle) * radius] as [number, number, number],
-      scale: 0.78 + (index % 4) * 0.075,
-    }
-  }), [world])
-
-  const district = useMemo(() => Array.from({ length: 6 }, (_, index) => {
-    const angle = (index / 6) * Math.PI * 2 + 0.24
-    const radius = 2.28 + (index % 2) * 0.13
-    return [
-      Math.cos(angle) * radius,
-      0.18,
-      Math.sin(angle) * radius,
-      0.72 + (index % 3) * 0.17,
-    ] as [number, number, number, number]
-  }), [])
+  const trees = useMemo(() => islandTreeLayout(world), [world])
+  const district = DISTRICT_LAYOUT
 
   return (
     <group>
@@ -781,7 +859,7 @@ function CourseNodeMarker({
     if (!actionable || useProgress.getState().mode !== 'explore') return
     const target = nodeWorldPosition(nodeId)
     runtime.pendingOpen = nodeId
-    runtime.moveTarget = target
+    setCourseMoveTarget(world.id, target, 0)
   }
 
   const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
@@ -954,7 +1032,7 @@ function ArrivalPortal({ accent, phase }: { accent: string; phase: 'journey' | '
   })
 
   return (
-    <group ref={group} position={[0, 1.25, 3.25]} renderOrder={8}>
+    <group ref={group} position={[0, 1.25, PORTAL_OFFSET_Z]} renderOrder={8}>
       <mesh>
         <torusGeometry args={[0.88, 0.095, 16, 64]} />
         <meshBasicMaterial ref={outer} color={accent} transparent opacity={0.76} depthWrite={false} toneMapped={false} />
@@ -973,6 +1051,15 @@ function ArrivalPortal({ accent, phase }: { accent: string; phase: 'journey' | '
         )
       })}
     </group>
+  )
+}
+
+function TravelerLights() {
+  return (
+    <>
+      <pointLight position={[1.1, 2.7, 1.5]} color="#fff4df" intensity={4.2} distance={5} decay={1.8} />
+      <pointLight position={[-1.2, 1.7, -0.8]} color="#bceeff" intensity={2.6} distance={4.2} decay={1.9} />
+    </>
   )
 }
 
@@ -1002,9 +1089,10 @@ function JourneyTraveler({ worldId }: { worldId: WorldId }) {
   return (
     <group
       ref={group}
-      position={[world.position[0], PLAYER_Y, world.position[2] + 3.25]}
+      position={[world.position[0], PLAYER_Y, world.position[2] + PORTAL_OFFSET_Z]}
       rotation={[0, -0.42, 0]}
     >
+      <TravelerLights />
       <group ref={visual} scale={0.001}>
         <ExplorerGLB />
       </group>
@@ -1026,18 +1114,24 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
   const openNode = useProgress((state) => state.openNode)
   const world = COURSE_WORLD_BY_ID[worldId]
   const center = useMemo(() => new THREE.Vector3(world.position[0], PLAYER_Y, world.position[2]), [world])
-  const position = useRef(center.clone().add(new THREE.Vector3(0, 0, 3.35)))
+  const obstacles = useMemo(() => worldNavigationObstacles(worldId), [worldId])
+  const position = useRef(center.clone().add(new THREE.Vector3(0, 0, PORTAL_OFFSET_Z)))
   const velocity = useRef(new THREE.Vector3())
   const desired = useRef(new THREE.Vector3())
   const delta = useRef(new THREE.Vector3())
 
   useEffect(() => {
+    projectOutsideObstacles(position.current, obstacles)
     runtime.playerPosition.copy(position.current)
-    runtime.moveTarget = null
+    clearCourseMoveTarget()
+    runtime.requestMove = (target, targetMargin) => setCourseMoveTarget(worldId, target, targetMargin)
     runtime.pendingOpen = null
     runtime.cameraSkip = true
-    return () => setNearby(null)
-  }, [setNearby])
+    return () => {
+      runtime.requestMove = null
+      setNearby(null)
+    }
+  }, [obstacles, setNearby, worldId])
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
@@ -1049,39 +1143,49 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       visual.current.position.y = (1 - reveal) * 0.7
     }
 
-
     desired.current.set(0, 0, 0)
+    let autoNavigating = false
     if (mode === 'explore') {
       const forward = input.current.forward + touchControls.moveY
       const strafe = input.current.strafe + touchControls.moveX
       const manual = Math.abs(forward) > 0.02 || Math.abs(strafe) > 0.02
 
       if (manual) {
-        runtime.moveTarget = null
+        clearCourseMoveTarget()
         runtime.pendingOpen = null
         desired.current.addScaledVector(FORWARD, forward).addScaledVector(RIGHT, strafe)
         if (desired.current.lengthSq() > 1) desired.current.normalize()
         desired.current.multiplyScalar(input.current.run ? 5.2 : 3.35)
       } else if (runtime.moveTarget) {
+        autoNavigating = true
         delta.current.copy(runtime.moveTarget).sub(position.current).setY(0)
-        const distance = delta.current.length()
-        if (distance < 0.22) {
-          runtime.moveTarget = null
-        } else {
-          desired.current.copy(delta.current).normalize().multiplyScalar(distance > 2.4 ? 4.8 : 3.2)
+        let distance = delta.current.length()
+        let arrivalDistance = runtime.movePath.length > 0 ? 0.36 : 0.22
+        while (runtime.moveTarget && distance < arrivalDistance) {
+          runtime.moveTarget = runtime.movePath.shift() ?? null
+          if (!runtime.moveTarget) break
+          delta.current.copy(runtime.moveTarget).sub(position.current).setY(0)
+          distance = delta.current.length()
+          arrivalDistance = runtime.movePath.length > 0 ? 0.36 : 0.22
+        }
+        if (runtime.moveTarget) {
+          desired.current.copy(delta.current).normalize().multiplyScalar(distance > 2.4 ? 4.8 : 3.6)
         }
       }
     }
 
+    if (!autoNavigating) steerAroundObstacles(position.current, desired.current, obstacles)
     velocity.current.lerp(desired.current, 1 - Math.exp(-11 * dt))
     position.current.addScaledVector(velocity.current, dt)
+    resolveObstacleCollisions(position.current, velocity.current, obstacles)
     delta.current.copy(position.current).sub(center).setY(0)
     if (delta.current.length() > WALK_RADIUS) {
       delta.current.setLength(WALK_RADIUS)
       position.current.set(center.x + delta.current.x, PLAYER_Y, center.z + delta.current.z)
-      runtime.moveTarget = null
+      clearCourseMoveTarget()
       runtime.pendingOpen = null
     }
+    resolveObstacleCollisions(position.current, velocity.current, obstacles)
     position.current.y = PLAYER_Y
 
     group.current.position.copy(position.current)
@@ -1113,7 +1217,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       const distance = Math.hypot(position.current.x - target.x, position.current.z - target.z)
       if (distance < 0.62) {
         runtime.pendingOpen = null
-        runtime.moveTarget = null
+        clearCourseMoveTarget()
         openNode(pending)
       }
     }
@@ -1130,6 +1234,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
 
   return (
     <group ref={group} position={position.current.toArray()}>
+      <TravelerLights />
       <group ref={visual} scale={0.001}>
         <ExplorerGLB />
       </group>

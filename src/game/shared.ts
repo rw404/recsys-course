@@ -33,6 +33,10 @@ export const runtime = {
   // RPG-style click-to-move destination (world XZ). Set by <ClickGround/> on a ground click,
   // consumed + cleared by the Player. WASD/joystick input cancels it.
   moveTarget: null as THREE.Vector3 | null,
+  // Intermediate visibility-graph waypoints used by the isometric course worlds.
+  movePath: [] as THREE.Vector3[],
+  // Active world installs a planner-backed request hook for click-to-move and smoke tests.
+  requestMove: null as ((target: THREE.Vector3, targetMargin?: number) => void) | null,
   // Click-to-interact: a station clicked while out of range sets this + a moveTarget; the
   // InteractionSystem opens it once the player walks into range (then clears it). Cancelled if the
   // walk is abandoned (moveTarget cleared without arriving).
