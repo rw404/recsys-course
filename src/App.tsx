@@ -17,6 +17,7 @@ import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
 import { GlbViewer } from './game/GlbViewer'
 import { VSmithViewer } from './game/VSmithViewer'
+import { IsoPropViewer } from './game/IsoPropViewer'
 
 const SystemBuilder = lazy(() => import('./ui/SystemBuilder').then((module) => ({ default: module.SystemBuilder })))
 
@@ -62,6 +63,9 @@ export function App() {
         <VSmithViewer />
       </div>
     )
+  }
+  if (VIEW === 'isoprop') {
+    return <IsoPropViewer />
   }
   return <Game />
 }

@@ -5428,7 +5428,7 @@ body {
   animation-delay: var(--iso-phase, 0s);
 }
 
-/* The figure wrapper — a detailed isometric device SVG that gently levitates. */
+/* The figure wrapper — a baked 3D device sprite that gently levitates. */
 .system-builder[data-view-mode="isometric"] .system-iso-cube {
   display: block;
   position: absolute;
@@ -5442,11 +5442,23 @@ body {
   will-change: transform;
 }
 
-.system-builder[data-view-mode="isometric"] .iso-figure-svg {
+/* 24-frame sway loop baked from the Meshy GLB (328x300 frames at 2x). */
+.system-builder[data-view-mode="isometric"] .iso-sprite {
   display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+  width: 164px;
+  height: 150px;
+  background-repeat: no-repeat;
+  background-size: 3936px 150px;
+  animation: iso-sprite-sway 2.4s steps(24) infinite;
+  animation-delay: var(--iso-phase, 0s);
+}
+
+.system-builder[data-view-mode="isometric"] .system-module-node.run-active .iso-sprite {
+  animation-duration: 1.1s;
+}
+
+@keyframes iso-sprite-sway {
+  to { background-position: -3936px 0; }
 }
 
 .system-builder[data-view-mode="isometric"] .iso-face {

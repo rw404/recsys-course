@@ -68,7 +68,6 @@ import {
   type SystemTemplate,
   type SystemTemplateId,
 } from '../data/systemTemplates'
-import { IsoModuleFigure } from './isoIcons'
 import {
   PIPELINE_MODULES,
   simulatePipeline,
@@ -962,12 +961,15 @@ function SystemModuleNode({ id, data, selected }: NodeProps<BuilderNode>) {
       </div>
       <footer><span>{trace ? `${trace.latencyMs} ms` : 'not traced'}</span><strong>{data.runState === 'error' ? 'check input' : data.runState === 'active' ? 'processing' : data.runState === 'complete' ? 'ready' : 'idle'}</strong></footer>
 
-      {/* Isometric-mode form: a detailed isoflow-style device figure that gently
-          levitates over a breathing shadow, with a label under it and a trace
-          chip above. Each module type is its own little 3D machine. */}
+      {/* Isometric-mode form: a Meshy-generated 3D device baked into a 24-frame
+          sway sprite. It plays a steps() loop, levitates over a breathing shadow,
+          with a label under it and a trace chip above. */}
       <span className="iso-shadow" aria-hidden="true" />
       <div className="system-iso-cube" aria-hidden="true">
-        <IsoModuleFigure type={data.moduleType} />
+        <span
+          className="iso-sprite"
+          style={{ backgroundImage: `url(/assets/foundry/${data.moduleType}.png)` }}
+        />
       </div>
       <div className="system-iso-plate"><strong>{definition.shortLabel}</strong><small>{FAMILY_LABELS[definition.family]}</small></div>
       <div className="system-iso-trace">
