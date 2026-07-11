@@ -1848,6 +1848,10 @@ body {
   animation: cloud-panel-in 520ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
 }
 
+.cloud-map-intro {
+  container-type: inline-size;
+}
+
 .cloud-chapter-brief {
   width: min(340px, calc(100vw - 68px));
   padding-top: 18px;
@@ -1875,8 +1879,10 @@ body {
 }
 
 .cloud-map-intro h1 {
-  font-size: clamp(37px, 4vw, 54px);
-  line-height: 0.94;
+  max-width: 100%;
+  font-size: clamp(34px, 12.1cqi, 39px);
+  line-height: 0.98;
+  text-wrap: balance;
 }
 
 .cloud-chapter-brief h1 {
