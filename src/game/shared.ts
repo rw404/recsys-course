@@ -35,6 +35,8 @@ export const runtime = {
   moveTarget: null as THREE.Vector3 | null,
   // Intermediate visibility-graph waypoints used by the isometric course worlds.
   movePath: [] as THREE.Vector3[],
+  // Final projected destination, kept separately so the accepted screen click can be rendered.
+  moveDestination: null as THREE.Vector3 | null,
   // Active world installs a planner-backed request hook for click-to-move and smoke tests.
   requestMove: null as ((target: THREE.Vector3, targetMargin?: number) => void) | null,
   // Click-to-interact: a station clicked while out of range sets this + a moveTarget; the

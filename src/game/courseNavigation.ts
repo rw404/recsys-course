@@ -175,6 +175,152 @@ function pointIsWalkable(
   ))
 }
 
+const GRID_CELL_SIZE = 0.16
+const GRID_DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
+  [-1, 0], [1, 0], [0, -1], [0, 1],
+  [-1, -1], [-1, 1], [1, -1], [1, 1],
+]
+
+function planGridFallback(
+  origin: THREE.Vector3,
+  goal: THREE.Vector3,
+  obstacles: readonly NavigationObstacle[],
+  boundary: NavigationBoundary,
+): THREE.Vector3[] | null {
+  const side = Math.ceil(boundary.radius * 2 / GRID_CELL_SIZE) + 1
+  const total = side * side
+  const minX = boundary.x - boundary.radius
+  const minZ = boundary.z - boundary.radius
+  const walkable = new Uint8Array(total)
+
+  const indexOf = (x: number, z: number) => z * side + x
+  const pointAt = (index: number) => {
+    const x = index % side
+    const z = Math.floor(index / side)
+    return new THREE.Vector3(
+      minX + x * GRID_CELL_SIZE,
+      goal.y,
+      minZ + z * GRID_CELL_SIZE,
+    )
+  }
+
+  const gridPointIsWalkable = (point: THREE.Vector3) => (
+    Math.hypot(point.x - boundary.x, point.z - boundary.z) <= boundary.radius
+    && obstacles.every((obstacle) => (
+      Math.hypot(point.x - obstacle.x, point.z - obstacle.z)
+        >= obstacle.radius + PLAYER_COLLISION_RADIUS
+    ))
+  )
+
+  for (let z = 0; z < side; z += 1) {
+    for (let x = 0; x < side; x += 1) {
+      const index = indexOf(x, z)
+      walkable[index] = gridPointIsWalkable(pointAt(index)) ? 1 : 0
+    }
+  }
+
+  const nearestWalkable = (target: THREE.Vector3) => {
+    let nearest = -1
+    let nearestDistance = Infinity
+    for (let index = 0; index < total; index += 1) {
+      if (!walkable[index]) continue
+      const distance = planarDistance(pointAt(index), target)
+      if (distance < nearestDistance) {
+        nearest = index
+        nearestDistance = distance
+      }
+    }
+    return nearest
+  }
+
+  const startIndex = nearestWalkable(origin)
+  const goalIndex = nearestWalkable(goal)
+  if (startIndex === -1 || goalIndex === -1) return null
+
+  const scores = new Float64Array(total)
+  const estimates = new Float64Array(total)
+  const previous = new Int32Array(total)
+  const closed = new Uint8Array(total)
+  const queued = new Uint8Array(total)
+  scores.fill(Infinity)
+  estimates.fill(Infinity)
+  previous.fill(-1)
+  scores[startIndex] = 0
+  estimates[startIndex] = planarDistance(pointAt(startIndex), pointAt(goalIndex))
+
+  const open = [startIndex]
+  queued[startIndex] = 1
+
+  while (open.length > 0) {
+    let bestOffset = 0
+    for (let offset = 1; offset < open.length; offset += 1) {
+      if (estimates[open[offset]] < estimates[open[bestOffset]]) bestOffset = offset
+    }
+    const current = open.splice(bestOffset, 1)[0]
+    queued[current] = 0
+    if (current === goalIndex) break
+    if (closed[current]) continue
+    closed[current] = 1
+
+    const currentX = current % side
+    const currentZ = Math.floor(current / side)
+    for (const [deltaX, deltaZ] of GRID_DIRECTIONS) {
+      const nextX = currentX + deltaX
+      const nextZ = currentZ + deltaZ
+      if (nextX < 0 || nextZ < 0 || nextX >= side || nextZ >= side) continue
+      const next = indexOf(nextX, nextZ)
+      if (!walkable[next] || closed[next]) continue
+      if (
+        deltaX !== 0
+        && deltaZ !== 0
+        && (!walkable[indexOf(currentX + deltaX, currentZ)]
+          || !walkable[indexOf(currentX, currentZ + deltaZ)])
+      ) continue
+
+      const step = deltaX === 0 || deltaZ === 0 ? GRID_CELL_SIZE : GRID_CELL_SIZE * Math.SQRT2
+      const candidate = scores[current] + step
+      if (candidate >= scores[next]) continue
+      scores[next] = candidate
+      previous[next] = current
+      estimates[next] = candidate + planarDistance(pointAt(next), pointAt(goalIndex))
+      if (!queued[next]) {
+        queued[next] = 1
+        open.push(next)
+      }
+    }
+  }
+
+  if (goalIndex !== startIndex && previous[goalIndex] === -1) return null
+
+  const reverse: number[] = []
+  let cursor = goalIndex
+  reverse.push(cursor)
+  while (cursor !== startIndex) {
+    cursor = previous[cursor]
+    if (cursor === -1) return null
+    reverse.push(cursor)
+  }
+  reverse.reverse()
+
+  const rawPath = [origin.clone(), ...reverse.map(pointAt)]
+  const gridGoal = rawPath[rawPath.length - 1]
+  if (pointIsWalkable(goal, obstacles, boundary) && segmentIsClear(gridGoal, goal, obstacles)) {
+    rawPath.push(goal.clone())
+  }
+
+  const smoothed: THREE.Vector3[] = []
+  let anchor = 0
+  while (anchor < rawPath.length - 1) {
+    let next = rawPath.length - 1
+    while (next > anchor + 1 && !segmentIsClear(rawPath[anchor], rawPath[next], obstacles)) {
+      next -= 1
+    }
+    smoothed.push(rawPath[next].clone())
+    anchor = next
+  }
+  return smoothed.length > 0 ? smoothed : null
+}
+
 export function planObstaclePath(
   start: THREE.Vector3,
   target: THREE.Vector3,
@@ -231,7 +377,9 @@ export function planObstaclePath(
     }
   }
 
-  if (previous[1] === -1) return [goal]
+  if (previous[1] === -1) {
+    return boundary ? planGridFallback(origin, goal, obstacles, boundary) ?? [origin] : [origin]
+  }
 
   const reversePath: THREE.Vector3[] = []
   let cursor = 1

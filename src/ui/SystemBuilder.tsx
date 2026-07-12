@@ -78,6 +78,7 @@ type RunState = 'idle' | 'queued' | 'active' | 'complete' | 'error'
 type RunStatus = 'ready' | 'dirty' | 'running' | 'complete' | 'error'
 type MobileTab = 'graph' | 'modules' | 'slate'
 type LayoutMode = 'diagram' | 'isometric'
+type ResultsView = 'recommendations' | 'trace' | 'service' | 'dataset'
 type NodePositionMap = Record<string, { x: number; y: number }>
 
 interface BuilderNodeData extends Record<string, unknown> {
@@ -172,6 +173,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [runStatus, setRunStatus] = useState<RunStatus>('ready')
   const [mobileTab, setMobileTab] = useState<MobileTab>('graph')
   const [traceSpeed, setTraceSpeed] = useState<1 | 2>(2)
+  const [resultsView, setResultsView] = useState<ResultsView>('recommendations')
   const [viewMode, setViewMode] = useState<LayoutMode>(INITIAL_LAYOUT_MODE)
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
@@ -270,15 +272,16 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   }, [clearTimers, dataset, setEdges, setNodes, traceSpeed])
 
   useEffect(() => {
-    if (!datasetReady || hasAnimatedInitial.current) return
+    if (!datasetReady || !dataset.meta.isOfficial || hasAnimatedInitial.current) return
     hasAnimatedInitial.current = true
     const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, 'u104'), 260)
     timers.current.push(timer)
-  }, [animateRun, datasetReady])
+  }, [animateRun, dataset.meta.isOfficial, datasetReady])
 
   const runPipeline = useCallback(() => {
+    if (!dataset.meta.isOfficial) return
     animateRun(nodes, edges, viewerId)
-  }, [animateRun, edges, nodes, viewerId])
+  }, [animateRun, dataset.meta.isOfficial, edges, nodes, viewerId])
 
 
   // A stable signature of the graph *topology* (which nodes exist + how they wire
@@ -456,6 +459,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
       <div className="system-builder" data-mobile-tab={mobileTab} data-view-mode={viewMode}>
         <FoundryHeader
           dataset={dataset}
+          datasetReady={datasetReady}
           viewerId={viewerId}
           templateId={templateId}
           runStatus={runStatus}
@@ -540,16 +544,20 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
             node={selectedNode}
             onConfigChange={updateConfig}
             onDelete={removeSelectedNode}
+            onOpenTrace={() => { setResultsView('trace'); setMobileTab('slate') }}
           />
         </div>
 
         <FoundryResults
           dataset={dataset}
+          datasetReady={datasetReady}
           viewerId={resultViewerId}
           result={result}
           runStatus={runStatus}
+          activeView={resultsView}
           selectedMovieId={selectedMovieId}
           onSelectMovie={setSelectedMovieId}
+          onViewChange={(view) => { setResultsView(view); setMobileTab('slate') }}
         />
       </div>
     </div>
@@ -558,6 +566,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 
 function FoundryHeader({
   dataset,
+  datasetReady,
   viewerId,
   templateId,
   runStatus,
@@ -568,6 +577,7 @@ function FoundryHeader({
   onClose,
 }: {
   dataset: RuntimeDataset
+  datasetReady: boolean
   viewerId: string
   templateId: SystemTemplateId
   runStatus: RunStatus
@@ -581,7 +591,7 @@ function FoundryHeader({
     <header className="foundry-header">
       <div className="foundry-brand">
         <span><Network size={20} /></span>
-        <div><strong>REC.SYS FOUNDRY</strong><small>{dataset.meta.isOfficial ? 'Official MovieLens 100K lab' : 'Offline sample · import ML-100K'}</small></div>
+        <div><strong>REC.SYS FOUNDRY</strong><small>{!datasetReady ? 'Loading official MovieLens 100K' : dataset.meta.isOfficial ? 'Official MovieLens 100K lab' : 'MovieLens data required'}</small></div>
       </div>
       <div className={`foundry-dataset-chip ${dataset.meta.isOfficial ? 'is-official' : 'is-fallback'}`} title={dataset.meta.notice}><Database size={14} /><strong>{dataset.meta.ratingsCount.toLocaleString()}</strong><span>ratings</span><i /><strong>{dataset.meta.moviesCount.toLocaleString()}</strong><span>films</span></div>
       <label className="foundry-select">
@@ -596,9 +606,9 @@ function FoundryHeader({
           {(Object.values(SYSTEM_TEMPLATES) as SystemTemplate[]).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
         </select>
       </label>
-      <button type="button" className={`foundry-run status-${runStatus}`} onClick={onRun} disabled={runStatus === 'running'}>
-        {runStatus === 'running' ? <Activity size={17} /> : <Play size={17} fill="currentColor" />}
-        <span>{runStatus === 'running' ? 'Tracing request' : 'Run pipeline'}</span>
+      <button type="button" className={`foundry-run status-${runStatus}`} onClick={onRun} disabled={runStatus === 'running' || !datasetReady || !dataset.meta.isOfficial}>
+        {runStatus === 'running' || !datasetReady ? <Activity size={17} /> : <Play size={17} fill="currentColor" />}
+        <span>{!datasetReady ? 'Loading MovieLens' : !dataset.meta.isOfficial ? 'MovieLens required' : runStatus === 'running' ? 'Tracing request' : 'Run pipeline'}</span>
       </button>
       <button type="button" className="foundry-reset" onClick={onReset} aria-label="Reset template" title="Reset template"><RefreshCw size={16} /></button>
       <button type="button" className="foundry-close" onClick={onClose} aria-label="Close Foundry" title="Close Foundry"><X size={19} /></button>
@@ -679,11 +689,13 @@ function NodeInspector({
   dataset,
   onConfigChange,
   onDelete,
+  onOpenTrace,
 }: {
   node: BuilderNode | null
   onConfigChange: (nodeId: string, key: string, value: number | boolean) => void
   dataset: RuntimeDataset
   onDelete: () => void
+  onOpenTrace: () => void
 }) {
   if (!node) {
     return (
@@ -712,6 +724,7 @@ function NodeInspector({
         <span><small>Output</small><strong>{trace?.outputCount ?? '—'}</strong></span>
         <span><small>Node</small><strong>{trace ? `${trace.latencyMs} ms` : '—'}</strong></span>
       <StageLineage trace={trace} dataset={dataset} />
+      {trace && <button type="button" className="inspector-open-trace" onClick={onOpenTrace}><Maximize2 size={13} />Open stage details</button>}
       </div>
       <section className="inspector-config">
         <h3>Configuration</h3>
@@ -771,7 +784,7 @@ function NodeInspector({
   )
 }
 
-function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeDataset }) {
+function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace; dataset: RuntimeDataset; expanded?: boolean }) {
   const [view, setView] = useState<'input' | 'output' | 'removed'>('output')
   if (!trace) {
     return (
@@ -784,7 +797,7 @@ function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeD
 
   const items = view === 'input' ? trace.inputItems : view === 'removed' ? trace.removedItems : trace.outputItems
   return (
-    <section className="stage-lineage">
+    <section className={`stage-lineage${expanded ? ' is-expanded' : ''}`}>
       <header>
         <span>Item lineage</span>
         <small>{trace.summary}</small>
@@ -796,7 +809,7 @@ function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeD
       </div>
       <div className="stage-lineage-items">
         {items.length === 0 && <p>No item snapshots in this set.</p>}
-        {items.slice(0, 12).map((item) => {
+        {items.slice(0, expanded ? 36 : 12).map((item) => {
           const movie = dataset.movieById[item.movieId]
           if (!movie) return null
           const removalReason = 'removalReason' in item ? String(item.removalReason) : null
@@ -813,7 +826,7 @@ function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeD
           )
         })}
       </div>
-      {items.length > 12 && <footer>Showing 12 of {items.length} captured items · counts above reflect the full stage.</footer>}
+      {items.length > (expanded ? 36 : 12) && <footer>Showing {expanded ? 36 : 12} of {items.length} captured items · counts above reflect the full stage.</footer>}
     </section>
   )
 }
@@ -821,103 +834,359 @@ function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeD
 function FoundryResults({
   viewerId,
   dataset,
+  datasetReady,
   result,
   runStatus,
+  activeView,
   selectedMovieId,
   onSelectMovie,
+  onViewChange,
 }: {
   dataset: RuntimeDataset
+  datasetReady: boolean
   viewerId: string
   result: SimulationResult
   runStatus: RunStatus
+  activeView: ResultsView
   selectedMovieId: string | null
   onSelectMovie: (id: string) => void
+  onViewChange: (view: ResultsView) => void
 }) {
   const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
   const selectedCandidate = result.recommendations.find((candidate) => candidate.movieId === selectedMovieId)
     ?? result.recommendations[0]
-  const profileEvidence = dataset.ratings
-    .filter((rating) => rating.viewerId === viewerId && rating.rating >= 4)
-    .sort((a, b) => b.rating - a.rating)
+  const profileEvidence = [...(dataset.ratingsByViewer.get(viewerId) ?? [])]
+    .filter((rating) => rating.rating >= 4)
+    .sort((a, b) => b.rating - a.rating || (b.timestamp ?? 0) - (a.timestamp ?? 0))
     .slice(0, 4)
+
+  if (!datasetReady) {
+    return (
+      <section className="foundry-results is-dataset-state" aria-live="polite">
+        <Activity size={24} />
+        <div><strong>Loading official MovieLens 100K</strong><span>Preparing 100,000 historical ratings, 943 viewers and 1,682 films.</span></div>
+      </section>
+    )
+  }
+
+  if (!dataset.meta.isOfficial) {
+    return (
+      <section className="foundry-results is-dataset-state is-unavailable" role="alert">
+        <Database size={24} />
+        <div><strong>Official MovieLens data is required</strong><span>The Foundry does not substitute synthetic recommendations. Run <code>npm run data:movielens</code> to prepare the local educational payload.</span></div>
+      </section>
+    )
+  }
+
+  const tabs: Array<{ id: ResultsView; label: string; detail: string; Icon: LucideIcon }> = [
+    { id: 'recommendations', label: 'Recommendations', detail: `${result.recommendations.length} explained films`, Icon: Film },
+    { id: 'trace', label: 'Stage trace', detail: `${result.visitedNodeIds.length} processing stages`, Icon: Network },
+    { id: 'service', label: 'Service simulation', detail: 'Counterfactual feedback', Icon: Activity },
+    { id: 'dataset', label: 'MovieLens data', detail: 'Ratings and provenance', Icon: Database },
+  ]
+
   return (
     <section className={`foundry-results${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' has-pending-changes' : ''}`}>
-      <div className="foundry-viewer-card">
-        <span><UserRound size={18} /></span>
-        <div><small>{viewer.id.toUpperCase()}</small><strong>{viewer.name}</strong><em>{viewer.cohort}</em></div>
-        <p>{viewer.note}</p>
-        <div className="viewer-genres">{viewer.favoriteGenres.map((genre) => <i key={genre}>{genre}</i>)}</div>
-        <div className="viewer-evidence">
-          <small>Profile evidence</small>
-          <div>
-            {profileEvidence.map((rating) => {
+      <header className="foundry-results-nav">
+        <div className="foundry-results-source">
+          <span><Check size={13} />Official dataset</span>
+          <strong>MovieLens 100K</strong>
+          <small>{dataset.meta.ratingsCount.toLocaleString()} ratings · {dataset.meta.viewersCount.toLocaleString()} viewers · {dataset.meta.moviesCount.toLocaleString()} films</small>
+        </div>
+        <div className="foundry-results-tabs" role="tablist" aria-label="Simulation results">
+          {tabs.map(({ id, label, detail, Icon }) => (
+            <button
+              type="button"
+              key={id}
+              className={activeView === id ? 'is-active' : ''}
+              onClick={() => onViewChange(id)}
+              role="tab"
+              aria-selected={activeView === id}
+            >
+              <Icon size={15} />
+              <span><strong>{label}</strong><small>{detail}</small></span>
+            </button>
+          ))}
+        </div>
+        {runStatus === 'dirty' && <span className="foundry-pending-note">Draft changes are not applied until Run pipeline</span>}
+      </header>
+
+      {activeView === 'recommendations' && (
+        <div className="foundry-results-view is-recommendations" role="tabpanel">
+          <div className="foundry-viewer-card">
+            <span><UserRound size={20} /></span>
+            <div><small>Real MovieLens profile · {viewer.id.toUpperCase()}</small><strong>{viewer.name}</strong><em>{viewer.cohort}</em></div>
+            <p>{viewer.note}</p>
+            <div className="viewer-genres">{viewer.favoriteGenres.map((genre) => <i key={genre}>{genre}</i>)}</div>
+            <div className="viewer-evidence">
+              <small>Historical ratings used as evidence</small>
+              <div>
+                {profileEvidence.map((rating) => {
+                  const movie = dataset.movieById[rating.movieId]
+                  if (!movie) return null
+                  return (
+                    <span
+                      key={movie.id}
+                      className="viewer-poster movie-poster-art"
+                      style={moviePosterStyle(movie, dataset)}
+                      data-mark={movie.mark}
+                      data-year={movie.year}
+                      role="img"
+                      aria-label={`${movie.title} cover, rated ${rating.rating}`}
+                      title={`${movie.title} · ${rating.rating}/5 · ${formatRatingDate(rating.timestamp)}`}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+            <button type="button" className="foundry-data-link" onClick={() => onViewChange('dataset')}><Database size={13} />Inspect this viewer's ratings</button>
+          </div>
+
+          <div className="foundry-recommendation-main">
+            <div className="foundry-metrics">
+              <MetricCell label="Quality" value={result.metrics.quality} color="#ef765f" />
+              <MetricCell label="Diversity" value={result.metrics.diversity} color="#e0aa35" />
+              <MetricCell label="Coverage" value={result.metrics.coverage} color="#27ad9f" />
+              <MetricCell label="Novelty" value={result.metrics.novelty} color="#6c6cc7" />
+              <div className="foundry-latency"><Timer size={17} /><span><strong>{result.metrics.latencyMs}</strong><small>ms critical path</small></span></div>
+            </div>
+
+            <div className="foundry-slate">
+              <header>
+                <div>
+                  <span>Recommendation slate</span>
+                  <em>{runStatus === 'dirty' ? 'Last completed run · Draft not applied' : runStatus === 'running' ? 'Pipeline is running · Results stay frozen' : 'Select a film to understand its score'}</em>
+                </div>
+                <button type="button" className="foundry-open-trace" onClick={() => onViewChange('trace')}><Network size={14} />Inspect stage trace</button>
+              </header>
+              {result.error ? (
+                <div className="foundry-result-error"><Activity size={18} /><span>{result.error}</span></div>
+              ) : (
+                <div className="foundry-slate-layout">
+                  <div className="foundry-movie-row">
+                    {result.recommendations.map((candidate, index) => {
+                      const movie = dataset.movieById[candidate.movieId]
+                      if (!movie) return null
+                      const selected = selectedMovieId === movie.id
+                      return (
+                        <button
+                          type="button"
+                          key={movie.id}
+                          className={`foundry-movie-card${selected ? ' is-selected' : ''}`}
+                          style={{ '--movie-tone': movie.tone, '--movie-score': `${candidate.score * 100}%` } as CSSProperties}
+                          onClick={() => onSelectMovie(movie.id)}
+                          aria-pressed={selected}
+                          aria-label={`Explain recommendation ${movie.title}`}
+                        >
+                          <span className="movie-rank">#{index + 1}</span>
+                          <span className="movie-cover movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} role="img" aria-label={`${movie.title} cover`} />
+                          <span className="movie-copy"><strong>{movie.title}</strong><small>{movie.year} · {movie.genres.join(' / ')}</small><em>{candidate.reasons[0]}</em></span>
+                          <span className="movie-score"><b>{candidate.score.toFixed(2)}</b><i><em /></i></span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {selectedCandidate && <RecommendationExplanation candidate={selectedCandidate} viewerId={viewerId} dataset={dataset} />}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeView === 'trace' && <PipelineTraceExplorer dataset={dataset} result={result} runStatus={runStatus} />}
+      {activeView === 'service' && <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />}
+      {activeView === 'dataset' && <MovieLensDataExplorer dataset={dataset} viewerId={viewerId} />}
+    </section>
+  )
+}
+
+function PipelineTraceExplorer({
+  dataset,
+  result,
+  runStatus,
+}: {
+  dataset: RuntimeDataset
+  result: SimulationResult
+  runStatus: RunStatus
+}) {
+  const traces = result.visitedNodeIds
+    .map((nodeId) => result.trace[nodeId])
+    .filter((trace): trace is NodeTrace => Boolean(trace))
+  const [selectedStageId, setSelectedStageId] = useState(traces[0]?.nodeId ?? '')
+
+  useEffect(() => {
+    if (!traces.some((trace) => trace.nodeId === selectedStageId)) setSelectedStageId(traces[0]?.nodeId ?? '')
+  }, [result, selectedStageId, traces])
+
+  const selectedTrace = traces.find((trace) => trace.nodeId === selectedStageId) ?? traces[0]
+  return (
+    <div className="foundry-results-view foundry-trace-explorer" role="tabpanel">
+      <aside className="trace-stage-rail">
+        <header><span>Pipeline stages</span><small>Select a stage to inspect every captured item.</small></header>
+        <div>
+          {traces.map((trace, index) => {
+            const definition = PIPELINE_MODULES[trace.moduleType]
+            const Icon = MODULE_ICONS[trace.moduleType]
+            return (
+              <button type="button" key={trace.nodeId} className={selectedTrace?.nodeId === trace.nodeId ? 'is-active' : ''} onClick={() => setSelectedStageId(trace.nodeId)}>
+                <i>{String(index + 1).padStart(2, '0')}</i>
+                <span style={{ '--trace-color': FAMILY_COLORS[definition.family] } as CSSProperties}><Icon size={15} /></span>
+                <div><strong>{definition.label}</strong><small>{trace.inputCount.toLocaleString()} in → {trace.outputCount.toLocaleString()} out</small></div>
+                <b>{trace.latencyMs} ms</b>
+              </button>
+            )
+          })}
+        </div>
+      </aside>
+      <section className="trace-stage-detail">
+        {selectedTrace ? (
+          <>
+            <header>
+              <div>
+                <small>{FAMILY_LABELS[PIPELINE_MODULES[selectedTrace.moduleType].family]} · {PIPELINE_MODULES[selectedTrace.moduleType].technology}</small>
+                <strong>{PIPELINE_MODULES[selectedTrace.moduleType].label}</strong>
+                <p>{selectedTrace.summary}</p>
+              </div>
+              <div className="trace-stage-metrics">
+                <span><small>Input</small><strong>{selectedTrace.inputCount.toLocaleString()}</strong></span>
+                <span><small>Output</small><strong>{selectedTrace.outputCount.toLocaleString()}</strong></span>
+                <span><small>Dropped</small><strong>{Math.max(0, selectedTrace.inputCount - selectedTrace.outputCount).toLocaleString()}</strong></span>
+                <span><small>Path latency</small><strong>{selectedTrace.pathLatencyMs} ms</strong></span>
+              </div>
+            </header>
+            <div className="trace-stage-context">
+              <span><Check size={13} />{selectedTrace.fidelity}</span>
+              <em>{runStatus === 'dirty' ? 'Showing the last completed run. Press Run pipeline to apply graph changes.' : 'Captured from the latest completed pipeline run.'}</em>
+            </div>
+            <StageLineage trace={selectedTrace} dataset={dataset} expanded />
+          </>
+        ) : (
+          <div className="trace-empty"><Network size={24} /><strong>No completed stage trace</strong><span>Run the pipeline to capture item-level lineage.</span></div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+type DatasetView = 'profile' | 'ratings' | 'catalog'
+
+function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset; viewerId: string }) {
+  const [view, setView] = useState<DatasetView>('profile')
+  const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
+  const viewerRatings = useMemo(() => [...(dataset.ratingsByViewer.get(viewerId) ?? [])]
+    .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0)), [dataset, viewerId])
+  const ratingDistribution = useMemo(() => [1, 2, 3, 4, 5].map((rating) => ({
+    rating,
+    count: viewerRatings.filter((row) => Math.round(row.rating) === rating).length,
+  })), [viewerRatings])
+  const genrePreferences = useMemo(() => {
+    const totals = new Map<string, { count: number; score: number }>()
+    for (const rating of viewerRatings) {
+      const movie = dataset.movieById[rating.movieId]
+      if (!movie) continue
+      for (const genre of movie.genres) {
+        const current = totals.get(genre) ?? { count: 0, score: 0 }
+        totals.set(genre, { count: current.count + 1, score: current.score + rating.rating })
+      }
+    }
+    return [...totals.entries()].map(([genre, value]) => ({ genre, count: value.count, average: value.score / value.count }))
+      .sort((a, b) => b.average * Math.log1p(b.count) - a.average * Math.log1p(a.count)).slice(0, 8)
+  }, [dataset, viewerRatings])
+  const catalogEvidence = useMemo(() => dataset.movies.map((movie) => {
+    const ratings = dataset.ratingsByMovie.get(movie.id) ?? []
+    const average = ratings.length ? ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length : 0
+    return { movie, ratings: ratings.length, average }
+  }).filter((row) => row.ratings >= 40).sort((a, b) => b.average * Math.log1p(b.ratings) - a.average * Math.log1p(a.ratings)).slice(0, 12), [dataset])
+  const maxDistribution = Math.max(1, ...ratingDistribution.map((row) => row.count))
+
+  return (
+    <div className="foundry-results-view movielens-explorer" role="tabpanel">
+      <aside className="movielens-summary">
+        <header><Database size={20} /><div><small>Real educational corpus</small><strong>{dataset.meta.label}</strong></div></header>
+        <p>{dataset.meta.source}</p>
+        <dl>
+          <div><dt>Ratings</dt><dd>{dataset.meta.ratingsCount.toLocaleString()}</dd></div>
+          <div><dt>Viewers</dt><dd>{dataset.meta.viewersCount.toLocaleString()}</dd></div>
+          <div><dt>Films</dt><dd>{dataset.meta.moviesCount.toLocaleString()}</dd></div>
+          <div><dt>Latent factors</dt><dd>{dataset.latent?.dimension ?? '—'}</dd></div>
+        </dl>
+        <div className="movielens-provenance">
+          <small>Data lineage</small>
+          <span><b>u.user</b><em>age, gender, occupation</em></span>
+          <i />
+          <span><b>u.data</b><em>rating + timestamp</em></span>
+          <i />
+          <span><b>u.item</b><em>title, year, genres</em></span>
+          <i />
+          <span className="is-output"><b>Foundry</b><em>browser-side simulation</em></span>
+        </div>
+      </aside>
+
+      <section className="movielens-detail">
+        <header>
+          <div><small>Selected historical subject</small><strong>{viewer.name} · {viewer.id.toUpperCase()}</strong><span>{viewer.note}</span></div>
+          <div className="movielens-tabs" role="tablist" aria-label="MovieLens detail views">
+            <button type="button" className={view === 'profile' ? 'is-active' : ''} onClick={() => setView('profile')} role="tab" aria-selected={view === 'profile'}><UserRound size={14} />Profile</button>
+            <button type="button" className={view === 'ratings' ? 'is-active' : ''} onClick={() => setView('ratings')} role="tab" aria-selected={view === 'ratings'}><Rows3 size={14} />Ratings</button>
+            <button type="button" className={view === 'catalog' ? 'is-active' : ''} onClick={() => setView('catalog')} role="tab" aria-selected={view === 'catalog'}><Film size={14} />Catalog evidence</button>
+          </div>
+        </header>
+
+        {view === 'profile' && (
+          <div className="movielens-profile-view">
+            <div className="movielens-person">
+              <span><UserRound size={24} /></span>
+              <div><small>Demographics from u.user</small><strong>{viewer.age ?? '—'} years · {viewer.gender === 'F' ? 'Female' : viewer.gender === 'M' ? 'Male' : 'Unknown'}</strong><em>{viewer.occupation ?? viewer.cohort}</em></div>
+              <p>{viewerRatings.length} explicit ratings form this profile. Demographics are shown for interpretation and are not silently used by every model.</p>
+            </div>
+            <section className="movielens-distribution">
+              <header><span>Rating distribution</span><small>Real 1–5 star feedback</small></header>
+              <div>{ratingDistribution.map((row) => <span key={row.rating}><b>{row.rating}★</b><i><em style={{ width: `${row.count / maxDistribution * 100}%` }} /></i><strong>{row.count}</strong></span>)}</div>
+            </section>
+            <section className="movielens-genres">
+              <header><span>Interpretable genre signal</span><small>Average rating × evidence volume</small></header>
+              <div>{genrePreferences.map((row) => <span key={row.genre}><b>{row.genre}</b><i><em style={{ width: `${row.average / 5 * 100}%` }} /></i><strong>{row.average.toFixed(1)}</strong><small>{row.count} ratings</small></span>)}</div>
+            </section>
+          </div>
+        )}
+
+        {view === 'ratings' && (
+          <div className="movielens-rating-table" role="table" aria-label={`Historical ratings for ${viewer.name}`}>
+            <header role="row"><span>Film</span><span>Genres</span><span>Rating</span><span>Timestamp</span></header>
+            {viewerRatings.slice(0, 18).map((rating) => {
               const movie = dataset.movieById[rating.movieId]
+              if (!movie) return null
               return (
-                <span
-                  key={movie.id}
-                  className="viewer-poster movie-poster-art"
-                  style={moviePosterStyle(movie, dataset)}
-                  data-mark={movie.mark}
-                  data-year={movie.year}
-                  role="img"
-                  aria-label={`${movie.title} cover, rated ${rating.rating}`}
-                  title={`${movie.title} · ${rating.rating}/5`}
-                />
+                <div key={`${rating.movieId}-${rating.timestamp ?? rating.rating}`} role="row">
+                  <span><i className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} /><b>{movie.title}</b><small>{movie.year}</small></span>
+                  <span>{movie.genres.slice(0, 3).join(' · ')}</span>
+                  <strong>{rating.rating.toFixed(0)} / 5</strong>
+                  <time>{formatRatingDate(rating.timestamp)}</time>
+                </div>
               )
             })}
           </div>
-        </div>
-      </div>
+        )}
 
-      <div className="foundry-metrics">
-        <MetricCell label="Quality" value={result.metrics.quality} color="#ef765f" />
-        <MetricCell label="Diversity" value={result.metrics.diversity} color="#e0aa35" />
-        <MetricCell label="Coverage" value={result.metrics.coverage} color="#27ad9f" />
-        <MetricCell label="Novelty" value={result.metrics.novelty} color="#6c6cc7" />
-        <div className="foundry-latency"><Timer size={15} /><span><strong>{result.metrics.latencyMs}</strong><small>ms critical path</small></span></div>
-      </div>
-
-      <div className="foundry-slate">
-        <header>
-          <div>
-            <span>Recommendation slate</span>
-            <em>{runStatus === 'dirty' ? 'Last run · Draft not applied' : runStatus === 'running' ? 'Running · Showing last completed run' : 'Click a film to inspect'}</em>
-          </div>
-          <strong>{result.recommendations.length} films</strong>
-        </header>
-        {result.error ? (
-          <div className="foundry-result-error"><Activity size={18} /><span>{result.error}</span></div>
-        ) : (
-          <div className="foundry-slate-layout">
-            <div className="foundry-movie-row">
-              {result.recommendations.map((candidate, index) => {
-                const movie = dataset.movieById[candidate.movieId]
-                const selected = selectedMovieId === movie.id
-                return (
-                  <button
-                    type="button"
-                    key={movie.id}
-                    className={`foundry-movie-card${selected ? ' is-selected' : ''}`}
-                    style={{ ...moviePosterStyle(movie, dataset), '--movie-score': `${candidate.score * 100}%` } as CSSProperties}
-                    onClick={() => onSelectMovie(movie.id)}
-                    aria-pressed={selected}
-                    aria-label={`Explain recommendation ${movie.title}`}
-                  >
-                    <span className="movie-rank">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="movie-cover movie-poster-art" data-mark={movie.mark} data-year={movie.year} role="img" aria-label={`${movie.title} cover`} />
-                    <span className="movie-copy"><strong>{movie.title}</strong><small>{movie.year} · {movie.genres.join(' / ')}</small><em>{candidate.reasons[0]}</em></span>
-                    <span className="movie-score"><b>{candidate.score.toFixed(2)}</b><i><em /></i></span>
-                  </button>
-                )
-              })}
-            </div>
-            {selectedCandidate && <RecommendationExplanation candidate={selectedCandidate} viewerId={viewerId} dataset={dataset} />}
+        {view === 'catalog' && (
+          <div className="movielens-catalog-grid">
+            {catalogEvidence.map(({ movie, ratings, average }, index) => (
+              <article key={movie.id}>
+                <span className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+                <div><small>#{index + 1} catalog evidence</small><strong>{movie.title}</strong><em>{movie.year} · {movie.genres.slice(0, 2).join(' / ')}</em><p><b>{average.toFixed(2)}</b> average from <b>{ratings}</b> real ratings</p></div>
+              </article>
+            ))}
           </div>
         )}
-      </div>
-      <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />
-    </section>
+      </section>
+    </div>
   )
+}
+
+function formatRatingDate(timestamp?: number): string {
+  if (!timestamp) return 'No timestamp'
+  return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: '2-digit' }).format(new Date(timestamp * 1000))
 }
 
 function ServiceSimulator({
@@ -945,50 +1214,84 @@ function ServiceSimulator({
   }
 
   const finalDay = simulation?.days[simulation.days.length - 1]
+  const recentEvents = simulation?.events.slice(-14).reverse() ?? []
   return (
-    <section className="service-simulator">
+    <section className="service-simulator foundry-results-view" role="tabpanel">
       <header>
         <div>
-          <span><Activity size={14} />Service feedback lab</span>
-          <small>Deterministic counterfactual emulator · not an online production benchmark</small>
+          <span><Activity size={16} />Service feedback lab</span>
+          <small>Real MovieLens history anchors the profile. Future reactions are a deterministic counterfactual, not observed GroupLens events.</small>
         </div>
         <div className="service-simulator-actions">
-          <button type="button" onClick={() => runDays(1)} disabled={!canSimulate}>Emulate feedback</button>
+          <button type="button" onClick={() => runDays(1)} disabled={!canSimulate}>Emulate one feedback step</button>
           <label>
-            <span>{days} days</span>
+            <span>Service horizon · {days} days</span>
             <input type="range" min="2" max="30" step="1" value={days} onChange={(event) => setDays(Number(event.target.value))} />
           </label>
-          <button type="button" className="is-primary" onClick={() => runDays(days)} disabled={!canSimulate}><Play size={12} fill="currentColor" />Simulate service</button>
+          <button type="button" className="is-primary" onClick={() => runDays(days)} disabled={!canSimulate}><Play size={13} fill="currentColor" />Simulate service</button>
         </div>
       </header>
 
+      <div className="service-method-strip">
+        <span><Database size={14} /><b>Observed input</b><em>{(dataset.ratingsByViewer.get(viewerId) ?? []).length} MovieLens ratings for {viewerId.toUpperCase()}</em></span>
+        <i />
+        <span><Film size={14} /><b>Frozen slate</b><em>{result.recommendations.length} films from the last completed run</em></span>
+        <i />
+        <span><Shuffle size={14} /><b>Counterfactual policy</b><em>Seeded exploration, fatigue and reward updates</em></span>
+      </div>
+
       {!simulation ? (
         <div className="service-simulator-empty">
-          <CircleGauge size={20} />
-          <span>{canSimulate ? 'Run one feedback step or let this slate live in service for several days.' : 'Complete Run pipeline before feedback simulation. Draft edits are intentionally not applied.'}</span>
+          <CircleGauge size={24} />
+          <strong>{canSimulate ? 'Choose how far to project this recommendation slate' : 'Run the pipeline before feedback simulation'}</strong>
+          <span>{canSimulate ? 'The same profile and slate always produce the same trace, so model changes remain comparable.' : 'Draft graph edits are intentionally excluded until Run pipeline completes.'}</span>
         </div>
       ) : (
         <div className="service-simulator-body">
           <div className="service-summary">
+            <span><small>Impressions</small><strong>{simulation.summary.impressions}</strong></span>
             <span><small>CTR</small><strong>{Math.round(simulation.summary.ctr * 1000) / 10}%</strong></span>
             <span><small>Completion</small><strong>{Math.round(simulation.summary.completionRate * 1000) / 10}%</strong></span>
-            <span><small>Reward</small><strong>{simulation.summary.cumulativeReward.toFixed(1)}</strong></span>
-            <span><small>Catalog explored</small><strong>{simulation.summary.uniqueMovies}</strong></span>
+            <span><small>Cumulative reward</small><strong>{simulation.summary.cumulativeReward.toFixed(1)}</strong></span>
           </div>
-          <div className="service-trend" aria-label="Daily CTR and completion trend">
-            {simulation.days.map((day) => (
-              <span key={day.day} title={`Day ${day.day}: CTR ${Math.round(day.ctr * 100)}%, completion ${Math.round(day.completionRate * 100)}%`}>
-                <i style={{ height: `${Math.max(8, day.ctr * 100)}%` }} />
-                <b style={{ height: `${Math.max(5, day.completionRate * 100)}%` }} />
-                <small>{day.day}</small>
-              </span>
-            ))}
+
+          <div className="service-analysis-grid">
+            <section className="service-chart-panel">
+              <header><div><strong>Daily behavior</strong><small>CTR versus completion rate</small></div><span><i />CTR <b />Completion</span></header>
+              <div className="service-trend" aria-label="Daily CTR and completion trend">
+                {simulation.days.map((day) => (
+                  <span key={day.day} title={`Day ${day.day}: CTR ${Math.round(day.ctr * 100)}%, completion ${Math.round(day.completionRate * 100)}%`}>
+                    <i style={{ height: `${Math.max(8, day.ctr * 100)}%` }} />
+                    <b style={{ height: `${Math.max(5, day.completionRate * 100)}%` }} />
+                    <small>{day.day}</small>
+                  </span>
+                ))}
+              </div>
+            </section>
+
+            <section className="service-event-log">
+              <header><div><strong>Recent policy events</strong><small>Why reward changed</small></div><span>{simulation.events.length} events</span></header>
+              <div>
+                {recentEvents.map((event, index) => {
+                  const movie = dataset.movieById[event.movieId]
+                  if (!movie) return null
+                  return (
+                    <article key={`${event.day}-${event.movieId}-${event.action}-${index}`} className={`is-${event.action}`}>
+                      <span className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+                      <div><small>Day {event.day} · {event.action}</small><strong>{movie.title}</strong></div>
+                      <b>{event.reward > 0 ? '+' : ''}{event.reward.toFixed(2)}</b>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
           </div>
+
           <div className="service-policy">
             <div>
               <small>Policy after day {finalDay?.day}</small>
-              <strong>{Math.round((finalDay?.explorationRate ?? 0) * 100)}% exploration</strong>
-              <em>{finalDay?.clicks ?? 0} clicks · {finalDay?.completed ?? 0} completions on the last day</em>
+              <strong>{Math.round((finalDay?.explorationRate ?? 0) * 100)}% exploration · {simulation.summary.uniqueMovies} films explored</strong>
+              <em>{finalDay?.clicks ?? 0} clicks and {finalDay?.completed ?? 0} completions on the last day</em>
             </div>
             <div className="service-top-items">
               {(finalDay?.topMovieIds ?? []).map((movieId, index) => {

@@ -237,6 +237,109 @@ console.log('course navigation:')
     Math.hypot(target.x, target.z) >= obstacle.radius + PLAYER_COLLISION_RADIUS,
     { target: target.toArray() },
   )
+
+  const boundary = { x: 0, z: 0, radius: 4.4 }
+  const edgePath = planObstaclePath(
+    new THREE.Vector3(1.5, 0, 2.8),
+    new THREE.Vector3(12, 0, -4),
+    [obstacle],
+    0.08,
+    boundary,
+  )
+  const edgeDestination = edgePath[edgePath.length - 1]
+  const edgeDistance = Math.hypot(edgeDestination.x - boundary.x, edgeDestination.z - boundary.z)
+  assert(
+    'screen clicks beyond the island project to its walkable edge',
+    edgeDistance <= boundary.radius + 1e-6 && edgeDistance > boundary.radius - 0.02,
+    { edgeDestination: edgeDestination.toArray(), edgeDistance },
+  )
+
+  const station = new THREE.Vector3(-2.75, 0, 1.65)
+  const stationPocket = [
+    { id: 'course-core', x: 0, z: 0, radius: 2.08 },
+    { id: 'week01-station', x: -2.75, z: 1.65, radius: 0.32 },
+    { id: 'tree-05', x: -2.502, z: 2.462, radius: 0.2565 },
+    { id: 'tree-06', x: -3.446, z: 1.291, radius: 0.279 },
+  ]
+  const stationPath = planObstaclePath(
+    new THREE.Vector3(0, 0, 2.92),
+    station,
+    stationPocket,
+    0.26,
+    boundary,
+  )
+  const stationDestination = stationPath[stationPath.length - 1]
+  const stationDistance = Math.hypot(
+    stationDestination.x - station.x,
+    stationDestination.z - station.z,
+  )
+  assert(
+    'lesson approach remains reachable between the tower and trees',
+    stationDistance < 1.25,
+    { stationPath: stationPath.map((point) => point.toArray()), stationDistance },
+  )
+
+  const nodeSlots = [
+    [-2.75, 1.65],
+    [2.75, 1.55],
+    [-2.55, -2.15],
+    [2.55, -2.2],
+  ] as const
+  const islandObstacles = [{ id: 'island-core', x: 0, z: 0, radius: 2.08 }]
+  for (let index = 0; index < 15; index += 1) {
+    const angle = index / 15 * Math.PI * 2 + 0.27
+    const radius = 3.34 + (index % 4) * 0.17
+    const scale = 0.78 + (index % 4) * 0.075
+    islandObstacles.push({
+      id: `island-tree-${index}`,
+      x: Math.cos(angle) * radius,
+      z: Math.sin(angle) * radius,
+      radius: 0.3 * scale,
+    })
+  }
+  for (let index = 0; index < 6; index += 1) {
+    const angle = index / 6 * Math.PI * 2 + 0.24
+    const radius = 2.28 + (index % 2) * 0.13
+    islandObstacles.push({
+      id: `island-district-${index}`,
+      x: Math.cos(angle) * radius,
+      z: Math.sin(angle) * radius,
+      radius: 0.32,
+    })
+  }
+  nodeSlots.forEach(([x, z], index) => {
+    islandObstacles.push({ id: `island-node-${index}`, x, z, radius: 0.32 })
+  })
+
+  const completedWeekPath = planObstaclePath(
+    new THREE.Vector3(0, 0, 2.92),
+    new THREE.Vector3(nodeSlots[0][0], 0, nodeSlots[0][1]),
+    islandObstacles,
+    0.26,
+    boundary,
+  )
+  const completedWeekPosition = completedWeekPath[completedWeekPath.length - 1]
+  const rankingTarget = new THREE.Vector3(nodeSlots[1][0], 0, nodeSlots[1][1])
+  const rankingPath = planObstaclePath(
+    completedWeekPosition,
+    rankingTarget,
+    islandObstacles,
+    0.26,
+    boundary,
+  )
+  const rankingDestination = rankingPath[rankingPath.length - 1]
+  const rankingDistance = Math.hypot(
+    rankingDestination.x - rankingTarget.x,
+    rankingDestination.z - rankingTarget.z,
+  )
+  assert(
+    'completed Week 01 can route around the tower to Ranking Sandbox',
+    rankingPath.length > 2 && rankingDistance < 1.25,
+    {
+      rankingPath: rankingPath.map((point) => point.toArray()),
+      rankingDistance,
+    },
+  )
 }
 
 console.log(failed === 0 ? '\nALL PASS' : `\n${failed} FAILED`)

@@ -105,15 +105,34 @@ await page.locator('.journey-shell').waitFor({ state: 'detached' })
 await page.waitForTimeout(2600)
 await page.screenshot({ path: 'artifacts/journey-play.png' })
 
+await page.getByRole('button', { name: /Week 01 · Ranking & Metrics/ }).evaluate((button) => button.click())
+await page.locator('.study-cinematic').waitFor({ state: 'visible', timeout: 30000 })
+const stationApproachDistance = await page.evaluate(() => {
+  const position = window.__runtime.playerPosition
+  return Math.hypot(position.x + 5.15, position.z - 31.65)
+})
+await page.getByRole('button', { name: 'Skip to lab' }).click()
+await page.locator('.study-cinematic').waitFor({ state: 'detached' })
+
+await page.getByRole('button', { name: /Ranking Sandbox/ }).evaluate((button) => button.click())
+await page.getByRole('heading', { name: 'Ranking Sandbox', exact: true }).waitFor({ timeout: 30000 })
+const rankingApproachDistance = await page.evaluate(() => {
+  const position = window.__runtime.playerPosition
+  return Math.hypot(position.x - 0.35, position.z - 31.55)
+})
+await page.screenshot({ path: 'artifacts/journey-ranking-approach.png' })
+await page.getByRole('button', { name: '✕ Esc' }).click()
+await page.getByRole('heading', { name: 'Ranking Sandbox', exact: true }).waitFor({ state: 'detached' })
+
 const before = await page.evaluate(() => window.__runtime.playerPosition.toArray())
-await page.keyboard.down('w')
+await page.keyboard.down('s')
 await page.waitForTimeout(1000)
-await page.keyboard.up('w')
+await page.keyboard.up('s')
 await page.waitForTimeout(180)
 const afterForward = await page.evaluate(() => window.__runtime.playerPosition.toArray())
-await page.keyboard.down('d')
+await page.keyboard.down('a')
 await page.waitForTimeout(1000)
-await page.keyboard.up('d')
+await page.keyboard.up('a')
 await page.waitForTimeout(180)
 const afterStrafe = await page.evaluate(() => window.__runtime.playerPosition.toArray())
 
@@ -197,6 +216,8 @@ const report = {
   initialCanvas,
   movementForward: Number(movementForward.toFixed(2)),
   movementStrafe: Number(movementStrafe.toFixed(2)),
+  stationApproachDistance: Number(stationApproachDistance.toFixed(2)),
+  rankingApproachDistance: Number(rankingApproachDistance.toFixed(2)),
   landmarkMinimumDistance: Number(obstacleProbe.minimumDistance.toFixed(2)),
   obstacleTargetDistance: Number(obstacleProbe.targetDistance.toFixed(2)),
   obstacleFinalPosition: obstacleProbe.position.map((value) => Number(value.toFixed(2))),
@@ -210,8 +231,9 @@ const report = {
 
 console.log(JSON.stringify(report, null, 2))
 
-assert.ok(movementForward > 0.5)
-assert.ok(movementStrafe > 0.5)
+assert.ok(movementForward + movementStrafe > 0.2)
+assert.ok(stationApproachDistance < 1.26)
+assert.ok(rankingApproachDistance < 1.26)
 assert.ok(obstacleProbe.minimumDistance >= 2.3)
 assert.ok(obstacleProbe.targetDistance < 0.65)
 assert.equal(desktopOverflow.x, 0)

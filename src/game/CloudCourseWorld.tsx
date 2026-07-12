@@ -32,11 +32,14 @@ import {
 
 const PLAYER_Y = 0.76
 const ISLAND_RADIUS = 4.75
-const WALK_RADIUS = 4.22
+const WALK_RADIUS = 4.44
 const PORTAL_OFFSET_Z = 2.92
 const CAMERA_OFFSET = new THREE.Vector3(24, 27, 34)
 const FORWARD = new THREE.Vector3(-0.58, 0, -0.82)
 const RIGHT = new THREE.Vector3(0.82, 0, -0.58)
+const WALK_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -PLAYER_Y)
+const NODE_APPROACH_MARGIN = 0.26
+const NODE_INTERACTION_DISTANCE = 1.25
 
 const LANDMARK_RADII: Record<WorldId, number> = {
   'foundations-camp': 2.08,
@@ -145,13 +148,16 @@ function setCourseMoveTarget(worldId: WorldId, target: THREE.Vector3, targetMarg
     targetMargin,
     { x: world.position[0], z: world.position[2], radius: WALK_RADIUS - 0.04 },
   )
-  runtime.moveTarget = path[0] ?? target.clone()
+  const destination = path[path.length - 1]?.clone() ?? target.clone()
+  runtime.moveDestination = destination
+  runtime.moveTarget = path[0] ?? null
   runtime.movePath = path.slice(1)
 }
 
 function clearCourseMoveTarget(): void {
   runtime.moveTarget = null
   runtime.movePath = []
+  runtime.moveDestination = null
 }
 
 export function CloudCourseWorld() {
@@ -192,6 +198,7 @@ export function CloudCourseWorld() {
       {atlasOpen
         ? <JourneyTraveler key={`journey-traveler-${currentWorld}`} worldId={currentWorld} />
         : <CourseTraveler key={`traveler-${currentWorld}`} worldId={currentWorld} />}
+      {!atlasOpen && <MoveDestinationMarker accent={COURSE_WORLD_BY_ID[currentWorld].accent} />}
       <CloudReveal key={`reveal-${atlasOpen ? 'journey' : 'world'}-${currentWorld}`} worldId={currentWorld} />
       <Suspense fallback={null}>
         {activeLessonId && <ChapterNarrator nodeId={activeLessonId} />}
@@ -296,7 +303,9 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
       return
     }
     runtime.pendingOpen = null
-    const target = new THREE.Vector3(event.point.x, PLAYER_Y, event.point.z)
+    const target = new THREE.Vector3()
+    if (!event.ray.intersectPlane(WALK_PLANE, target)) return
+    target.y = PLAYER_Y
     setCourseMoveTarget(world.id, target)
   }
 
@@ -329,6 +338,13 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
         ))}
       </group>
 
+
+      {playable && (
+        <mesh position={[0, 0.18, 0]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={onGround}>
+          <circleGeometry args={[6.25, 64]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      )}
 
       <mesh
         position={[0, 1.1, 0]}
@@ -859,7 +875,7 @@ function CourseNodeMarker({
     if (!actionable || useProgress.getState().mode !== 'explore') return
     const target = nodeWorldPosition(nodeId)
     runtime.pendingOpen = nodeId
-    setCourseMoveTarget(world.id, target, 0)
+    setCourseMoveTarget(world.id, target, NODE_APPROACH_MARGIN)
   }
 
   const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
@@ -1163,7 +1179,10 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
         let arrivalDistance = runtime.movePath.length > 0 ? 0.36 : 0.22
         while (runtime.moveTarget && distance < arrivalDistance) {
           runtime.moveTarget = runtime.movePath.shift() ?? null
-          if (!runtime.moveTarget) break
+          if (!runtime.moveTarget) {
+            runtime.moveDestination = null
+            break
+          }
           delta.current.copy(runtime.moveTarget).sub(position.current).setY(0)
           distance = delta.current.length()
           arrivalDistance = runtime.movePath.length > 0 ? 0.36 : 0.22
@@ -1179,11 +1198,16 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
     position.current.addScaledVector(velocity.current, dt)
     resolveObstacleCollisions(position.current, velocity.current, obstacles)
     delta.current.copy(position.current).sub(center).setY(0)
-    if (delta.current.length() > WALK_RADIUS) {
-      delta.current.setLength(WALK_RADIUS)
-      position.current.set(center.x + delta.current.x, PLAYER_Y, center.z + delta.current.z)
-      clearCourseMoveTarget()
-      runtime.pendingOpen = null
+    const boundaryDistance = delta.current.length()
+    if (boundaryDistance > WALK_RADIUS) {
+      delta.current.multiplyScalar(1 / boundaryDistance)
+      position.current.set(
+        center.x + delta.current.x * WALK_RADIUS,
+        PLAYER_Y,
+        center.z + delta.current.z * WALK_RADIUS,
+      )
+      const outwardVelocity = velocity.current.dot(delta.current)
+      if (outwardVelocity > 0) velocity.current.addScaledVector(delta.current, -outwardVelocity)
     }
     resolveObstacleCollisions(position.current, velocity.current, obstacles)
     position.current.y = PLAYER_Y
@@ -1215,7 +1239,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
     if (pending && NODES[pending]?.worldId === worldId) {
       const target = nodeWorldPosition(pending)
       const distance = Math.hypot(position.current.x - target.x, position.current.z - target.z)
-      if (distance < 0.62) {
+      if (distance < NODE_INTERACTION_DISTANCE) {
         runtime.pendingOpen = null
         clearCourseMoveTarget()
         openNode(pending)
@@ -1273,6 +1297,34 @@ function RoutePacket({ curve, offset }: { curve: THREE.CatmullRomCurve3; offset:
       <sphereGeometry args={[0.13, 16, 16]} />
       <meshStandardMaterial color="#ffffff" emissive="#58b9ca" emissiveIntensity={0.8} />
     </mesh>
+  )
+}
+
+function MoveDestinationMarker({ accent }: { accent: string }) {
+  const group = useRef<THREE.Group>(null)
+
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const destination = runtime.moveDestination
+    group.current.visible = Boolean(destination)
+    if (!destination) return
+    group.current.position.set(destination.x, 0.21, destination.z)
+    const pulse = 0.94 + Math.sin(clock.elapsedTime * 5.2) * 0.08
+    group.current.scale.setScalar(pulse)
+    group.current.rotation.y = clock.elapsedTime * 0.5
+  })
+
+  return (
+    <group ref={group} visible={false}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.2, 0.31, 32]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.78} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.075, 24]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.92} depthWrite={false} />
+      </mesh>
+    </group>
   )
 }
 
