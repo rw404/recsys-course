@@ -146,6 +146,13 @@ async function loadRealRatingsDataset(): Promise<RuntimeDataset> {
   return SANDBOX_DATASET
 }
 
+function posterUrlFromImdbUrl(imdbUrl: string): string | undefined {
+  const imdbId = imdbUrl.match(/tt\d{7,10}/i)?.[0]
+  return imdbId
+    ? `https://images.metahub.space/poster/medium/${imdbId.toLowerCase()}/img`
+    : undefined
+}
+
 function compactPayloadToDataset(payload: CompactRatingsPayload): RuntimeDataset {
   const datasetId = payload.meta.id ?? 'movielens-100k'
   const isMovieLens = datasetId === 'movielens-100k'
@@ -157,6 +164,7 @@ function compactPayloadToDataset(payload: CompactRatingsPayload): RuntimeDataset
     tone,
     mark: title.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase(),
     imdbUrl,
+    posterUrl: posterUrlFromImdbUrl(imdbUrl),
   }))
   const ratings: SandboxRating[] = payload.ratings.map(([viewerId, movieId, rating, timestamp]) => ({
     viewerId: `u${viewerId}`,

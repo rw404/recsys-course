@@ -830,7 +830,7 @@ function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace;
           const removalReason = 'removalReason' in item ? String(item.removalReason) : null
           return (
             <article key={item.movieId}>
-              <span className="stage-item-poster movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+              <MoviePoster movie={movie} dataset={dataset} className="stage-item-poster" />
               <span className="stage-item-copy">
                 <strong><i>{String(item.rank).padStart(2, '0')}</i>{movie.title}</strong>
                 <small>{movie.year} · {movie.genres.slice(0, 2).join(' / ')}</small>
@@ -946,14 +946,12 @@ function FoundryResults({
                   const movie = dataset.movieById[rating.movieId]
                   if (!movie) return null
                   return (
-                    <span
+                    <MoviePoster
                       key={movie.id}
-                      className="viewer-poster movie-poster-art"
-                      style={moviePosterStyle(movie, dataset)}
-                      data-mark={movie.mark}
-                      data-year={movie.year}
-                      role="img"
-                      aria-label={`${movie.title} cover, rated ${rating.rating}`}
+                      movie={movie}
+                      dataset={dataset}
+                      className="viewer-poster"
+                      ariaLabel={`${movie.title} cover, rated ${rating.rating}`}
                       title={`${movie.title} · ${rating.rating}/5 · ${formatRatingDate(rating.timestamp)}`}
                     />
                   )
@@ -1000,7 +998,7 @@ function FoundryResults({
                           aria-label={`Explain recommendation ${movie.title}`}
                         >
                           <span className="movie-rank">#{index + 1}</span>
-                          <span className="movie-cover movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} role="img" aria-label={`${movie.title} cover`} />
+                          <MoviePoster movie={movie} dataset={dataset} className="movie-cover" />
                           <span className="movie-copy"><strong>{movie.title}</strong><small>{movie.year} · {movie.genres.join(' / ')}</small><em>{candidate.reasons[0]}</em></span>
                           <span className="movie-score"><b>{candidate.score.toFixed(2)}</b><i><em /></i></span>
                         </button>
@@ -1184,7 +1182,7 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
               if (!movie) return null
               return (
                 <div key={`${rating.movieId}-${rating.timestamp ?? rating.rating}`} role="row">
-                  <span><i className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} /><b>{movie.title}</b><small>{movie.year}</small></span>
+                  <span><MoviePoster movie={movie} dataset={dataset} /><b>{movie.title}</b><small>{movie.year}</small></span>
                   <span>{movie.genres.slice(0, 3).join(' · ')}</span>
                   <strong>{rating.rating.toFixed(0)} / 5</strong>
                   <time>{formatRatingDate(rating.timestamp)}</time>
@@ -1198,7 +1196,7 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
           <div className="movielens-catalog-grid">
             {catalogEvidence.map(({ movie, ratings, average }, index) => (
               <article key={movie.id}>
-                <span className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+                <MoviePoster movie={movie} dataset={dataset} />
                 <div><small>#{index + 1} catalog evidence</small><strong>{movie.title}</strong><em>{movie.year} · {movie.genres.slice(0, 2).join(' / ')}</em><p><b>{average.toFixed(2)}</b> average from <b>{ratings}</b> real ratings</p></div>
               </article>
             ))}
@@ -1302,7 +1300,7 @@ function ServiceSimulator({
                   if (!movie) return null
                   return (
                     <article key={`${event.day}-${event.movieId}-${event.action}-${index}`} className={`is-${event.action}`}>
-                      <span className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+                      <MoviePoster movie={movie} dataset={dataset} />
                       <div><small>Day {event.day} · {event.action}</small><strong>{movie.title}</strong></div>
                       <b>{event.reward > 0 ? '+' : ''}{event.reward.toFixed(2)}</b>
                     </article>
@@ -1322,7 +1320,7 @@ function ServiceSimulator({
               {(finalDay?.topMovieIds ?? []).map((movieId, index) => {
                 const movie = dataset.movieById[movieId]
                 return movie ? (
-                  <span key={movieId} className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} title={`#${index + 1} ${movie.title}`} />
+                  <MoviePoster key={movieId} movie={movie} dataset={dataset} title={`#${index + 1} ${movie.title}`} />
                 ) : null
               })}
             </div>
@@ -1410,6 +1408,51 @@ function RecommendationExplanation({
         {candidate.diversityTrace && <span><b>{Math.round((1 - candidate.diversityTrace.maxSimilarity) * 100)}%</b> distinct</span>}
       </footer>
     </aside>
+  )
+}
+
+function MoviePoster({
+  movie,
+  dataset,
+  className,
+  title,
+  ariaLabel,
+}: {
+  movie: SandboxMovie
+  dataset: RuntimeDataset
+  className?: string
+  title?: string
+  ariaLabel?: string
+}) {
+  const [posterFailed, setPosterFailed] = useState(false)
+  const posterUrl = posterFailed ? undefined : movie.posterUrl
+  const classes = [
+    'movie-poster-art',
+    className,
+    posterUrl ? 'has-real-poster' : undefined,
+  ].filter(Boolean).join(' ')
+
+  return (
+    <span
+      className={classes}
+      style={moviePosterStyle(movie, dataset)}
+      data-mark={posterUrl ? undefined : movie.mark}
+      data-year={movie.year}
+      role="img"
+      aria-label={ariaLabel ?? `${movie.title} cover`}
+      title={title}
+    >
+      {posterUrl && (
+        <img
+          src={posterUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setPosterFailed(true)}
+        />
+      )}
+    </span>
   )
 }
 

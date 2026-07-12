@@ -20,6 +20,7 @@ export interface SandboxMovie {
   tone: string
   mark: string
   imdbUrl?: string
+  posterUrl?: string
 }
 
 export interface SandboxViewer {
