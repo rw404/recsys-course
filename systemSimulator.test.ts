@@ -1,7 +1,8 @@
 import { strict as assert } from 'node:assert'
 import { SANDBOX_RATINGS } from './src/data/movielensSandbox'
 import { SYSTEM_TEMPLATES, type SystemTemplate, type SystemTemplateId } from './src/data/systemTemplates'
-import { simulatePipeline, type PipelineNodeSpec } from './src/logic/systemSimulator'
+import { SANDBOX_DATASET } from './src/data/recommenderDataset'
+import { simulatePipeline, simulateServiceDays, type PipelineNodeSpec } from './src/logic/systemSimulator'
 
 function specs(template: SystemTemplate): PipelineNodeSpec[] {
   return template.nodes.map((node) => ({
@@ -64,6 +65,29 @@ assert.ok(Object.keys(explained.sourceScores).length >= 2)
 assert.ok(explained.diversityTrace)
 assert.ok((explained.diversityTrace?.maxSimilarity ?? -1) >= 0)
 console.log('  ✓ each hybrid result carries rank and diversity explanations')
+for (const templateId of ['deep', 'generative', 'adaptive'] as const) {
+  const result = run(templateId)
+  assert.equal(result.error, null)
+  assert.equal(result.recommendations.length, 8)
+  assert.ok(result.visitedNodeIds.length >= 10)
+  console.log(`  ✓ ${templateId} advanced template produces an eight-film slate`)
+}
+
+const filterTrace = maya.trace.filters
+assert.ok(filterTrace.inputItems.length > 0)
+assert.ok(filterTrace.outputItems.length > 0)
+assert.ok(filterTrace.removedItems.length > 0)
+assert.ok(filterTrace.removedItems.every((item) => item.removalReason.length > 0))
+console.log('  ✓ every traced stage carries item-level input, output and removal evidence')
+
+const service = simulateServiceDays(SANDBOX_DATASET, 'u104', maya, 14)
+assert.equal(service.days.length, 14)
+assert.equal(service.summary.impressions, 168)
+assert.ok(service.summary.clicks > 0)
+assert.ok(service.summary.cumulativeReward > 0)
+assert.ok(service.days.every((day) => day.ctr >= 0 && day.ctr <= 1))
+assert.ok(service.events.some((event) => event.action === 'complete'))
+console.log('  ✓ deterministic service emulator returns daily feedback and reward traces')
 
 const topSixTemplate = SYSTEM_TEMPLATES.hybrid
 const topSixNodes = specs(topSixTemplate).map((node) => node.moduleType === 'output'

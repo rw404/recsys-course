@@ -16,23 +16,28 @@ export interface SandboxMovie {
   id: string
   title: string
   year: number
-  genres: MovieGenre[]
+  genres: string[]
   tone: string
   mark: string
+  imdbUrl?: string
 }
 
 export interface SandboxViewer {
   id: string
   name: string
   cohort: string
-  favoriteGenres: MovieGenre[]
+  favoriteGenres: string[]
   note: string
+  age?: number
+  gender?: string
+  occupation?: string
 }
 
 export interface SandboxRating {
   viewerId: string
   movieId: string
   rating: number
+  timestamp?: number
 }
 
 export const SANDBOX_MOVIES: SandboxMovie[] = [

@@ -56,13 +56,8 @@ import {
   type CSSProperties,
   type DragEvent,
 } from 'react'
-import {
-  SANDBOX_MOVIES,
-  SANDBOX_MOVIE_BY_ID,
-  SANDBOX_RATINGS,
-  SANDBOX_VIEWER_BY_ID,
-  SANDBOX_VIEWERS,
-} from '../data/movielensSandbox'
+import { loadRecommendationDataset, SANDBOX_DATASET, type RuntimeDataset } from '../data/recommenderDataset'
+import type { SandboxMovie } from '../data/movielensSandbox'
 import {
   SYSTEM_TEMPLATES,
   type SystemTemplate,
@@ -71,6 +66,7 @@ import {
 import {
   PIPELINE_MODULES,
   simulatePipeline,
+  simulateServiceDays,
   type ModuleConfig,
   type ModuleFamily,
   type NodeTrace,
@@ -118,14 +114,22 @@ const FAMILY_COLORS: Record<ModuleFamily, string> = {
 const MODULE_ICONS: Record<PipelineModuleType, LucideIcon> = {
   ratingsSource: Database,
   featureStore: Rows3,
+  eventStream: Activity,
   popularity: TrendingUp,
   collaborative: UsersRound,
   vectorSearch: Orbit,
+  matrixFactorization: Boxes,
+  bpr: GitMerge,
+  twoTower: Network,
+  sequenceTransformer: Layers3,
   blend: GitMerge,
   seenFilter: Filter,
   ranker: SlidersHorizontal,
   diversify: Shuffle,
   evaluator: CircleGauge,
+  generativeReranker: Orbit,
+  rlPolicy: Shuffle,
+  onlineServing: Timer,
   output: Film,
 }
 
@@ -135,7 +139,7 @@ const initialDiagramNodes = nodesFromTemplate(initialTemplate)
 const initialEdges = edgesFromTemplate(initialTemplate, INITIAL_LAYOUT_MODE)
 const initialIsoPositions = createIsometricLayout(initialDiagramNodes, initialEdges)
 const initialNodes = applyNodePositions(initialDiagramNodes, initialIsoPositions)
-const initialResult = simulatePipeline('u104', specsFromNodes(initialNodes), specsFromEdges(initialEdges))
+const initialResult = simulatePipeline('u104', specsFromNodes(initialNodes), specsFromEdges(initialEdges), SANDBOX_DATASET)
 
 export function SystemBuilder({ onClose }: { onClose: () => void }) {
   return (
@@ -158,6 +162,8 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<BuilderNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<BuilderEdge>(initialEdges)
   const [viewerId, setViewerId] = useState('u104')
+  const [dataset, setDataset] = useState<RuntimeDataset>(SANDBOX_DATASET)
+  const [datasetReady, setDatasetReady] = useState(false)
   const [templateId, setTemplateId] = useState<SystemTemplateId>('hybrid')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('blend')
   const [selectedMovieId, setSelectedMovieId] = useState<string | null>(initialResult.recommendations[0]?.movieId ?? null)
@@ -176,9 +182,25 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 
   useEffect(() => clearTimers, [clearTimers])
 
+  useEffect(() => {
+    let cancelled = false
+    loadRecommendationDataset().then((loaded) => {
+      if (cancelled) return
+      const nextViewerId = loaded.viewerById[viewerId] ? viewerId : loaded.viewers[0]?.id ?? 'u104'
+      const bootstrapResult = simulatePipeline(nextViewerId, specsFromNodes(initialNodes), specsFromEdges(initialEdges), loaded)
+      setResult(bootstrapResult)
+      setSelectedMovieId(bootstrapResult.recommendations[0]?.movieId ?? null)
+      setDataset(loaded)
+      setViewerId(nextViewerId)
+      setResultViewerId(nextViewerId)
+      setDatasetReady(true)
+    })
+    return () => { cancelled = true }
+  }, [])
+
   const animateRun = useCallback((sourceNodes: BuilderNode[], sourceEdges: BuilderEdge[], activeViewerId: string) => {
     clearTimers()
-    const nextResult = simulatePipeline(activeViewerId, specsFromNodes(sourceNodes), specsFromEdges(sourceEdges))
+    const nextResult = simulatePipeline(activeViewerId, specsFromNodes(sourceNodes), specsFromEdges(sourceEdges), dataset)
     const sequence = Object.keys(nextResult.trace)
     const stepMs = traceSpeed === 2 ? 46 : 92
     setRunStatus('running')
@@ -245,14 +267,14 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
       }, stepMs * (index + 1))
       timers.current.push(timer)
     })
-  }, [clearTimers, setEdges, setNodes, traceSpeed])
+  }, [clearTimers, dataset, setEdges, setNodes, traceSpeed])
 
   useEffect(() => {
-    if (hasAnimatedInitial.current) return
+    if (!datasetReady || hasAnimatedInitial.current) return
     hasAnimatedInitial.current = true
     const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, 'u104'), 260)
     timers.current.push(timer)
-  }, [animateRun])
+  }, [animateRun, datasetReady])
 
   const runPipeline = useCallback(() => {
     animateRun(nodes, edges, viewerId)
@@ -433,6 +455,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     <div className="system-builder-overlay" role="dialog" aria-modal="true" aria-label="RecSys Foundry">
       <div className="system-builder" data-mobile-tab={mobileTab} data-view-mode={viewMode}>
         <FoundryHeader
+          dataset={dataset}
           viewerId={viewerId}
           templateId={templateId}
           runStatus={runStatus}
@@ -513,6 +536,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
           </main>
 
           <NodeInspector
+            dataset={dataset}
             node={selectedNode}
             onConfigChange={updateConfig}
             onDelete={removeSelectedNode}
@@ -520,6 +544,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
         </div>
 
         <FoundryResults
+          dataset={dataset}
           viewerId={resultViewerId}
           result={result}
           runStatus={runStatus}
@@ -532,6 +557,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 }
 
 function FoundryHeader({
+  dataset,
   viewerId,
   templateId,
   runStatus,
@@ -541,6 +567,7 @@ function FoundryHeader({
   onRun,
   onClose,
 }: {
+  dataset: RuntimeDataset
   viewerId: string
   templateId: SystemTemplateId
   runStatus: RunStatus
@@ -554,13 +581,13 @@ function FoundryHeader({
     <header className="foundry-header">
       <div className="foundry-brand">
         <span><Network size={20} /></span>
-        <div><strong>REC.SYS FOUNDRY</strong><small>MovieLens-style model lab</small></div>
+        <div><strong>REC.SYS FOUNDRY</strong><small>{dataset.meta.isOfficial ? 'Official MovieLens 100K lab' : 'Offline sample · import ML-100K'}</small></div>
       </div>
-      <div className="foundry-dataset-chip"><Database size={14} /><strong>{SANDBOX_RATINGS.length}</strong><span>ratings</span><i /><strong>{SANDBOX_MOVIES.length}</strong><span>films</span></div>
+      <div className={`foundry-dataset-chip ${dataset.meta.isOfficial ? 'is-official' : 'is-fallback'}`} title={dataset.meta.notice}><Database size={14} /><strong>{dataset.meta.ratingsCount.toLocaleString()}</strong><span>ratings</span><i /><strong>{dataset.meta.moviesCount.toLocaleString()}</strong><span>films</span></div>
       <label className="foundry-select">
         <span><UserRound size={13} />Viewer</span>
         <select value={viewerId} onChange={(event) => onViewerChange(event.target.value)}>
-          {SANDBOX_VIEWERS.map((viewer) => <option key={viewer.id} value={viewer.id}>{viewer.id.toUpperCase()} · {viewer.name}</option>)}
+          {dataset.viewers.map((viewer) => <option key={viewer.id} value={viewer.id}>{viewer.id.toUpperCase()} · {viewer.name}</option>)}
         </select>
       </label>
       <label className="foundry-select template-select">
@@ -649,11 +676,13 @@ function ModulePalette({ onAdd }: { onAdd: (type: PipelineModuleType) => void })
 
 function NodeInspector({
   node,
+  dataset,
   onConfigChange,
   onDelete,
 }: {
   node: BuilderNode | null
   onConfigChange: (nodeId: string, key: string, value: number | boolean) => void
+  dataset: RuntimeDataset
   onDelete: () => void
 }) {
   if (!node) {
@@ -676,11 +705,13 @@ function NodeInspector({
         <button type="button" onClick={onDelete} aria-label="Delete module" title="Delete module"><Trash2 size={15} /></button>
       </header>
       <p>{definition.description}</p>
+      <div className="inspector-technology"><span>{definition.technology}</span><b>{definition.fidelity}</b></div>
       <div className="inspector-trace">
         <span><small>Input</small><strong>{trace?.inputCount ?? '—'}</strong></span>
         <i />
         <span><small>Output</small><strong>{trace?.outputCount ?? '—'}</strong></span>
         <span><small>Node</small><strong>{trace ? `${trace.latencyMs} ms` : '—'}</strong></span>
+      <StageLineage trace={trace} dataset={dataset} />
       </div>
       <section className="inspector-config">
         <h3>Configuration</h3>
@@ -740,23 +771,72 @@ function NodeInspector({
   )
 }
 
+function StageLineage({ trace, dataset }: { trace?: NodeTrace; dataset: RuntimeDataset }) {
+  const [view, setView] = useState<'input' | 'output' | 'removed'>('output')
+  if (!trace) {
+    return (
+      <section className="stage-lineage is-empty">
+        <header><span>Item lineage</span><small>Run pipeline to inspect</small></header>
+        <p>The last completed trace stays frozen while you edit the graph.</p>
+      </section>
+    )
+  }
+
+  const items = view === 'input' ? trace.inputItems : view === 'removed' ? trace.removedItems : trace.outputItems
+  return (
+    <section className="stage-lineage">
+      <header>
+        <span>Item lineage</span>
+        <small>{trace.summary}</small>
+      </header>
+      <div className="stage-lineage-tabs" role="tablist" aria-label="Stage item sets">
+        <button type="button" className={view === 'input' ? 'is-active' : ''} onClick={() => setView('input')}>In <b>{trace.inputCount}</b></button>
+        <button type="button" className={view === 'output' ? 'is-active' : ''} onClick={() => setView('output')}>Out <b>{trace.outputCount}</b></button>
+        <button type="button" className={view === 'removed' ? 'is-active' : ''} onClick={() => setView('removed')}>Dropped <b>{Math.max(0, trace.inputCount - trace.outputCount)}</b></button>
+      </div>
+      <div className="stage-lineage-items">
+        {items.length === 0 && <p>No item snapshots in this set.</p>}
+        {items.slice(0, 12).map((item) => {
+          const movie = dataset.movieById[item.movieId]
+          if (!movie) return null
+          const removalReason = 'removalReason' in item ? String(item.removalReason) : null
+          return (
+            <article key={item.movieId}>
+              <span className="stage-item-poster movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} />
+              <span className="stage-item-copy">
+                <strong><i>{String(item.rank).padStart(2, '0')}</i>{movie.title}</strong>
+                <small>{movie.year} · {movie.genres.slice(0, 2).join(' / ')}</small>
+                <em>{removalReason ?? item.reasons[0] ?? 'Candidate retained'}</em>
+              </span>
+              <b>{item.score.toFixed(2)}</b>
+            </article>
+          )
+        })}
+      </div>
+      {items.length > 12 && <footer>Showing 12 of {items.length} captured items · counts above reflect the full stage.</footer>}
+    </section>
+  )
+}
+
 function FoundryResults({
   viewerId,
+  dataset,
   result,
   runStatus,
   selectedMovieId,
   onSelectMovie,
 }: {
+  dataset: RuntimeDataset
   viewerId: string
   result: SimulationResult
   runStatus: RunStatus
   selectedMovieId: string | null
   onSelectMovie: (id: string) => void
 }) {
-  const viewer = SANDBOX_VIEWER_BY_ID[viewerId]
+  const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
   const selectedCandidate = result.recommendations.find((candidate) => candidate.movieId === selectedMovieId)
     ?? result.recommendations[0]
-  const profileEvidence = SANDBOX_RATINGS
+  const profileEvidence = dataset.ratings
     .filter((rating) => rating.viewerId === viewerId && rating.rating >= 4)
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 4)
@@ -771,12 +851,14 @@ function FoundryResults({
           <small>Profile evidence</small>
           <div>
             {profileEvidence.map((rating) => {
-              const movie = SANDBOX_MOVIE_BY_ID[rating.movieId]
+              const movie = dataset.movieById[rating.movieId]
               return (
                 <span
                   key={movie.id}
                   className="viewer-poster movie-poster-art"
-                  style={moviePosterStyle(movie.id, movie.tone)}
+                  style={moviePosterStyle(movie, dataset)}
+                  data-mark={movie.mark}
+                  data-year={movie.year}
                   role="img"
                   aria-label={`${movie.title} cover, rated ${rating.rating}`}
                   title={`${movie.title} · ${rating.rating}/5`}
@@ -809,30 +891,116 @@ function FoundryResults({
           <div className="foundry-slate-layout">
             <div className="foundry-movie-row">
               {result.recommendations.map((candidate, index) => {
-                const movie = SANDBOX_MOVIE_BY_ID[candidate.movieId]
+                const movie = dataset.movieById[candidate.movieId]
                 const selected = selectedMovieId === movie.id
                 return (
                   <button
                     type="button"
                     key={movie.id}
                     className={`foundry-movie-card${selected ? ' is-selected' : ''}`}
-                    style={{ ...moviePosterStyle(movie.id, movie.tone), '--movie-score': `${candidate.score * 100}%` } as CSSProperties}
+                    style={{ ...moviePosterStyle(movie, dataset), '--movie-score': `${candidate.score * 100}%` } as CSSProperties}
                     onClick={() => onSelectMovie(movie.id)}
                     aria-pressed={selected}
                     aria-label={`Explain recommendation ${movie.title}`}
                   >
                     <span className="movie-rank">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="movie-cover movie-poster-art" role="img" aria-label={`${movie.title} cover`} />
+                    <span className="movie-cover movie-poster-art" data-mark={movie.mark} data-year={movie.year} role="img" aria-label={`${movie.title} cover`} />
                     <span className="movie-copy"><strong>{movie.title}</strong><small>{movie.year} · {movie.genres.join(' / ')}</small><em>{candidate.reasons[0]}</em></span>
                     <span className="movie-score"><b>{candidate.score.toFixed(2)}</b><i><em /></i></span>
                   </button>
                 )
               })}
             </div>
-            {selectedCandidate && <RecommendationExplanation candidate={selectedCandidate} viewerId={viewerId} />}
+            {selectedCandidate && <RecommendationExplanation candidate={selectedCandidate} viewerId={viewerId} dataset={dataset} />}
           </div>
         )}
       </div>
+      <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />
+    </section>
+  )
+}
+
+function ServiceSimulator({
+  dataset,
+  viewerId,
+  result,
+  runStatus,
+}: {
+  dataset: RuntimeDataset
+  viewerId: string
+  result: SimulationResult
+  runStatus: RunStatus
+}) {
+  const [days, setDays] = useState(7)
+  const [simulation, setSimulation] = useState<ReturnType<typeof simulateServiceDays> | null>(null)
+  const canSimulate = !result.error && result.recommendations.length > 0 && runStatus !== 'dirty' && runStatus !== 'running'
+
+  useEffect(() => {
+    setSimulation(null)
+  }, [dataset, result, viewerId])
+
+  const runDays = (count: number) => {
+    if (!canSimulate) return
+    setSimulation(simulateServiceDays(dataset, viewerId, result, count))
+  }
+
+  const finalDay = simulation?.days[simulation.days.length - 1]
+  return (
+    <section className="service-simulator">
+      <header>
+        <div>
+          <span><Activity size={14} />Service feedback lab</span>
+          <small>Deterministic counterfactual emulator · not an online production benchmark</small>
+        </div>
+        <div className="service-simulator-actions">
+          <button type="button" onClick={() => runDays(1)} disabled={!canSimulate}>Emulate feedback</button>
+          <label>
+            <span>{days} days</span>
+            <input type="range" min="2" max="30" step="1" value={days} onChange={(event) => setDays(Number(event.target.value))} />
+          </label>
+          <button type="button" className="is-primary" onClick={() => runDays(days)} disabled={!canSimulate}><Play size={12} fill="currentColor" />Simulate service</button>
+        </div>
+      </header>
+
+      {!simulation ? (
+        <div className="service-simulator-empty">
+          <CircleGauge size={20} />
+          <span>{canSimulate ? 'Run one feedback step or let this slate live in service for several days.' : 'Complete Run pipeline before feedback simulation. Draft edits are intentionally not applied.'}</span>
+        </div>
+      ) : (
+        <div className="service-simulator-body">
+          <div className="service-summary">
+            <span><small>CTR</small><strong>{Math.round(simulation.summary.ctr * 1000) / 10}%</strong></span>
+            <span><small>Completion</small><strong>{Math.round(simulation.summary.completionRate * 1000) / 10}%</strong></span>
+            <span><small>Reward</small><strong>{simulation.summary.cumulativeReward.toFixed(1)}</strong></span>
+            <span><small>Catalog explored</small><strong>{simulation.summary.uniqueMovies}</strong></span>
+          </div>
+          <div className="service-trend" aria-label="Daily CTR and completion trend">
+            {simulation.days.map((day) => (
+              <span key={day.day} title={`Day ${day.day}: CTR ${Math.round(day.ctr * 100)}%, completion ${Math.round(day.completionRate * 100)}%`}>
+                <i style={{ height: `${Math.max(8, day.ctr * 100)}%` }} />
+                <b style={{ height: `${Math.max(5, day.completionRate * 100)}%` }} />
+                <small>{day.day}</small>
+              </span>
+            ))}
+          </div>
+          <div className="service-policy">
+            <div>
+              <small>Policy after day {finalDay?.day}</small>
+              <strong>{Math.round((finalDay?.explorationRate ?? 0) * 100)}% exploration</strong>
+              <em>{finalDay?.clicks ?? 0} clicks · {finalDay?.completed ?? 0} completions on the last day</em>
+            </div>
+            <div className="service-top-items">
+              {(finalDay?.topMovieIds ?? []).map((movieId, index) => {
+                const movie = dataset.movieById[movieId]
+                return movie ? (
+                  <span key={movieId} className="movie-poster-art" style={moviePosterStyle(movie, dataset)} data-mark={movie.mark} data-year={movie.year} title={`#${index + 1} ${movie.title}`} />
+                ) : null
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -845,21 +1013,29 @@ const SCORE_SIGNAL_META = {
 
 const RETRIEVAL_SOURCE_META: Partial<Record<PipelineModuleType, { label: string; color: string }>> = {
   collaborative: { label: 'User CF', color: '#a97cff' },
+  matrixFactorization: { label: 'SVD / ALS', color: '#8c72cf' },
+  bpr: { label: 'BPR', color: '#bc6fc2' },
+  twoTower: { label: 'Two-tower', color: '#38a9ba' },
   vectorSearch: { label: 'Vector ANN', color: '#20d5cc' },
+  sequenceTransformer: { label: 'Transformer', color: '#6d78d8' },
   popularity: { label: 'Popularity', color: '#ffb33f' },
+  generativeReranker: { label: 'GenAI', color: '#9a68d5' },
+  rlPolicy: { label: 'RL policy', color: '#e56b7c' },
 }
 
 function RecommendationExplanation({
   candidate,
   viewerId,
+  dataset,
 }: {
   candidate: SimulationResult['recommendations'][number]
   viewerId: string
+  dataset: RuntimeDataset
 }) {
-  const movie = SANDBOX_MOVIE_BY_ID[candidate.movieId]
-  const viewer = SANDBOX_VIEWER_BY_ID[viewerId]
+  const movie = dataset.movieById[candidate.movieId]
+  const viewer = dataset.viewerById[viewerId]
   const matchingGenres = movie.genres.filter((genre) => viewer.favoriteGenres.includes(genre))
-  const ratings = SANDBOX_RATINGS.filter((rating) => rating.movieId === movie.id)
+  const ratings = dataset.ratingsByMovie.get(movie.id) ?? []
   const averageRating = ratings.length
     ? ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length
     : 0
@@ -909,12 +1085,30 @@ function RecommendationExplanation({
   )
 }
 
-function moviePosterStyle(movieId: string, tone: string): CSSProperties {
-  const index = Math.max(0, SANDBOX_MOVIES.findIndex((movie) => movie.id === movieId))
+function moviePosterStyle(movie: SandboxMovie, dataset: RuntimeDataset): CSSProperties {
+  if (dataset.meta.id === 'sandbox') {
+    const index = Math.max(0, dataset.movies.findIndex((item) => item.id === movie.id))
+    return {
+      '--movie-tone': movie.tone,
+      '--cover-x': `${(index % 6) * 20}%`,
+      '--cover-y': `${Math.floor(index / 6) * 50}%`,
+    } as CSSProperties
+  }
+
+  const phase = hashPhase(movie.id)
+  const angle = Math.round(118 + phase * 74)
+  const light = phase > 0.5 ? '#d9f7ef' : '#f5d9ed'
   return {
-    '--movie-tone': tone,
-    '--cover-x': `${(index % 6) * 20}%`,
-    '--cover-y': `${Math.floor(index / 6) * 50}%`,
+    '--movie-tone': movie.tone,
+    '--poster-shift': `${Math.round(phase * 28 - 14)}deg`,
+    '--poster-glow': light,
+    backgroundImage: `
+      linear-gradient(180deg, rgba(8, 17, 43, 0.02), rgba(8, 17, 43, 0.72)),
+      radial-gradient(circle at ${28 + phase * 44}% 28%, ${light} 0 8%, transparent 9%),
+      conic-gradient(from ${angle}deg at 50% 54%, ${movie.tone}, #18284f, ${light}, ${movie.tone})
+    `,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
   } as CSSProperties
 }
 

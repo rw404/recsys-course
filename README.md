@@ -1,71 +1,100 @@
-# RecSys Adventure — Foundations Camp (vertical slice)
+# RecSys Odyssey
 
-An interactive **adventure-mode** vertical slice for a Recommender Systems course.
-The 3D world is not decoration — it is a **spatial progress interface**. You play a small
-stylized "data porter" who walks the course with WASD; each station is a real course action,
-and completing work visibly transforms the world.
+An interactive 3D course about recommender systems. The main experience is a
+scroll-driven journey through connected worlds; each world also supports direct
+character exploration. The Foundry turns the course concepts into a buildable,
+traceable recommendation pipeline.
 
 ## Run
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run data:movielens
+npm run dev
 ```
 
-Production build / preview:
+The app is available at [http://localhost:5173](http://localhost:5173).
+
+`npm run data:movielens` downloads MovieLens 100K from GroupLens, parses all
+100,000 ratings, 1,682 movies and 943 users, and trains compact 12-dimensional
+matrix-factorization features for the browser simulator.
+
+The generated payload lives at
+`public/data/generated/ml-100k.compact.json` and is intentionally ignored by
+Git. MovieLens 100K cannot be redistributed without separate permission from
+GroupLens. When the payload is absent, the UI explicitly identifies and uses a
+small built-in educational sample.
+
+Production build:
 
 ```bash
+npm test
 npm run build
-npm run preview  # http://localhost:4173
+npm run preview
 ```
 
-## The gameplay loop (this slice)
+## Course Journey
 
-1. You spawn in **Foundations Camp** next to the **Metric Keeper** (guide NPC).
-2. Talk to the guide (**E**) — it sets your objective.
-3. Walk to the **Week 01 · Ranking & Metrics** station → **E** opens **Study Mode** (NDCG / Recall / Coverage).
-4. Completing the lesson checkpoint **unlocks the Ranking Sandbox**.
-5. In the **Ranking Sandbox** lab, build a slate of 4 items to maximize **NDCG@4**.
-   Passing forges the **Metric Compass** artifact — it appears on your backpack.
-6. The **Quiz Gate** unlocks; pass all three questions to **light the bridge** to Retrieval Valley.
-7. The **Next Required Action** in the HUD updates at every step.
+The home experience follows one recommendation signal through a vertical world:
 
-## Controls
+1. Signal city
+2. Infrastructure channel
+3. Candidate retrieval
+4. Sequences and context
+5. Ranking tower
+6. Selector gates
+7. Online serving
+8. Feedback ecosystem
+9. System synthesis
 
-| Key | Action |
-|-----|--------|
-| `W A S D` / arrows | Move |
-| `Shift` | Run |
-| `E` | Interact with the nearest station |
-| `C` | Open the Catalog (no-3D fallback) |
-| `Esc` | Close a panel (skips the cinematic camera) |
+Scroll moves between chapters, click opens a world, and optional WASD controls
+the rigged explorer. Character navigation uses landmark colliders and a
+visibility-graph route planner, so click-to-move and manual movement avoid world
+geometry.
 
-Accessibility: **reduced-motion** toggle (top-right) snaps the camera instead of gliding,
-and the **Catalog** lets you enter any available station without walking.
+## RecSys Foundry
 
-## Architecture
+Foundry includes 19 composable modules:
 
-- `src/state/progress.ts` — the single source of truth (zustand). `NODES` graph,
-  `ProgressNodeState`, and `resolveNextRequiredAction`. **The 3D world only visualizes this.**
-- `src/game/` — R3F world:
-  - `World.tsx` — Canvas + Rapier physics.
-  - `Player.tsx` — primitive-built porter, WASD via a Rapier capsule, procedural walk cycle.
-  - `Camera.tsx` — damped isometric follow, cinematic push-in on interact.
-  - `Environment.tsx` — lighting, fog, ground colliders, glowing route (highlights the next action).
-  - `Stations.tsx` — station meshes per node state + proximity/`E` interaction system.
-  - `shared.ts` — high-frequency runtime state kept out of React.
-- `src/ui/` — `HUD`, `StudyMode`, `LabMode` (Ranking Sandbox), `QuizMode`, `InteractDialog`, `Catalog`.
-- `src/data/course.ts` — lesson text, quiz, sandbox items, and the metric math (NDCG/Recall/Coverage).
+- MovieLens ratings, event streaming and feature store
+- Popularity, user CF, SVD/ALS, BPR, two-tower retrieval
+- HNSW/IVF-style ANN and sequence-transformer retrieval
+- Candidate blending and business selectors
+- Learning-to-rank, grounded GenAI reranking, contextual bandit/RL and MMR
+- Offline evaluation, online serving and final Top-K delivery
 
-## Design notes
+Every completed run records item-level lineage for every node:
 
-- **No external/borrowed assets.** The character and props are built from Three.js primitives.
-- Every station corresponds to a real course action; progress (artifacts, lit bridge, route
-  highlight, station state colors) is driven entirely by `ProgressStore`.
-- Stack: React + TypeScript + Vite, Three.js via `@react-three/fiber`, `@react-three/drei`,
-  `@react-three/rapier`, `zustand`.
+- input candidates
+- output candidates
+- dropped candidates and the removal reason
+- score, rank, evidence sources and latency
 
-## Next (out of scope for this slice)
+Graph edits and viewer changes are drafts. They never change recommendations
+until `Run pipeline` finishes its visible trace.
 
-Retrieval Valley (two-tower / ANN / negative sampling), Sequential City, Policy Factory,
-Ecosystem City, and the Final Arena — plus GLB character/props, mobile joystick, and MDX lessons.
+The service lab can emulate one feedback step or 2-30 days in service. It shows
+daily CTR, completion, cumulative reward, exploration rate and the evolving
+policy slate. This is a deterministic educational emulator, not a production
+benchmark or a real online experiment.
+
+## Validation
+
+```bash
+npm test
+npm run typecheck
+npm run build
+
+# Requires local Chromium shared libraries.
+node scripts/foundry-audit.mjs
+node scripts/foundry-advanced-audit.mjs
+```
+
+The Playwright audits cover desktop and mobile layouts, diagram/isometric
+switching, graph assembly, frozen results before Run, item lineage, advanced
+templates, service feedback and WebGL asset loading.
+
+## Stack
+
+React, TypeScript, Vite, Three.js, React Three Fiber, Drei, Rapier, Zustand and
+React Flow.

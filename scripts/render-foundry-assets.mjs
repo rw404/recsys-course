@@ -9,14 +9,22 @@ const only = process.argv[2]
 const types = [
   'ratingsSource',
   'featureStore',
+  'eventStream',
   'popularity',
   'collaborative',
   'vectorSearch',
+  'matrixFactorization',
+  'bpr',
+  'twoTower',
+  'sequenceTransformer',
   'blend',
   'seenFilter',
   'ranker',
   'diversify',
   'evaluator',
+  'generativeReranker',
+  'rlPolicy',
+  'onlineServing',
   'output',
 ].filter((type) => !only || type === only)
 

@@ -6,29 +6,45 @@ import type { PipelineModuleType } from '../logic/systemSimulator'
 
 const TYPES: PipelineModuleType[] = [
   'ratingsSource',
+  'eventStream',
   'featureStore',
   'popularity',
   'collaborative',
+  'matrixFactorization',
+  'bpr',
+  'twoTower',
   'vectorSearch',
+  'sequenceTransformer',
   'blend',
   'seenFilter',
   'ranker',
+  'generativeReranker',
+  'rlPolicy',
   'diversify',
   'evaluator',
+  'onlineServing',
   'output',
 ]
 
 const ACCENTS: Record<PipelineModuleType, string> = {
   ratingsSource: '#36b9c5',
+  eventStream: '#4f9fd8',
   featureStore: '#2db6a8',
   popularity: '#42bd82',
   collaborative: '#45b8c8',
+  matrixFactorization: '#8c72cf',
+  bpr: '#bc6fc2',
+  twoTower: '#38a9ba',
   vectorSearch: '#27bdb5',
+  sequenceTransformer: '#6d78d8',
   blend: '#ddb13f',
   seenFilter: '#e1a13c',
   ranker: '#df7862',
+  generativeReranker: '#9a68d5',
+  rlPolicy: '#e56b7c',
   diversify: '#e58a72',
   evaluator: '#54b96c',
+  onlineServing: '#497c9b',
   output: '#42657c',
 }
 
@@ -184,15 +200,23 @@ function DataBeacon({ position, color }: { position: [number, number, number]; c
 function Device({ type }: { type: PipelineModuleType }) {
   switch (type) {
     case 'ratingsSource': return <RatingsDevice />
+    case 'eventStream': return <RatingsDevice />
     case 'featureStore': return <FeatureStoreDevice />
     case 'popularity': return <PopularityDevice />
     case 'collaborative': return <CollaborativeDevice />
+    case 'matrixFactorization': return <MatrixDevice />
+    case 'bpr': return <PairwiseDevice />
+    case 'twoTower': return <TwoTowerDevice />
     case 'vectorSearch': return <VectorDevice />
+    case 'sequenceTransformer': return <TransformerDevice />
     case 'blend': return <BlendDevice />
     case 'seenFilter': return <FilterDevice />
     case 'ranker': return <RankerDevice />
+    case 'generativeReranker': return <GenerativeDevice />
+    case 'rlPolicy': return <PolicyDevice />
     case 'diversify': return <DiversifyDevice />
     case 'evaluator': return <EvaluatorDevice />
+    case 'onlineServing': return <ServingDevice />
     case 'output': return <OutputDevice />
   }
 }
@@ -475,6 +499,175 @@ function EvaluatorDevice() {
           <Material color="#245c37" />
         </mesh>
       </group>
+    </group>
+  )
+}
+
+function MatrixDevice() {
+  const cells = Array.from({ length: 9 }, (_, index) => ({
+    x: (index % 3 - 1) * 0.58,
+    z: (Math.floor(index / 3) - 1) * 0.58,
+    height: 0.42 + ((index * 7) % 5) * 0.18,
+  }))
+  return (
+    <group position={[0, 0.22, 0]}>
+      <group rotation={[0, 0.18, 0]}>
+        {cells.map((cell, index) => (
+          <RoundedBox
+            key={index}
+            args={[0.46, cell.height, 0.46]}
+            radius={0.06}
+            smoothness={2}
+            position={[cell.x, cell.height / 2 + 0.18, cell.z]}
+            castShadow
+          >
+            <Material color={index % 2 ? '#9679d5' : '#765fc0'} emissive="#7a61cc" emissiveIntensity={index === 4 ? 0.22 : 0.05} />
+          </RoundedBox>
+        ))}
+      </group>
+      <mesh position={[0, 1.72, 0]} rotation={[0.2, 0.4, 0]}>
+        <octahedronGeometry args={[0.28, 0]} />
+        <Material color="#d9c6ff" emissive="#9a79e8" emissiveIntensity={0.42} />
+      </mesh>
+    </group>
+  )
+}
+
+function PairwiseDevice() {
+  return (
+    <group position={[0, 0.22, 0]}>
+      <RoundedBox args={[0.8, 1.18, 0.92]} radius={0.12} smoothness={3} position={[-0.72, 0.78, 0]} castShadow>
+        <Material color="#c57bcc" />
+      </RoundedBox>
+      <RoundedBox args={[0.8, 0.72, 0.92]} radius={0.12} smoothness={3} position={[0.72, 0.55, 0]} castShadow>
+        <Material color="#8d70ca" />
+      </RoundedBox>
+      <Pipe from={[-0.28, 1.05, 0]} to={[0.32, 0.78, 0]} color="#f1c8f2" radius={0.08} />
+      <mesh position={[0.36, 0.76, 0]} rotation={[0, 0, -0.35]}>
+        <coneGeometry args={[0.18, 0.38, 10]} />
+        <Material color="#f1c8f2" emissive="#bd75c8" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[-0.72, 1.55, 0]}>
+        <sphereGeometry args={[0.18, 12, 8]} />
+        <Material color="#ffe39e" emissive="#efb84d" emissiveIntensity={0.35} />
+      </mesh>
+    </group>
+  )
+}
+
+function TwoTowerDevice() {
+  return (
+    <group position={[0, 0.2, 0]}>
+      {[-0.72, 0.72].map((x, index) => (
+        <group key={x}>
+          <RoundedBox args={[0.72, 1.72, 0.82]} radius={0.12} smoothness={3} position={[x, 0.95, 0]} castShadow>
+            <Material color={index ? '#3aaaba' : '#54c3cd'} />
+          </RoundedBox>
+          {[0.5, 0.95, 1.4].map((y) => (
+            <mesh key={y} position={[x, y, 0.43]}>
+              <boxGeometry args={[0.34, 0.08, 0.04]} />
+              <Material color="#d8f4ef" emissive="#8cded8" emissiveIntensity={0.16} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <Pipe from={[-0.36, 1.56, 0]} to={[0.36, 1.56, 0]} color="#b9f0e8" radius={0.08} />
+      <mesh position={[0, 1.56, 0]}>
+        <icosahedronGeometry args={[0.25, 1]} />
+        <Material color="#c8fff3" emissive="#43bfc2" emissiveIntensity={0.42} />
+      </mesh>
+    </group>
+  )
+}
+
+function TransformerDevice() {
+  return (
+    <group position={[0, 0.18, 0]}>
+      {[0.52, 1.02, 1.52].map((y, layer) => (
+        <group key={y} position={[0, y, 0]}>
+          <RoundedBox args={[1.72 - layer * 0.18, 0.3, 1.08 - layer * 0.08]} radius={0.1} smoothness={3} castShadow>
+            <Material color={layer === 1 ? '#6976d5' : '#7f89e2'} />
+          </RoundedBox>
+          {[-0.48, 0, 0.48].map((x, index) => (
+            <mesh key={x} position={[x * (1 - layer * 0.08), 0.2, 0]}>
+              <sphereGeometry args={[0.09 + index * 0.015, 12, 8]} />
+              <Material color="#d7dcff" emissive="#8591f0" emissiveIntensity={0.32} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <mesh position={[0, 2.08, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.46, 0.055, 10, 36]} />
+        <Material color="#cbd2ff" emissive="#7382e1" emissiveIntensity={0.28} />
+      </mesh>
+    </group>
+  )
+}
+
+function GenerativeDevice() {
+  return (
+    <group position={[0, 0.2, 0]}>
+      <mesh position={[0, 1.12, 0]} rotation={[0.18, 0.36, 0.08]} castShadow>
+        <octahedronGeometry args={[0.86, 1]} />
+        <Material color="#b88ce9" emissive="#8e60cf" emissiveIntensity={0.5} roughness={0.36} />
+      </mesh>
+      <mesh position={[0, 1.12, 0]} rotation={[Math.PI / 2, 0, 0.28]}>
+        <torusGeometry args={[1.14, 0.06, 10, 48]} />
+        <Material color="#ead8ff" emissive="#a576e4" emissiveIntensity={0.35} />
+      </mesh>
+      {[-0.72, 0.72].map((x) => (
+        <RoundedBox key={x} args={[0.42, 0.62, 0.12]} radius={0.06} smoothness={2} position={[x, 0.55, 0.52]} rotation={[-0.15, x * 0.4, 0]} castShadow>
+          <Material color="#d8c4f1" emissive="#9a72d4" emissiveIntensity={0.12} />
+        </RoundedBox>
+      ))}
+    </group>
+  )
+}
+
+function PolicyDevice() {
+  return (
+    <group position={[0, 0.2, 0]}>
+      <RoundedBox args={[0.7, 0.82, 0.72]} radius={0.16} smoothness={3} position={[0, 0.62, 0]} castShadow>
+        <Material color="#d76079" />
+      </RoundedBox>
+      <mesh position={[0, 1.23, 0]}>
+        <sphereGeometry args={[0.25, 16, 10]} />
+        <Material color="#ffd3dc" emissive="#e86c82" emissiveIntensity={0.28} />
+      </mesh>
+      <Pipe from={[0, 0.65, 0]} to={[-0.9, 1.2, -0.35]} color="#ee91a2" radius={0.07} />
+      <Pipe from={[0, 0.65, 0]} to={[0.9, 1.2, -0.35]} color="#6fc9aa" radius={0.07} />
+      <mesh position={[-0.96, 1.28, -0.38]}>
+        <icosahedronGeometry args={[0.26, 0]} />
+        <Material color="#f2a2b1" emissive="#e56b7c" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[0.96, 1.28, -0.38]}>
+        <icosahedronGeometry args={[0.32, 0]} />
+        <Material color="#79d2b2" emissive="#3fb68e" emissiveIntensity={0.28} />
+      </mesh>
+    </group>
+  )
+}
+
+function ServingDevice() {
+  return (
+    <group position={[0, 0.2, 0]}>
+      <RoundedBox args={[1.72, 1.45, 0.72]} radius={0.18} smoothness={3} position={[0, 0.95, 0]} castShadow>
+        <Material color="#477894" />
+      </RoundedBox>
+      <mesh position={[0, 0.95, 0.42]}>
+        <ringGeometry args={[0.44, 0.68, 32]} />
+        <Material color="#9de6e3" emissive="#4ebbc2" emissiveIntensity={0.48} roughness={0.42} />
+      </mesh>
+      <mesh position={[0, 0.95, 0.44]}>
+        <circleGeometry args={[0.38, 32]} />
+        <meshBasicMaterial color="#244c66" transparent opacity={0.78} />
+      </mesh>
+      {[[-0.62, 1.72], [0, 1.88], [0.62, 1.72]].map(([x, y], index) => (
+        <mesh key={index} position={[x, y, 0]} castShadow>
+          <cylinderGeometry args={[0.09, 0.12, 0.48, 10]} />
+          <Material color="#80c9cf" emissive="#4caeb7" emissiveIntensity={0.15} />
+        </mesh>
+      ))}
     </group>
   )
 }
