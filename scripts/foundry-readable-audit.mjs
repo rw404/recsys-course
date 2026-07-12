@@ -80,6 +80,21 @@ await desktop.locator('.service-trend').waitFor()
 assert.equal(await desktop.locator('.service-trend > span').count(), 7)
 assert.ok(await desktop.locator('.service-event-log article').count() >= 8)
 assert.match(await desktop.locator('.service-method-strip').innerText(), /Observed input/)
+const serviceGeometry = await desktop.evaluate(() => {
+  const trend = document.querySelector('.service-trend')?.getBoundingClientRect()
+  const events = document.querySelector('.service-event-log')?.getBoundingClientRect()
+  const policy = document.querySelector('.service-policy')?.getBoundingClientRect()
+  const body = document.querySelector('.service-simulator-body')
+  return {
+    trendBottom: trend?.bottom ?? 0,
+    eventsHeight: events?.height ?? 0,
+    policyTop: policy?.top ?? 0,
+    bodyClientHeight: body?.clientHeight ?? 0,
+    bodyScrollHeight: body?.scrollHeight ?? 0,
+  }
+})
+assert.ok(serviceGeometry.eventsHeight >= 128, `Event log collapsed to ${serviceGeometry.eventsHeight}px`)
+assert.ok(serviceGeometry.trendBottom <= serviceGeometry.policyTop, `Chart overlaps policy by ${serviceGeometry.trendBottom - serviceGeometry.policyTop}px`)
 await desktop.screenshot({ path: 'artifacts/foundry-readable-service.png' })
 
 const desktopOverflow = await desktop.evaluate(() => ({
@@ -106,5 +121,5 @@ const mobileOverflow = await mobile.evaluate(() => ({
 assert.deepEqual(mobileOverflow, { x: 0, y: 0 })
 assert.deepEqual(errors, [])
 
-console.log(JSON.stringify({ expectedDataset, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, desktopOverflow, mobileOverflow, errors }, null, 2))
+console.log(JSON.stringify({ expectedDataset, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, serviceGeometry, desktopOverflow, mobileOverflow, errors }, null, 2))
 await browser.close()
