@@ -113,7 +113,7 @@ const viewerHeldDuringRun = resultViewerBefore === runningViewer
 assert.equal(viewerHeldDuringRun, true)
 await page.getByText('Trace complete', { exact: true }).waitFor({ timeout: 10000 })
 const resultViewerAfter = await page.locator('.foundry-viewer-card > span + div small').textContent()
-assert.equal(resultViewerAfter, 'Real MovieLens profile · U337')
+assert.equal(resultViewerAfter, 'Real dataset profile · U337')
 const leilaMovies = await page.locator('.foundry-movie-card').allTextContents()
 
 await page.locator('.template-select select').selectOption('fast')

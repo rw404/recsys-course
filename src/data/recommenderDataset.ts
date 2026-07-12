@@ -8,7 +8,7 @@ import {
 } from './movielensSandbox'
 
 export interface DatasetMeta {
-  id: 'movielens-100k' | 'sandbox'
+  id: 'movielens-100k' | 'movietweetings-100k' | 'sandbox'
   label: string
   source: string
   ratingsCount: number
@@ -39,8 +39,12 @@ export interface RuntimeDataset {
   latent?: LatentFactors
 }
 
-interface CompactMovieLensPayload {
+interface CompactRatingsPayload {
   meta: {
+    id?: 'movielens-100k' | 'movietweetings-100k'
+    label?: string
+    source?: string
+    notice?: string
     generatedAt: string
     ratingsCount: number
     moviesCount: number
@@ -61,6 +65,11 @@ interface CompactMovieLensPayload {
 }
 
 const MOVIELENS_DATA_URL = '/data/generated/ml-100k.compact.json'
+const MOVIETWEETINGS_DATA_URL = '/data/generated/movietweetings-100k.compact.json'
+const IS_PRODUCTION_BUILD = typeof import.meta.env !== 'undefined' && import.meta.env.PROD
+const DATASET_URLS = IS_PRODUCTION_BUILD
+  ? [MOVIETWEETINGS_DATA_URL]
+  : [MOVIELENS_DATA_URL, MOVIETWEETINGS_DATA_URL]
 
 export const SANDBOX_DATASET = createRuntimeDataset({
   meta: {
@@ -71,7 +80,7 @@ export const SANDBOX_DATASET = createRuntimeDataset({
     moviesCount: SANDBOX_MOVIES.length,
     viewersCount: SANDBOX_VIEWERS.length,
     isOfficial: false,
-    notice: 'Run npm run data:movielens to enable the official MovieLens 100K corpus.',
+    notice: 'The real ratings payload could not be loaded.',
   },
   movies: SANDBOX_MOVIES,
   viewers: SANDBOX_VIEWERS,
@@ -80,8 +89,9 @@ export const SANDBOX_DATASET = createRuntimeDataset({
 
 let datasetPromise: Promise<RuntimeDataset> | null = null
 
-export function loadRecommendationDataset(): Promise<RuntimeDataset> {
-  if (!datasetPromise) datasetPromise = loadMovieLens100k()
+export function loadRecommendationDataset(force = false): Promise<RuntimeDataset> {
+  if (force) datasetPromise = null
+  if (!datasetPromise) datasetPromise = loadRealRatingsDataset()
   return datasetPromise
 }
 
@@ -117,19 +127,28 @@ export function createRuntimeDataset({
   }
 }
 
-async function loadMovieLens100k(): Promise<RuntimeDataset> {
-  try {
-    const response = await fetch(MOVIELENS_DATA_URL, { cache: 'force-cache' })
-    if (!response.ok) throw new Error(`MovieLens payload returned ${response.status}`)
-    const payload = await response.json() as CompactMovieLensPayload
-    return compactPayloadToDataset(payload)
-  } catch (error) {
-    console.info('[Foundry] MovieLens 100K local payload unavailable; using the bundled offline sample.', error)
-    return SANDBOX_DATASET
+async function loadRealRatingsDataset(): Promise<RuntimeDataset> {
+  const failures: string[] = []
+  for (const url of DATASET_URLS) {
+    try {
+      const response = await fetch(url, { cache: 'no-cache' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const payload = await response.json() as CompactRatingsPayload
+      if (!payload.ratings?.length || !payload.movies?.length || !payload.users?.length) {
+        throw new Error('payload is incomplete')
+      }
+      return compactPayloadToDataset(payload)
+    } catch (error) {
+      failures.push(`${url}: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
+  console.error('[Foundry] No real ratings payload could be loaded.', failures)
+  return SANDBOX_DATASET
 }
 
-function compactPayloadToDataset(payload: CompactMovieLensPayload): RuntimeDataset {
+function compactPayloadToDataset(payload: CompactRatingsPayload): RuntimeDataset {
+  const datasetId = payload.meta.id ?? 'movielens-100k'
+  const isMovieLens = datasetId === 'movielens-100k'
   const movies: SandboxMovie[] = payload.movies.map(([id, title, year, genreIndexes, imdbUrl, tone]) => ({
     id: `m${id}`,
     title,
@@ -152,16 +171,20 @@ function compactPayloadToDataset(payload: CompactMovieLensPayload): RuntimeDatas
   }
   const viewers: SandboxViewer[] = payload.users.map(([id, age, gender, occupation, zip]) => {
     const viewerId = `u${id}`
-    const favoriteGenres = inferFavoriteGenres(ratingsByViewer.get(viewerId) ?? [], movieById)
+    const viewerRatings = ratingsByViewer.get(viewerId) ?? []
+    const favoriteGenres = inferFavoriteGenres(viewerRatings, movieById)
+    const hasDemographics = age > 0 && Boolean(gender)
     return {
       id: viewerId,
       name: `Viewer ${id}`,
-      cohort: `${occupation} · age ${age}`,
+      cohort: hasDemographics ? `${occupation} · age ${age}` : `${occupation || 'public rating profile'} · ${viewerRatings.length} ratings`,
       favoriteGenres,
-      note: `${gender === 'F' ? 'Female' : 'Male'} viewer from the official ML-100K panel (${zip}).`,
-      age,
-      gender,
-      occupation,
+      note: hasDemographics
+        ? `${gender === 'F' ? 'Female' : 'Male'} viewer from the official ML-100K panel (${zip}).`
+        : 'An anonymized real rating profile from the public MovieTweetings corpus.',
+      age: hasDemographics ? age : undefined,
+      gender: hasDemographics ? gender : undefined,
+      occupation: occupation || undefined,
     }
   })
   const latent: LatentFactors = {
@@ -174,14 +197,14 @@ function compactPayloadToDataset(payload: CompactMovieLensPayload): RuntimeDatas
   }
   return createRuntimeDataset({
     meta: {
-      id: 'movielens-100k',
-      label: 'MovieLens 100K',
-      source: 'GroupLens Research · September 1997-April 1998',
+      id: datasetId,
+      label: payload.meta.label ?? 'MovieLens 100K',
+      source: payload.meta.source ?? 'GroupLens Research · September 1997-April 1998',
       ratingsCount: payload.meta.ratingsCount,
       moviesCount: payload.meta.moviesCount,
       viewersCount: payload.meta.viewersCount,
       isOfficial: true,
-      notice: 'Official MovieLens 100K ratings. Model behavior in this browser is an educational emulator.',
+      notice: payload.meta.notice ?? 'Official MovieLens 100K ratings. Model behavior in this browser is an educational emulator.',
     },
     movies,
     viewers,

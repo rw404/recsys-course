@@ -19,11 +19,14 @@ The app is available at [http://localhost:5173](http://localhost:5173).
 100,000 ratings, 1,682 movies and 943 users, and trains compact 12-dimensional
 matrix-factorization features for the browser simulator.
 
-The generated payload lives at
-`public/data/generated/ml-100k.compact.json` and is intentionally ignored by
-Git. MovieLens 100K cannot be redistributed without separate permission from
-GroupLens. When the payload is absent, the UI explicitly identifies and uses a
-small built-in educational sample.
+The local MovieLens payload lives at `public/data/generated/ml-100k.compact.json`
+and is intentionally ignored by Git because GroupLens does not allow public
+redistribution without separate permission.
+
+Production uses the bundled `MovieTweetings 100K` corpus: 100,000 real public
+movie ratings, 943 anonymized profiles and 1,682 films. It is generated with
+`npm run data:movietweetings`, distributed under the upstream MIT license, and
+keeps the deployed Foundry functional without substituting synthetic data.
 
 Production build:
 

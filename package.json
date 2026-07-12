@@ -12,7 +12,8 @@
     "test": "npm run test:course && npm run test:foundry",
     "test:course": "esbuild logic.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/logic.test.mjs && node node_modules/.cache/logic.test.mjs",
     "test:foundry": "esbuild systemSimulator.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/systemSimulator.test.mjs && node node_modules/.cache/systemSimulator.test.mjs",
-    "data:movielens": "node scripts/prepare-movielens-100k.mjs"
+    "data:movielens": "node scripts/prepare-movielens-100k.mjs",
+    "data:movietweetings": "node scripts/prepare-movietweetings-100k.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",

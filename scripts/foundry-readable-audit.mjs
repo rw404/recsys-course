@@ -5,6 +5,8 @@ import { chromium } from 'playwright-core'
 const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:5173'
 const executablePath = process.env.CHROMIUM_PATH
   ?? '/home/claude-agent/.cache/ms-playwright/chromium_headless_shell-1148/chrome-linux/headless_shell'
+const expectedDataset = process.env.EXPECTED_DATASET ?? 'MovieLens 100K'
+const expectedSource = process.env.EXPECTED_SOURCE ?? 'GroupLens Research'
 
 await mkdir('artifacts', { recursive: true })
 const browser = await chromium.launch({
@@ -29,6 +31,7 @@ await openFoundry(desktop)
 
 assert.equal(await desktop.locator('.foundry-results-tabs > button').count(), 4)
 assert.match(await desktop.locator('.foundry-results-source').innerText(), /100,000 ratings/)
+assert.match(await desktop.locator('.foundry-results-source').innerText(), new RegExp(expectedDataset))
 assert.ok(await desktop.locator('.foundry-movie-card').count() >= 4)
 const primaryTextSize = await desktop.locator('.foundry-movie-card .movie-copy strong').first().evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
 assert.ok(primaryTextSize >= 10, `Movie title text is only ${primaryTextSize}px`)
@@ -41,9 +44,9 @@ await desktop.locator('.trace-stage-rail button').nth(3).click()
 assert.ok(await desktop.locator('.stage-lineage.is-expanded article').count() > 0)
 await desktop.screenshot({ path: 'artifacts/foundry-readable-trace.png' })
 
-await desktop.getByRole('tab', { name: /MovieLens data/ }).click()
+await desktop.getByRole('tab', { name: /Dataset evidence/ }).click()
 await desktop.locator('.movielens-explorer').waitFor()
-assert.match(await desktop.locator('.movielens-summary').innerText(), /GroupLens Research/)
+assert.match(await desktop.locator('.movielens-summary').innerText(), new RegExp(expectedSource))
 assert.match(await desktop.locator('.movielens-summary').innerText(), /100,000/)
 await desktop.getByRole('tab', { name: 'Ratings', exact: true }).click()
 assert.ok(await desktop.locator('.movielens-rating-table > div').count() >= 10)
@@ -69,7 +72,7 @@ mobile.on('pageerror', (error) => errors.push(`mobile: ${error.message}`))
 mobile.on('console', (message) => { if (message.type() === 'error') errors.push(`mobile: ${message.text()}`) })
 await openFoundry(mobile)
 await mobile.getByRole('button', { name: /Slate/ }).click()
-await mobile.getByRole('tab', { name: /MovieLens data/ }).click()
+await mobile.getByRole('tab', { name: /Dataset evidence/ }).click()
 await mobile.locator('.movielens-explorer').waitFor()
 await mobile.screenshot({ path: 'artifacts/foundry-readable-mobile.png' })
 const mobileOverflow = await mobile.evaluate(() => ({
@@ -79,5 +82,5 @@ const mobileOverflow = await mobile.evaluate(() => ({
 assert.deepEqual(mobileOverflow, { x: 0, y: 0 })
 assert.deepEqual(errors, [])
 
-console.log(JSON.stringify({ primaryTextSize, desktopOverflow, mobileOverflow, errors }, null, 2))
+console.log(JSON.stringify({ expectedDataset, primaryTextSize, desktopOverflow, mobileOverflow, errors }, null, 2))
 await browser.close()

@@ -9525,3 +9525,26 @@ body {
 .service-simulator-actions label {
   font-size: 9px;
 }
+
+.foundry-results.is-dataset-state button {
+  width: max-content;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 5px;
+  padding: 0 12px;
+  border: 1px solid rgba(102, 87, 234, 0.28);
+  border-radius: 5px;
+  color: #5144ca;
+  background: #f3f1ff;
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.foundry-results.is-dataset-state button:hover {
+  border-color: rgba(102, 87, 234, 0.48);
+  background: #ebe7ff;
+}

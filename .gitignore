@@ -17,7 +17,9 @@ tsconfig.tsbuildinfo
 # Official MovieLens files are prepared locally. GroupLens does not permit
 # redistributing the dataset without separate permission.
 /.cache/movielens-100k/
-/public/data/generated/
+/.cache/movietweetings/
+/public/data/generated/*
+!/public/data/generated/movietweetings-100k.compact.json
 
 # scratch capture/gen scripts
 *cap.mjs

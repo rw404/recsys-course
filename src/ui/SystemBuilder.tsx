@@ -200,6 +200,20 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     return () => { cancelled = true }
   }, [])
 
+  const retryDataset = useCallback(() => {
+    setDatasetReady(false)
+    loadRecommendationDataset(true).then((loaded) => {
+      const nextViewerId = loaded.viewerById[viewerId] ? viewerId : loaded.viewers[0]?.id ?? 'u104'
+      const bootstrapResult = simulatePipeline(nextViewerId, specsFromNodes(initialNodes), specsFromEdges(initialEdges), loaded)
+      setResult(bootstrapResult)
+      setSelectedMovieId(bootstrapResult.recommendations[0]?.movieId ?? null)
+      setDataset(loaded)
+      setViewerId(nextViewerId)
+      setResultViewerId(nextViewerId)
+      setDatasetReady(true)
+    })
+  }, [viewerId])
+
   const animateRun = useCallback((sourceNodes: BuilderNode[], sourceEdges: BuilderEdge[], activeViewerId: string) => {
     clearTimers()
     const nextResult = simulatePipeline(activeViewerId, specsFromNodes(sourceNodes), specsFromEdges(sourceEdges), dataset)
@@ -558,6 +572,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
           selectedMovieId={selectedMovieId}
           onSelectMovie={setSelectedMovieId}
           onViewChange={(view) => { setResultsView(view); setMobileTab('slate') }}
+          onRetryDataset={retryDataset}
         />
       </div>
     </div>
@@ -591,7 +606,7 @@ function FoundryHeader({
     <header className="foundry-header">
       <div className="foundry-brand">
         <span><Network size={20} /></span>
-        <div><strong>REC.SYS FOUNDRY</strong><small>{!datasetReady ? 'Loading official MovieLens 100K' : dataset.meta.isOfficial ? 'Official MovieLens 100K lab' : 'MovieLens data required'}</small></div>
+        <div><strong>REC.SYS FOUNDRY</strong><small>{!datasetReady ? 'Loading real ratings data' : dataset.meta.isOfficial ? `${dataset.meta.label} lab` : 'Real dataset unavailable'}</small></div>
       </div>
       <div className={`foundry-dataset-chip ${dataset.meta.isOfficial ? 'is-official' : 'is-fallback'}`} title={dataset.meta.notice}><Database size={14} /><strong>{dataset.meta.ratingsCount.toLocaleString()}</strong><span>ratings</span><i /><strong>{dataset.meta.moviesCount.toLocaleString()}</strong><span>films</span></div>
       <label className="foundry-select">
@@ -608,7 +623,7 @@ function FoundryHeader({
       </label>
       <button type="button" className={`foundry-run status-${runStatus}`} onClick={onRun} disabled={runStatus === 'running' || !datasetReady || !dataset.meta.isOfficial}>
         {runStatus === 'running' || !datasetReady ? <Activity size={17} /> : <Play size={17} fill="currentColor" />}
-        <span>{!datasetReady ? 'Loading MovieLens' : !dataset.meta.isOfficial ? 'MovieLens required' : runStatus === 'running' ? 'Tracing request' : 'Run pipeline'}</span>
+        <span>{!datasetReady ? 'Loading dataset' : !dataset.meta.isOfficial ? 'Dataset unavailable' : runStatus === 'running' ? 'Tracing request' : 'Run pipeline'}</span>
       </button>
       <button type="button" className="foundry-reset" onClick={onReset} aria-label="Reset template" title="Reset template"><RefreshCw size={16} /></button>
       <button type="button" className="foundry-close" onClick={onClose} aria-label="Close Foundry" title="Close Foundry"><X size={19} /></button>
@@ -841,6 +856,7 @@ function FoundryResults({
   selectedMovieId,
   onSelectMovie,
   onViewChange,
+  onRetryDataset,
 }: {
   dataset: RuntimeDataset
   datasetReady: boolean
@@ -851,6 +867,7 @@ function FoundryResults({
   selectedMovieId: string | null
   onSelectMovie: (id: string) => void
   onViewChange: (view: ResultsView) => void
+  onRetryDataset: () => void
 }) {
   const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
   const selectedCandidate = result.recommendations.find((candidate) => candidate.movieId === selectedMovieId)
@@ -864,7 +881,7 @@ function FoundryResults({
     return (
       <section className="foundry-results is-dataset-state" aria-live="polite">
         <Activity size={24} />
-        <div><strong>Loading official MovieLens 100K</strong><span>Preparing 100,000 historical ratings, 943 viewers and 1,682 films.</span></div>
+        <div><strong>Loading real ratings data</strong><span>Preparing 100,000 historical ratings, viewer profiles and movie metadata.</span></div>
       </section>
     )
   }
@@ -873,7 +890,11 @@ function FoundryResults({
     return (
       <section className="foundry-results is-dataset-state is-unavailable" role="alert">
         <Database size={24} />
-        <div><strong>Official MovieLens data is required</strong><span>The Foundry does not substitute synthetic recommendations. Run <code>npm run data:movielens</code> to prepare the local educational payload.</span></div>
+        <div>
+          <strong>Real ratings data could not be loaded</strong>
+          <span>The Foundry will not substitute synthetic recommendations. Check the connection and retry the bundled dataset.</span>
+          <button type="button" onClick={onRetryDataset}><RefreshCw size={14} />Retry dataset</button>
+        </div>
       </section>
     )
   }
@@ -882,15 +903,15 @@ function FoundryResults({
     { id: 'recommendations', label: 'Recommendations', detail: `${result.recommendations.length} explained films`, Icon: Film },
     { id: 'trace', label: 'Stage trace', detail: `${result.visitedNodeIds.length} processing stages`, Icon: Network },
     { id: 'service', label: 'Service simulation', detail: 'Counterfactual feedback', Icon: Activity },
-    { id: 'dataset', label: 'MovieLens data', detail: 'Ratings and provenance', Icon: Database },
+    { id: 'dataset', label: 'Dataset evidence', detail: 'Ratings and provenance', Icon: Database },
   ]
 
   return (
     <section className={`foundry-results${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' has-pending-changes' : ''}`}>
       <header className="foundry-results-nav">
         <div className="foundry-results-source">
-          <span><Check size={13} />Official dataset</span>
-          <strong>MovieLens 100K</strong>
+          <span><Check size={13} />Real dataset</span>
+          <strong>{dataset.meta.label}</strong>
           <small>{dataset.meta.ratingsCount.toLocaleString()} ratings · {dataset.meta.viewersCount.toLocaleString()} viewers · {dataset.meta.moviesCount.toLocaleString()} films</small>
         </div>
         <div className="foundry-results-tabs" role="tablist" aria-label="Simulation results">
@@ -915,7 +936,7 @@ function FoundryResults({
         <div className="foundry-results-view is-recommendations" role="tabpanel">
           <div className="foundry-viewer-card">
             <span><UserRound size={20} /></span>
-            <div><small>Real MovieLens profile · {viewer.id.toUpperCase()}</small><strong>{viewer.name}</strong><em>{viewer.cohort}</em></div>
+            <div><small>Real dataset profile · {viewer.id.toUpperCase()}</small><strong>{viewer.name}</strong><em>{viewer.cohort}</em></div>
             <p>{viewer.note}</p>
             <div className="viewer-genres">{viewer.favoriteGenres.map((genre) => <i key={genre}>{genre}</i>)}</div>
             <div className="viewer-evidence">
@@ -1099,6 +1120,10 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
     return { movie, ratings: ratings.length, average }
   }).filter((row) => row.ratings >= 40).sort((a, b) => b.average * Math.log1p(b.ratings) - a.average * Math.log1p(a.ratings)).slice(0, 12), [dataset])
   const maxDistribution = Math.max(1, ...ratingDistribution.map((row) => row.count))
+  const hasDemographics = Boolean(viewer.age && viewer.gender)
+  const sourceFiles = dataset.meta.id === 'movielens-100k'
+    ? [['u.user', 'age, gender, occupation'], ['u.data', 'rating + timestamp'], ['u.item', 'title, year, genres']]
+    : [['users.dat', 'anonymized public profile'], ['ratings.dat', 'rating + timestamp'], ['movies.dat', 'title, year, genres']]
 
   return (
     <div className="foundry-results-view movielens-explorer" role="tabpanel">
@@ -1113,11 +1138,11 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
         </dl>
         <div className="movielens-provenance">
           <small>Data lineage</small>
-          <span><b>u.user</b><em>age, gender, occupation</em></span>
+          <span><b>{sourceFiles[0][0]}</b><em>{sourceFiles[0][1]}</em></span>
           <i />
-          <span><b>u.data</b><em>rating + timestamp</em></span>
+          <span><b>{sourceFiles[1][0]}</b><em>{sourceFiles[1][1]}</em></span>
           <i />
-          <span><b>u.item</b><em>title, year, genres</em></span>
+          <span><b>{sourceFiles[2][0]}</b><em>{sourceFiles[2][1]}</em></span>
           <i />
           <span className="is-output"><b>Foundry</b><em>browser-side simulation</em></span>
         </div>
@@ -1126,7 +1151,7 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
       <section className="movielens-detail">
         <header>
           <div><small>Selected historical subject</small><strong>{viewer.name} · {viewer.id.toUpperCase()}</strong><span>{viewer.note}</span></div>
-          <div className="movielens-tabs" role="tablist" aria-label="MovieLens detail views">
+          <div className="movielens-tabs" role="tablist" aria-label="Dataset detail views">
             <button type="button" className={view === 'profile' ? 'is-active' : ''} onClick={() => setView('profile')} role="tab" aria-selected={view === 'profile'}><UserRound size={14} />Profile</button>
             <button type="button" className={view === 'ratings' ? 'is-active' : ''} onClick={() => setView('ratings')} role="tab" aria-selected={view === 'ratings'}><Rows3 size={14} />Ratings</button>
             <button type="button" className={view === 'catalog' ? 'is-active' : ''} onClick={() => setView('catalog')} role="tab" aria-selected={view === 'catalog'}><Film size={14} />Catalog evidence</button>
@@ -1137,8 +1162,8 @@ function MovieLensDataExplorer({ dataset, viewerId }: { dataset: RuntimeDataset;
           <div className="movielens-profile-view">
             <div className="movielens-person">
               <span><UserRound size={24} /></span>
-              <div><small>Demographics from u.user</small><strong>{viewer.age ?? '—'} years · {viewer.gender === 'F' ? 'Female' : viewer.gender === 'M' ? 'Male' : 'Unknown'}</strong><em>{viewer.occupation ?? viewer.cohort}</em></div>
-              <p>{viewerRatings.length} explicit ratings form this profile. Demographics are shown for interpretation and are not silently used by every model.</p>
+              <div><small>{hasDemographics ? 'Demographics from source data' : 'Anonymized public profile'}</small><strong>{hasDemographics ? `${viewer.age} years · ${viewer.gender === 'F' ? 'Female' : 'Male'}` : `${viewerRatings.length} observed ratings`}</strong><em>{viewer.occupation ?? viewer.cohort}</em></div>
+              <p>{hasDemographics ? 'Demographics are shown for interpretation and are not silently used by every model.' : 'The source exposes ratings and timestamps, but no demographic attributes. The simulator keeps that boundary explicit.'}</p>
             </div>
             <section className="movielens-distribution">
               <header><span>Rating distribution</span><small>Real 1–5 star feedback</small></header>
@@ -1220,7 +1245,7 @@ function ServiceSimulator({
       <header>
         <div>
           <span><Activity size={16} />Service feedback lab</span>
-          <small>Real MovieLens history anchors the profile. Future reactions are a deterministic counterfactual, not observed GroupLens events.</small>
+          <small>Real {dataset.meta.label} history anchors the profile. Future reactions are a deterministic counterfactual, not observed source events.</small>
         </div>
         <div className="service-simulator-actions">
           <button type="button" onClick={() => runDays(1)} disabled={!canSimulate}>Emulate one feedback step</button>
@@ -1233,7 +1258,7 @@ function ServiceSimulator({
       </header>
 
       <div className="service-method-strip">
-        <span><Database size={14} /><b>Observed input</b><em>{(dataset.ratingsByViewer.get(viewerId) ?? []).length} MovieLens ratings for {viewerId.toUpperCase()}</em></span>
+        <span><Database size={14} /><b>Observed input</b><em>{(dataset.ratingsByViewer.get(viewerId) ?? []).length} {dataset.meta.label} ratings for {viewerId.toUpperCase()}</em></span>
         <i />
         <span><Film size={14} /><b>Frozen slate</b><em>{result.recommendations.length} films from the last completed run</em></span>
         <i />
