@@ -50,6 +50,39 @@ await openFoundry(desktop)
 assert.equal(await desktop.locator('.foundry-results-tabs > button').count(), 4)
 assert.match(await desktop.locator('.foundry-results-source').innerText(), /100,000 ratings/)
 assert.match(await desktop.locator('.foundry-results-source').innerText(), new RegExp(expectedDataset))
+await desktop.locator('.foundry-results.is-docked').waitFor()
+const builderGeometry = await desktop.evaluate(() => {
+  const workspace = document.querySelector('.foundry-workspace')?.getBoundingClientRect()
+  const inspector = document.querySelector('.foundry-inspector')?.getBoundingClientRect()
+  const dock = document.querySelector('.foundry-results.is-docked')?.getBoundingClientRect()
+  return {
+    workspaceHeight: workspace?.height ?? 0,
+    inspectorWidth: inspector?.width ?? 0,
+    dockHeight: dock?.height ?? 0,
+  }
+})
+assert.ok(builderGeometry.workspaceHeight >= 700, `Builder workspace is only ${builderGeometry.workspaceHeight}px high`)
+assert.ok(builderGeometry.inspectorWidth >= 330, `Inspector is only ${builderGeometry.inspectorWidth}px wide`)
+assert.ok(builderGeometry.dockHeight <= 90, `Results dock expanded to ${builderGeometry.dockHeight}px`)
+assert.equal(await desktop.locator('.foundry-movie-card').count(), 0)
+await desktop.screenshot({ path: 'artifacts/foundry-builder-fullscreen.png' })
+
+await desktop.getByRole('button', { name: 'Open results' }).click()
+await desktop.locator('.foundry-results.is-expanded').waitFor()
+const resultGeometry = await desktop.evaluate(() => {
+  const results = document.querySelector('.foundry-results.is-expanded')?.getBoundingClientRect()
+  const workspace = document.querySelector('.foundry-workspace')
+  return {
+    resultsHeight: results?.height ?? 0,
+    workspaceDisplay: workspace ? getComputedStyle(workspace).display : '',
+  }
+})
+assert.ok(resultGeometry.resultsHeight >= 850, `Full-screen results are only ${resultGeometry.resultsHeight}px high`)
+assert.equal(resultGeometry.workspaceDisplay, 'none')
+await desktop.getByRole('button', { name: 'Back to pipeline' }).click()
+await desktop.locator('.foundry-results.is-docked').waitFor()
+await desktop.getByRole('tab', { name: /Recommendations/ }).click()
+await desktop.locator('.foundry-results.is-expanded').waitFor()
 assert.ok(await desktop.locator('.foundry-movie-card').count() >= 4)
 const primaryTextSize = await desktop.locator('.foundry-movie-card .movie-copy strong').first().evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
 assert.ok(primaryTextSize >= 10, `Movie title text is only ${primaryTextSize}px`)
@@ -66,8 +99,12 @@ if (expectsImdbPosters) {
     body: '',
   }))
   await desktop.locator('.foundry-select select').first().selectOption('u106')
+  await desktop.locator('.foundry-results.is-docked').waitFor()
   await desktop.getByRole('button', { name: 'Run pipeline' }).click()
+  await desktop.locator('.foundry-run.status-running').waitFor()
+  await desktop.locator('.foundry-results.is-docked').waitFor()
   await desktop.locator('.foundry-run.status-complete').waitFor({ timeout: 20000 })
+  await desktop.locator('.foundry-results.is-expanded').waitFor()
   fallbackPosterCount = await assertRealPosters(desktop, '.foundry-movie-card .movie-cover[data-poster-source="fallback"] img', 4)
   fallbackViewerTitles = await desktop.locator('.foundry-movie-card .movie-copy strong').allTextContents()
   assert.deepEqual(fallbackViewerTitles, ['Vaiana', 'Capharnaüm', 'The Act of Killing', 'Halloween'])
@@ -125,10 +162,13 @@ const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, is
 mobile.on('pageerror', (error) => errors.push(`mobile: ${error.message}`))
 mobile.on('console', (message) => { if (message.type() === 'error') errors.push(`mobile: ${message.text()}`) })
 await openFoundry(mobile)
+await mobile.locator('.foundry-results.is-docked').waitFor()
 await mobile.getByRole('button', { name: /Slate/ }).click()
+await mobile.locator('.foundry-results.is-expanded').waitFor()
 const loadedMobilePosters = expectsImdbPosters
   ? await assertRealPosters(mobile, '.foundry-movie-card .movie-cover img', 2)
   : 0
+await mobile.screenshot({ path: 'artifacts/foundry-readable-mobile-recommendations.png' })
 await mobile.getByRole('tab', { name: /Dataset evidence/ }).click()
 await mobile.locator('.movielens-explorer').waitFor()
 await mobile.screenshot({ path: 'artifacts/foundry-readable-mobile.png' })
@@ -139,5 +179,5 @@ const mobileOverflow = await mobile.evaluate(() => ({
 assert.deepEqual(mobileOverflow, { x: 0, y: 0 })
 assert.deepEqual(errors, [])
 
-console.log(JSON.stringify({ expectedDataset, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, fallbackPosterCount, fallbackViewerTitles, serviceGeometry, desktopOverflow, mobileOverflow, errors }, null, 2))
+console.log(JSON.stringify({ expectedDataset, builderGeometry, resultGeometry, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, fallbackPosterCount, fallbackViewerTitles, serviceGeometry, desktopOverflow, mobileOverflow, errors }, null, 2))
 await browser.close()

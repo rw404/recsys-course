@@ -22,6 +22,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import {
   Activity,
+  ArrowLeft,
   Boxes,
   Check,
   CircleGauge,
@@ -174,6 +175,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [mobileTab, setMobileTab] = useState<MobileTab>('graph')
   const [traceSpeed, setTraceSpeed] = useState<1 | 2>(2)
   const [resultsView, setResultsView] = useState<ResultsView>('recommendations')
+  const [resultsExpanded, setResultsExpanded] = useState(false)
   const [viewMode, setViewMode] = useState<LayoutMode>(INITIAL_LAYOUT_MODE)
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
@@ -214,7 +216,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     })
   }, [viewerId])
 
-  const animateRun = useCallback((sourceNodes: BuilderNode[], sourceEdges: BuilderEdge[], activeViewerId: string) => {
+  const animateRun = useCallback((sourceNodes: BuilderNode[], sourceEdges: BuilderEdge[], activeViewerId: string, revealResults = true) => {
     clearTimers()
     const nextResult = simulatePipeline(activeViewerId, specsFromNodes(sourceNodes), specsFromEdges(sourceEdges), dataset)
     const sequence = Object.keys(nextResult.trace)
@@ -228,7 +230,13 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 
     if (!sequence.length) {
       setResult(nextResult)
+      setResultViewerId(activeViewerId)
       setRunStatus('error')
+      if (revealResults) {
+        setResultsView('trace')
+        setResultsExpanded(true)
+        setMobileTab('slate')
+      }
       return
     }
 
@@ -277,6 +285,11 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
                 : nextResult.recommendations[0]?.movieId ?? null
             ))
             setRunStatus(nextResult.error ? 'error' : 'complete')
+            if (revealResults) {
+              setResultsView(nextResult.error ? 'trace' : 'recommendations')
+              setResultsExpanded(true)
+              setMobileTab('slate')
+            }
           }, traceSpeed === 2 ? 70 : 130)
           timers.current.push(finishTimer)
         }
@@ -288,12 +301,14 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!datasetReady || !dataset.meta.isOfficial || hasAnimatedInitial.current) return
     hasAnimatedInitial.current = true
-    const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, 'u104'), 260)
+    const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, 'u104', false), 260)
     timers.current.push(timer)
   }, [animateRun, dataset.meta.isOfficial, datasetReady])
 
   const runPipeline = useCallback(() => {
     if (!dataset.meta.isOfficial) return
+    setResultsExpanded(false)
+    setMobileTab('graph')
     animateRun(nodes, edges, viewerId)
   }, [animateRun, dataset.meta.isOfficial, edges, nodes, viewerId])
 
@@ -346,6 +361,8 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     setEdges(nextEdges)
     setSelectedNodeId(nextNodes.find((node) => node.data.moduleType === 'blend')?.id ?? nextNodes[0]?.id ?? null)
     setRunStatus('dirty')
+    setResultsExpanded(false)
+    setMobileTab('graph')
     const timer = window.setTimeout(() => {
       if (flow) focusLayoutView(flow, id, viewMode, 480)
     }, 80)
@@ -377,6 +394,8 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const markDirty = useCallback(() => {
     clearTimers()
     setRunStatus('dirty')
+    setResultsExpanded(false)
+    setMobileTab('graph')
     setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, runState: 'idle', trace: undefined } })))
     setEdges((current) => current.map((edge) => ({ ...edge, animated: false, className: 'foundry-edge' })))
   }, [clearTimers, setEdges, setNodes])
@@ -468,9 +487,20 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
     event.dataTransfer.dropEffect = 'move'
   }, [])
 
+  const openResults = useCallback((view: ResultsView) => {
+    setResultsView(view)
+    setResultsExpanded(true)
+    setMobileTab('slate')
+  }, [])
+
+  const closeResults = useCallback(() => {
+    setResultsExpanded(false)
+    setMobileTab('graph')
+  }, [])
+
   return (
     <div className="system-builder-overlay" role="dialog" aria-modal="true" aria-label="RecSys Foundry">
-      <div className="system-builder" data-mobile-tab={mobileTab} data-view-mode={viewMode}>
+      <div className="system-builder" data-mobile-tab={mobileTab} data-view-mode={viewMode} data-results-mode={resultsExpanded ? 'expanded' : 'docked'}>
         <FoundryHeader
           dataset={dataset}
           datasetReady={datasetReady}
@@ -485,9 +515,9 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
         />
 
         <nav className="foundry-mobile-tabs" aria-label="Foundry views">
-          <button type="button" className={mobileTab === 'graph' ? 'is-active' : ''} onClick={() => setMobileTab('graph')}><Network size={15} />Graph</button>
-          <button type="button" className={mobileTab === 'modules' ? 'is-active' : ''} onClick={() => setMobileTab('modules')}><Boxes size={15} />Modules</button>
-          <button type="button" className={mobileTab === 'slate' ? 'is-active' : ''} onClick={() => setMobileTab('slate')}><Film size={15} />Slate</button>
+          <button type="button" className={mobileTab === 'graph' ? 'is-active' : ''} onClick={() => { setResultsExpanded(false); setMobileTab('graph') }}><Network size={15} />Graph</button>
+          <button type="button" className={mobileTab === 'modules' ? 'is-active' : ''} onClick={() => { setResultsExpanded(false); setMobileTab('modules') }}><Boxes size={15} />Modules</button>
+          <button type="button" className={mobileTab === 'slate' ? 'is-active' : ''} onClick={() => openResults(resultsView)}><Film size={15} />Slate</button>
         </nav>
 
         <div className="foundry-workspace">
@@ -554,11 +584,10 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
           </main>
 
           <NodeInspector
-            dataset={dataset}
             node={selectedNode}
             onConfigChange={updateConfig}
             onDelete={removeSelectedNode}
-            onOpenTrace={() => { setResultsView('trace'); setMobileTab('slate') }}
+            onOpenTrace={() => openResults('trace')}
           />
         </div>
 
@@ -571,7 +600,10 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
           activeView={resultsView}
           selectedMovieId={selectedMovieId}
           onSelectMovie={setSelectedMovieId}
-          onViewChange={(view) => { setResultsView(view); setMobileTab('slate') }}
+          expanded={resultsExpanded}
+          onViewChange={openResults}
+          onOpen={openResults}
+          onClose={closeResults}
           onRetryDataset={retryDataset}
         />
       </div>
@@ -701,14 +733,12 @@ function ModulePalette({ onAdd }: { onAdd: (type: PipelineModuleType) => void })
 
 function NodeInspector({
   node,
-  dataset,
   onConfigChange,
   onDelete,
   onOpenTrace,
 }: {
   node: BuilderNode | null
   onConfigChange: (nodeId: string, key: string, value: number | boolean) => void
-  dataset: RuntimeDataset
   onDelete: () => void
   onOpenTrace: () => void
 }) {
@@ -733,14 +763,6 @@ function NodeInspector({
       </header>
       <p>{definition.description}</p>
       <div className="inspector-technology"><span>{definition.technology}</span><b>{definition.fidelity}</b></div>
-      <div className="inspector-trace">
-        <span><small>Input</small><strong>{trace?.inputCount ?? '—'}</strong></span>
-        <i />
-        <span><small>Output</small><strong>{trace?.outputCount ?? '—'}</strong></span>
-        <span><small>Node</small><strong>{trace ? `${trace.latencyMs} ms` : '—'}</strong></span>
-      <StageLineage trace={trace} dataset={dataset} />
-      {trace && <button type="button" className="inspector-open-trace" onClick={onOpenTrace}><Maximize2 size={13} />Open stage details</button>}
-      </div>
       <section className="inspector-config">
         <h3>Configuration</h3>
         {definition.fields.length === 0 && <div className="inspector-static"><Check size={14} />No runtime parameters</div>}
@@ -793,6 +815,16 @@ function NodeInspector({
             </label>
           )
         })}
+      </section>
+      <section className="inspector-run-summary">
+        <header><span>Last completed run</span><small>{trace ? 'Observed' : 'Awaiting run'}</small></header>
+        <div className="inspector-trace">
+          <span><small>Input</small><strong>{trace?.inputCount ?? '—'}</strong></span>
+          <i />
+          <span><small>Output</small><strong>{trace?.outputCount ?? '—'}</strong></span>
+          <span><small>Node</small><strong>{trace ? `${trace.latencyMs} ms` : '—'}</strong></span>
+        </div>
+        {trace && <button type="button" className="inspector-open-trace" onClick={onOpenTrace}><Maximize2 size={13} />Open stage details</button>}
       </section>
       {trace?.message && <div className="inspector-error">{trace.message}</div>}
     </aside>
@@ -853,9 +885,12 @@ function FoundryResults({
   result,
   runStatus,
   activeView,
+  expanded,
   selectedMovieId,
   onSelectMovie,
   onViewChange,
+  onOpen,
+  onClose,
   onRetryDataset,
 }: {
   dataset: RuntimeDataset
@@ -864,9 +899,12 @@ function FoundryResults({
   result: SimulationResult
   runStatus: RunStatus
   activeView: ResultsView
+  expanded: boolean
   selectedMovieId: string | null
   onSelectMovie: (id: string) => void
   onViewChange: (view: ResultsView) => void
+  onOpen: (view: ResultsView) => void
+  onClose: () => void
   onRetryDataset: () => void
 }) {
   const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
@@ -907,7 +945,7 @@ function FoundryResults({
   ]
 
   return (
-    <section className={`foundry-results${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' has-pending-changes' : ''}`}>
+    <section className={`foundry-results ${expanded ? 'is-expanded' : 'is-docked'}${runStatus === 'running' ? ' is-running' : ''}${runStatus === 'dirty' ? ' has-pending-changes' : ''}`}>
       <header className="foundry-results-nav">
         <div className="foundry-results-source">
           <span><Check size={13} />Real dataset</span>
@@ -929,10 +967,15 @@ function FoundryResults({
             </button>
           ))}
         </div>
-        {runStatus === 'dirty' && <span className="foundry-pending-note">Draft changes are not applied until Run pipeline</span>}
+        <div className="foundry-results-actions">
+          {runStatus === 'dirty' && <span className="foundry-pending-note">Draft changes are not applied until Run pipeline</span>}
+          <button type="button" className="foundry-results-toggle" onClick={() => expanded ? onClose() : onOpen(activeView)} aria-expanded={expanded} aria-label={expanded ? 'Back to pipeline' : 'Open results'}>
+            {expanded ? <><ArrowLeft size={14} /><span>Back to pipeline</span></> : <><Maximize2 size={14} /><span>Open results</span></>}
+          </button>
+        </div>
       </header>
 
-      {activeView === 'recommendations' && (
+      {expanded && activeView === 'recommendations' && (
         <div className="foundry-results-view is-recommendations" role="tabpanel">
           <div className="foundry-viewer-card">
             <span><UserRound size={20} /></span>
@@ -1013,9 +1056,9 @@ function FoundryResults({
         </div>
       )}
 
-      {activeView === 'trace' && <PipelineTraceExplorer dataset={dataset} result={result} runStatus={runStatus} />}
-      {activeView === 'service' && <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />}
-      {activeView === 'dataset' && <MovieLensDataExplorer dataset={dataset} viewerId={viewerId} />}
+      {expanded && activeView === 'trace' && <PipelineTraceExplorer dataset={dataset} result={result} runStatus={runStatus} />}
+      {expanded && activeView === 'service' && <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />}
+      {expanded && activeView === 'dataset' && <MovieLensDataExplorer dataset={dataset} viewerId={viewerId} />}
     </section>
   )
 }
@@ -1376,6 +1419,7 @@ function RecommendationExplanation({
   return (
     <aside className="recommendation-why" style={{ '--movie-tone': movie.tone } as CSSProperties} aria-label={`Why ${movie.title} was recommended`}>
       <header>
+        <MoviePoster movie={movie} dataset={dataset} className="why-poster" />
         <div><small>Why this result</small><strong>{movie.title}</strong></div>
         <span><b>{Math.round(candidate.score * 100)}</b>% match</span>
       </header>
