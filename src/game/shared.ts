@@ -42,6 +42,14 @@ export const runtime = {
   // Click-to-interact: a station clicked while out of range sets this + a moveTarget; the
   // InteractionSystem opens it once the player walks into range (then clears it). Cancelled if the
   // walk is abandoned (moveTarget cleared without arriving).
+  // Non-curriculum exhibits use the same planner as course nodes. The action fires only after
+  // the explorer reaches the accepted destination, so a hotspot never behaves like a flat UI link.
+  pendingSceneAction: null as null | {
+    worldId: string
+    target: THREE.Vector3
+    radius: number
+    run: () => void
+  },
   pendingOpen: null as string | null,
 }
 

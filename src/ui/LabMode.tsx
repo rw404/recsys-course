@@ -8,6 +8,7 @@ import {
   type SandboxItem,
 } from '../data/course'
 import { useProgress } from '../state/progress'
+import { ExperimentBrief } from './ExperimentBrief'
 
 const PASS_NDCG = 0.85
 
@@ -45,17 +46,23 @@ export function LabMode() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Lab Mode · Interactive</div>
-        <h1>Ranking Sandbox</h1>
+        <div className="kicker">Practice · Guided experiment</div>
+        <h1>When a high score makes a poor ranking</h1>
         <p className="lead">
-          Build a slate of {SLATE_SIZE} items. Sorting by the model score is tempting — but the model
-          loves those high-score ads with zero relevance. Assemble the ordering that maximizes NDCG@
-          {SLATE_SIZE} while keeping recall and coverage healthy.
+          Work with one deliberately imperfect candidate set. The predicted score is what the model
+          believes; graded relevance is the held-out outcome used here to evaluate the ordering.
         </p>
+
+        <ExperimentBrief
+          question="Can sorting by model score produce a visibly bad top-k?"
+          hypothesis="High-scoring zero-relevance ads will damage position-aware quality. Moving truly relevant items upward should improve NDCG even when their predicted score is lower."
+          action={`Build an ordered slate of ${SLATE_SIZE}. Select items to add them, then remove and re-add them to change the order.`}
+          observe="Compare NDCG with Recall and Coverage. NDCG reacts to position; Recall only checks survival; Coverage checks breadth."
+        />
 
         <div className="lab-grid">
           <div className="pool">
-            <h4>Candidate pool — click to add</h4>
+            <h4>Evidence pool · select an item</h4>
             {pool.map((it) => (
               <div className="item" key={it.id} onClick={() => add(it)}>
                 <div className="meta">
@@ -69,7 +76,7 @@ export function LabMode() {
           </div>
 
           <div className="slate">
-            <h4>Your slate (top → bottom)</h4>
+            <h4>Decision slate · highest exposure first</h4>
             {slate.map((it, i) => (
               <div className="item" key={it.id} onClick={() => remove(it.id)}>
                 <span className="slot-idx">{i + 1}</span>
@@ -80,7 +87,7 @@ export function LabMode() {
                 <span className={`rel r${it.rel}`}>rel {it.rel}</span>
               </div>
             ))}
-            {slate.length === 0 && <p className="hint">Click items on the left to rank them here.</p>}
+            {slate.length === 0 && <p className="hint">Select candidates to create the top-to-bottom recommendation order.</p>}
           </div>
         </div>
 
@@ -92,16 +99,16 @@ export function LabMode() {
 
         <p className={`hint ${passed ? 'ok' : ''}`}>
           {!full
-            ? `Add ${SLATE_SIZE - slate.length} more item(s) to complete the slate.`
+            ? `Next step: add ${SLATE_SIZE - slate.length} more item(s), then compare all three metrics.`
             : passed
-            ? '✓ Strong ranking. The Metric Compass is ready to be forged.'
-            : `NDCG@${SLATE_SIZE} is ${nd.toFixed(2)} — below ${PASS_NDCG}. Push the most relevant items toward the top and drop the zero-relevance ads.`}
+            ? 'Observed: relevant items near the top create strong discounted gain. Recall and coverage add context, but they do not replace ordering quality.'
+            : `Observed: NDCG@${SLATE_SIZE} is ${nd.toFixed(2)}, below ${PASS_NDCG}. A high predicted score is not ground truth; move graded relevance upward and remove zero-value exposures.`}
         </p>
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={() => setSlateIds([])}>Reset</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save slate — close' : 'Forge Metric Compass →'}
+            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
           </button>
         </div>
       </div>

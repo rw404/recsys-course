@@ -103,13 +103,13 @@ export function ExplorerGLB({ intro = true }: { intro?: boolean }) {
     const arriving = intro && age.current < 1.42 && speed < 0.35
     const wanted = arriving
       ? WAVE
-      : study
-      ? CHAT
-      : speed < 0.35
-      ? IDLE
       : speed > RUN_THRESHOLD
       ? RUN
-      : WALK
+      : speed >= 0.35
+      ? WALK
+      : study
+      ? CHAT
+      : IDLE
 
     if (wanted !== current.current && actions[wanted]) {
       actions[current.current]?.fadeOut(0.2)

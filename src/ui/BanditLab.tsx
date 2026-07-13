@@ -9,6 +9,7 @@ import {
   type BanditResult,
 } from '../data/course'
 import { useProgress } from '../state/progress'
+import { ExperimentBrief } from './ExperimentBrief'
 
 /**
  * Bandit Lab — the World-04 lab. Pick an exploration STRATEGY and run 300 impressions against four
@@ -46,13 +47,19 @@ export function BanditLab() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Lab Mode · Interactive</div>
-        <h1>Bandit Lab</h1>
+        <div className="kicker">Practice · Guided experiment</div>
+        <h1>What pure exploitation fails to discover</h1>
         <p className="lead">
-          Four content sources, {BANDIT_PULLS} impressions, and hidden click-rates. Every pull you must
-          {' '}<b>exploit</b> the current best or <b>explore</b> a less-tried arm. Pick a policy and run it —
-          then read the <b>regret</b>, the gap to always showing the best arm. Get regret under {REGRET_BUDGET}.
+          Four content sources have hidden click rates. Each strategy sees the same deterministic
+          {BANDIT_PULLS}-impression environment, so differences come from the decision rule.
         </p>
+
+        <ExperimentBrief
+          question="Can a policy that always chooses its current winner reliably find the best source?"
+          hypothesis="Greedy will over-trust an early lucky arm. Uncertainty-aware exploration should spend some traffic learning, then concentrate on the true winner with lower regret."
+          action="Run Greedy as the baseline, then compare ε-greedy and UCB on the same horizon."
+          observe={`Read pull allocation, realized reward and regret. Complete the experiment when regret falls below ${REGRET_BUDGET}.`}
+        />
 
         <div className="bandit-strats">
           {BANDIT_STRATEGIES.map((s) => (
@@ -68,7 +75,7 @@ export function BanditLab() {
         </div>
 
         <div className="modal-actions" style={{ justifyContent: 'flex-start', margin: '4px 0 2px' }}>
-          <button className="btn primary" onClick={run}>Run {BANDIT_PULLS} impressions ▶</button>
+          <button className="btn primary" onClick={run}>Run controlled horizon ▶</button>
         </div>
 
         {result && (
@@ -90,7 +97,7 @@ export function BanditLab() {
                 <b>{result.reward}</b>
               </div>
               <div className="bs-cell">
-                <span>Best arm found</span>
+                <span>Traffic to best arm</span>
                 <b>{result.optimalPct.toFixed(0)}%</b>
               </div>
               <div className="bs-cell">
@@ -105,17 +112,17 @@ export function BanditLab() {
 
         <p className={`hint ${passed ? 'ok' : ''}`}>
           {passed
-            ? '✓ Regret under budget — your policy explored enough to lock onto the best arm. The Policy Controller is ready.'
+            ? 'Observed: targeted exploration paid a short learning cost, then allocated most traffic to the strongest arm and kept cumulative regret under budget.'
             : result && strategy === 'greedy'
-            ? 'Greedy stalled on an early favourite and never checked the rest — huge regret. Try an exploring policy (ε-greedy or UCB).'
+            ? 'Observed: Greedy converted an early random advantage into a permanent choice. It has no mechanism for checking what it may have missed.'
             : result
-            ? 'Closer — but still over budget. UCB explores by uncertainty and finds the best arm fastest.'
-            : 'Pick a strategy and run the impressions. Watch which arm it settles on.'}
+            ? 'Observed: this policy learned, but still spent too much of the horizon on weaker arms. Compare its allocation with UCB.'
+            : 'Begin with Greedy, record its regret, then repeat with an exploring policy.'}
         </p>
 
         <div className="modal-actions">
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save — close' : 'Forge Policy Controller →'}
+            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
           </button>
         </div>
       </div>

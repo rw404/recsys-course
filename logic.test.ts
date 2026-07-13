@@ -6,6 +6,8 @@ import {
   simulateBandit, REGRET_BUDGET,
   mmrSelect, diversityPass, slateRelevance, slateDiversity, REL_FLOOR, DIV_FLOOR,
   CAPSTONE_QUESTIONS, CAPSTONE_PER_Q, CAPSTONE_PASS, capstoneRank, HALL_OF_MASTERY,
+  WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON,
+  METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, POLICY_QUIZ, ECOSYSTEM_QUIZ,
 } from './src/data/course'
 import { useProgress, NODES } from './src/state/progress'
 import {
@@ -49,6 +51,13 @@ const ndScore = ndcg(byScore.map((i) => i.rel), allRels)
 const ndRel = ndcg(byRel.map((i) => i.rel), allRels)
 assert('relevance-sorted beats score-sorted (teaching point)', ndRel > ndScore, { ndRel, ndScore })
 assert('a passing slate (ndcg>=0.85) exists', ndRel >= 0.85, { ndRel })
+
+console.log('course content:')
+const lessons = [WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON]
+assert('every world contains a full learning arc', lessons.every((lesson) => lesson.sections.length >= 7))
+assert('every concept includes a glossary', lessons.every((lesson) => lesson.sections.every((section) => (section.terms?.length ?? 0) >= 2)))
+const checkpoints = [METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, POLICY_QUIZ, ECOSYSTEM_QUIZ]
+assert('every checkpoint contains six applied scenarios', checkpoints.every((quiz) => quiz.length === 6))
 
 console.log('progress state machine:')
 const s = useProgress.getState
@@ -159,7 +168,7 @@ assert('objective now the champion finale', s().nextRequiredAction().nodeId === 
 // claim the crown → course complete
 s().completeNode('champion')
 assert('course complete → no required action', s().nextRequiredAction().nodeId === null)
-assert('champion label', s().nextRequiredAction().label.includes('Champion'))
+assert('course completion label', s().nextRequiredAction().label.includes('Course complete'))
 
 // capstone scoring: 5 correct tops the Hall of Mastery, 3 correct clears the pass
 {

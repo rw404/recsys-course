@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Html, Line, RoundedBox, Sparkles } from '@react-three/drei'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -20,8 +20,7 @@ import { runtime } from './shared'
 import { useInput } from './useInput'
 import { touchControls } from './controls'
 import { ExplorerGLB } from './ExplorerGLB'
-import { AstraGLB } from './AstraGLB'
-import { VectorSmithGLB } from './VectorSmithGLB'
+import { SignalImaxCamera, SignalTheoryStage } from './SignalTheoryStage'
 import {
   planObstaclePath,
   projectOutsideObstacles,
@@ -50,12 +49,36 @@ const LANDMARK_RADII: Record<WorldId, number> = {
   'final-arena': 2.18,
 }
 
+const SIGNAL_STAGE_OBSTACLES: readonly NavigationObstacle[] = [
+  { id: 'signal-screen-left-edge', x: -3.6, z: -2.88, radius: 0.64 },
+  { id: 'signal-screen-left', x: -1.8, z: -2.88, radius: 0.64 },
+  { id: 'signal-screen-center', x: 0, z: -2.88, radius: 0.64 },
+  { id: 'signal-screen-right', x: 1.8, z: -2.88, radius: 0.64 },
+  { id: 'signal-screen-right-edge', x: 3.6, z: -2.88, radius: 0.64 },
+  { id: 'signal-beacons', x: -3.18, z: -0.15, radius: 0.78 },
+  { id: 'signal-stream-left', x: -0.45, z: -0.25, radius: 0.42 },
+  { id: 'signal-stream-right', x: 0.95, z: -0.25, radius: 0.42 },
+  { id: 'signal-profile', x: 3.02, z: -0.45, radius: 0.66 },
+  { id: 'signal-content', x: 2.78, z: 2.15, radius: 0.78 },
+]
+
 const NODE_SLOTS: [number, number, number][] = [
   [-2.75, 0.32, 1.65],
   [2.75, 0.32, 1.55],
   [-2.55, 0.32, -2.15],
   [2.55, 0.32, -2.2],
 ]
+
+const SIGNAL_NODE_SLOTS: [number, number, number][] = [
+  [-3.65, 0.32, 2.5],
+  [0, 0.32, 3.62],
+  [-3.86, 0.32, -1.65],
+  [3.75, 0.32, 3],
+]
+
+function nodeSlotFor(worldId: WorldId, index: number): [number, number, number] {
+  return (worldId === 'foundations-camp' ? SIGNAL_NODE_SLOTS : NODE_SLOTS)[index] ?? NODE_SLOTS[0]
+}
 
 const WORLD_NODE_IDS = COURSE_WORLDS.reduce((acc, world) => {
   acc[world.id] = NODE_ORDER.filter((id) => {
@@ -107,10 +130,25 @@ function islandTreeLayout(world: CourseWorldDefinition): IslandTreeLayout[] {
   })
 }
 
-function worldNavigationObstacles(worldId: WorldId): NavigationObstacle[] {
+function worldNavigationObstacles(worldId: WorldId, includeCourseNodes = true): NavigationObstacle[] {
   const world = COURSE_WORLD_BY_ID[worldId]
   const offsetX = world.position[0]
   const offsetZ = world.position[2]
+  if (worldId === 'foundations-camp') {
+    const obstacles = SIGNAL_STAGE_OBSTACLES.map((obstacle) => ({
+      ...obstacle,
+      x: offsetX + obstacle.x,
+      z: offsetZ + obstacle.z,
+    }))
+    if (includeCourseNodes) {
+      WORLD_NODE_IDS[worldId].forEach((id, index) => {
+        const slot = nodeSlotFor(worldId, index)
+        obstacles.push({ id, x: offsetX + slot[0], z: offsetZ + slot[2], radius: 0.32 })
+      })
+    }
+    return obstacles
+  }
+
   const obstacles: NavigationObstacle[] = [{
     id: `${worldId}-landmark`,
     x: offsetX,
@@ -141,10 +179,14 @@ function worldNavigationObstacles(worldId: WorldId): NavigationObstacle[] {
 
 function setCourseMoveTarget(worldId: WorldId, target: THREE.Vector3, targetMargin = 0.08): void {
   const world = COURSE_WORLD_BY_ID[worldId]
+  const progress = useProgress.getState()
+  const signalImax = worldId === 'foundations-camp'
+    && progress.mode === 'study'
+    && progress.activeNodeId === 'week01-station'
   const path = planObstaclePath(
     runtime.playerPosition,
     target,
-    worldNavigationObstacles(worldId),
+    worldNavigationObstacles(worldId, !signalImax),
     targetMargin,
     { x: world.position[0], z: world.position[2], radius: WALK_RADIUS - 0.04 },
   )
@@ -163,9 +205,9 @@ function clearCourseMoveTarget(): void {
 export function CloudCourseWorld() {
   const atlasOpen = useProgress((state) => state.atlasOpen)
   const currentWorld = useProgress((state) => state.currentWorld)
+  const mode = useProgress((state) => state.mode)
   const activeNodeId = useProgress((state) => state.activeNodeId)
-  const activeLessonId = activeNodeId && NODES[activeNodeId].kind === 'lesson' ? activeNodeId : null
-
+  const signalImax = mode === 'study' && activeNodeId === 'week01-station'
   return (
     <>
       <SkyDome />
@@ -200,10 +242,8 @@ export function CloudCourseWorld() {
         : <CourseTraveler key={`traveler-${currentWorld}`} worldId={currentWorld} />}
       {!atlasOpen && <MoveDestinationMarker accent={COURSE_WORLD_BY_ID[currentWorld].accent} />}
       <CloudReveal key={`reveal-${atlasOpen ? 'journey' : 'world'}-${currentWorld}`} worldId={currentWorld} />
-      <Suspense fallback={null}>
-        {activeLessonId && <ChapterNarrator nodeId={activeLessonId} />}
-      </Suspense>
       <IsometricCamera />
+      {signalImax && <SignalImaxCamera worldPosition={COURSE_WORLD_BY_ID['foundations-camp'].position} />}
     </>
   )
 }
@@ -214,6 +254,7 @@ function IsometricCamera() {
   const atlasOpen = useProgress((state) => state.atlasOpen)
   const activeNodeId = useProgress((state) => state.activeNodeId)
   const reducedMotion = useProgress((state) => state.reducedMotion)
+  const signalImax = activeNodeId === 'week01-station'
   const lookAt = useRef(new THREE.Vector3(
     COURSE_WORLD_BY_ID[currentWorld].position[0] - 2.8,
     0.35,
@@ -225,6 +266,7 @@ function IsometricCamera() {
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.16)
     const portrait = size.height > size.width * 1.08
+    if (signalImax) return
     const world = COURSE_WORLD_BY_ID[currentWorld]
     if (activeNodeId) {
       nextLook.current.copy(nodeWorldPosition(activeNodeId)).addScaledVector(RIGHT, -2.35).setY(0.55)
@@ -268,10 +310,20 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
   const atlasOpen = useProgress((state) => state.atlasOpen)
   const currentWorld = useProgress((state) => state.currentWorld)
   const mode = useProgress((state) => state.mode)
+  const activeNodeId = useProgress((state) => state.activeNodeId)
   const travelTo = useProgress((state) => state.travelTo)
+  const completed = useProgress((state) => state.completed)
   const focused = currentWorld === world.id
   const playable = !atlasOpen && focused
+  const signalExperience = world.id === 'foundations-camp' && focused && !atlasOpen
+  const movementEnabled = mode === 'explore' || (
+    mode === 'study' && activeNodeId === 'week01-station' && signalExperience
+  )
   const nodes = WORLD_NODE_IDS[world.id]
+  const visibleSignalNodes = nodes
+    .map((id, index) => ({ id, index }))
+    .filter(({ id }) => !completed[id] && useProgress.getState().getNodeState(id) !== 'locked_for_credit')
+
   const turfColor = useMemo(
     () => new THREE.Color(world.surface).lerp(new THREE.Color(world.accent), 0.34).getStyle(),
     [world],
@@ -296,13 +348,14 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
   }
 
   const onGround = (event: ThreeEvent<PointerEvent>) => {
-    if (event.button !== 0 || mode !== 'explore') return
+    if (event.button !== 0 || !movementEnabled) return
     event.stopPropagation()
     if (!playable) {
       focusWorld()
       return
     }
     runtime.pendingOpen = null
+    runtime.pendingSceneAction = null
     const target = new THREE.Vector3()
     if (!event.ray.intersectPlane(WALK_PLANE, target)) return
     target.y = PLAYER_Y
@@ -330,12 +383,24 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
         </mesh>
         <IslandTerraces world={world} />
         <CloudRim world={world} />
-        <IslandDetails world={world} focused={playable} />
-        <WorldLandmark world={world} focused={focused} />
-        {focused && <ArrivalPortal accent={world.accent} phase={atlasOpen ? 'journey' : 'play'} />}
-        {playable && nodes.map((id, index) => (
-          <CourseNodeMarker key={id} nodeId={id} slot={NODE_SLOTS[index]} world={world} />
-        ))}
+        {signalExperience ? (
+          <>
+            <SignalTheoryStage accent={world.accent} accentDark={world.accentDark} />
+            {playable && mode === 'explore' && visibleSignalNodes.map(({ id, index }) => (
+              <CourseNodeMarker key={id} nodeId={id} slot={nodeSlotFor(world.id, index)} world={world} />
+            ))}
+            {playable && mode === 'explore' && <SignalCityExhibits world={world} />}
+          </>
+        ) : (
+          <>
+            <IslandDetails world={world} focused={playable} />
+            <WorldLandmark world={world} focused={focused} />
+            {focused && <ArrivalPortal accent={world.accent} phase={atlasOpen ? 'journey' : 'play'} />}
+            {playable && nodes.map((id, index) => (
+              <CourseNodeMarker key={id} nodeId={id} slot={nodeSlotFor(world.id, index)} world={world} />
+            ))}
+          </>
+        )}
       </group>
 
 
@@ -683,6 +748,146 @@ function FoundationsLandmark({ world }: { world: CourseWorldDefinition }) {
     </group>
   )
 }
+const SIGNAL_EXHIBITS = [
+  {
+    id: 'event-antenna',
+    number: '01',
+    title: 'Event antenna',
+    subtitle: 'Clicks, watches and exposure',
+    page: 3,
+    visual: [-3.18, 0.42, -0.15],
+    approach: [-2.15, PLAYER_Y, -1.05],
+  },
+  {
+    id: 'event-stream',
+    number: '02',
+    title: 'Event stream',
+    subtitle: 'From evidence to pipeline',
+    page: 4,
+    visual: [0.3, 0.42, -0.25],
+    approach: [0.3, PLAYER_Y, 1.05],
+  },
+  {
+    id: 'user-profile',
+    number: '03',
+    title: 'Profile observatory',
+    subtitle: 'Features, labels and scores',
+    page: 5,
+    visual: [3.02, 0.4, -0.45],
+    approach: [2, PLAYER_Y, -1.35],
+  },
+  {
+    id: 'content-pedestals',
+    number: '04',
+    title: 'Content pedestals',
+    subtitle: 'Catalogue to useful slate',
+    page: 1,
+    visual: [2.78, 0.4, 2.15],
+    approach: [1.55, PLAYER_Y, 2.45],
+  },
+] as const
+
+function SignalCityExhibits({ world }: { world: CourseWorldDefinition }) {
+  return (
+    <group>
+      {SIGNAL_EXHIBITS.map((exhibit) => (
+        <SignalCityExhibit key={exhibit.id} exhibit={exhibit} world={world} />
+      ))}
+    </group>
+  )
+}
+
+function SignalCityExhibit({
+  exhibit,
+  world,
+}: {
+  exhibit: (typeof SIGNAL_EXHIBITS)[number]
+  world: CourseWorldDefinition
+}) {
+  const [hovered, setHovered] = useState(false)
+  const marker = useRef<THREE.Group>(null)
+
+  useFrame((state, dt) => {
+    if (!marker.current) return
+    marker.current.rotation.y += dt * (hovered ? 1.15 : 0.42)
+    const target = hovered ? 1.14 : 1
+    const scale = THREE.MathUtils.damp(marker.current.scale.x, target, 9, dt)
+    marker.current.scale.setScalar(scale * (1 + Math.sin(state.clock.elapsedTime * 2.2) * 0.018))
+  })
+
+  const requestExhibit = () => {
+    if (useProgress.getState().mode !== 'explore') return
+    const approach = new THREE.Vector3(
+      world.position[0] + exhibit.approach[0],
+      PLAYER_Y,
+      world.position[2] + exhibit.approach[2],
+    )
+    runtime.pendingOpen = null
+    setCourseMoveTarget(world.id, approach, 0.04)
+    runtime.pendingSceneAction = {
+      worldId: world.id,
+      target: runtime.moveDestination?.clone() ?? approach,
+      radius: 0.44,
+      run: () => {
+        const progress = useProgress.getState()
+        progress.openNode('week01-station')
+        progress.setLessonPage(exhibit.page)
+      },
+    }
+  }
+
+  return (
+    <group position={exhibit.visual}>
+      <group
+        ref={marker}
+        position={[0, 1.62, 0]}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.stopPropagation()
+          requestExhibit()
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation()
+          setHovered(true)
+          if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={() => {
+          setHovered(false)
+          if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+        }}
+      >
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.29, 0.035, 10, 44]} />
+          <meshBasicMaterial color={hovered ? '#7567e5' : world.accent} transparent opacity={hovered ? 0.92 : 0.58} toneMapped={false} />
+        </mesh>
+        <mesh>
+          <octahedronGeometry args={[0.11, 0]} />
+          <meshStandardMaterial color="#ffffff" emissive={world.accent} emissiveIntensity={hovered ? 1.4 : 0.6} toneMapped={false} />
+        </mesh>
+        <mesh>
+          <sphereGeometry args={[0.52, 20, 16]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      </group>
+
+      <Html position={[0, 2.25, 0]} center zIndexRange={[36, 14]} wrapperClass="signal-exhibit-anchor">
+        <button
+          type="button"
+          className="signal-exhibit-label"
+          style={{ '--world-accent': world.accent } as CSSProperties}
+          onClick={requestExhibit}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+        >
+          <span>{exhibit.number}</span>
+          <strong>{exhibit.title}</strong>
+          <small>{exhibit.subtitle}</small>
+        </button>
+      </Html>
+    </group>
+  )
+}
+
 
 function RetrievalLandmark({ world }: { world: CourseWorldDefinition }) {
   const points = useMemo(() => {
@@ -874,6 +1079,7 @@ function CourseNodeMarker({
   const requestNode = () => {
     if (!actionable || useProgress.getState().mode !== 'explore') return
     const target = nodeWorldPosition(nodeId)
+    runtime.pendingSceneAction = null
     runtime.pendingOpen = nodeId
     setCourseMoveTarget(world.id, target, NODE_APPROACH_MARGIN)
   }
@@ -925,23 +1131,6 @@ function CourseNodeMarker({
           </button>
         </Html>
       )}
-    </group>
-  )
-}
-
-function ChapterNarrator({ nodeId }: { nodeId: NodeId }) {
-  const node = NODES[nodeId]
-  const target = nodeWorldPosition(nodeId)
-  const position = target.clone().addScaledVector(RIGHT, 1.45).setY(0.12)
-  const yaw = Math.atan2(CAMERA_OFFSET.x, CAMERA_OFFSET.z)
-  return (
-    <group position={position.toArray()} rotation={[0, yaw, 0]}>
-      <pointLight position={[0.4, 2.8, 1.4]} color="#fff2dc" intensity={6.5} distance={7} decay={1.6} />
-      {node.worldId === 'retrieval-valley' ? <VectorSmithGLB /> : <AstraGLB />}
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.5, 32]} />
-        <meshBasicMaterial color="#345d68" transparent opacity={0.16} depthWrite={false} />
-      </mesh>
     </group>
   )
 }
@@ -1124,13 +1313,21 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
   const group = useRef<THREE.Group>(null)
   const visual = useRef<THREE.Group>(null)
   const arrival = useRef(0)
+  const signalImaxWasActive = useRef(false)
   const input = useInput()
   const mode = useProgress((state) => state.mode)
+  const activeNodeId = useProgress((state) => state.activeNodeId)
   const setNearby = useProgress((state) => state.setNearby)
   const openNode = useProgress((state) => state.openNode)
+  const signalImax = mode === 'study' && activeNodeId === 'week01-station'
+  const { size } = useThree()
+  const portrait = size.height > size.width * 1.08
   const world = COURSE_WORLD_BY_ID[worldId]
   const center = useMemo(() => new THREE.Vector3(world.position[0], PLAYER_Y, world.position[2]), [world])
-  const obstacles = useMemo(() => worldNavigationObstacles(worldId), [worldId])
+  const obstacles = useMemo(
+    () => worldNavigationObstacles(worldId, !signalImax),
+    [signalImax, worldId],
+  )
   const position = useRef(center.clone().add(new THREE.Vector3(0, 0, PORTAL_OFFSET_Z)))
   const velocity = useRef(new THREE.Vector3())
   const desired = useRef(new THREE.Vector3())
@@ -1142,12 +1339,32 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
     clearCourseMoveTarget()
     runtime.requestMove = (target, targetMargin) => setCourseMoveTarget(worldId, target, targetMargin)
     runtime.pendingOpen = null
+    runtime.pendingSceneAction = null
     runtime.cameraSkip = true
     return () => {
       runtime.requestMove = null
       setNearby(null)
     }
   }, [obstacles, setNearby, worldId])
+
+  useEffect(() => {
+    if (signalImax && !signalImaxWasActive.current) {
+      const theaterApron = center.clone().add(
+        portrait
+          ? new THREE.Vector3(-0.4, 0, 1)
+          : new THREE.Vector3(-1.75, 0, 2.75),
+      )
+      projectOutsideObstacles(theaterApron, obstacles, 0.16)
+      position.current.copy(theaterApron).setY(PLAYER_Y)
+      velocity.current.set(0, 0, 0)
+      desired.current.set(0, 0, 0)
+      runtime.playerPosition.copy(position.current)
+      clearCourseMoveTarget()
+      runtime.pendingOpen = null
+      runtime.pendingSceneAction = null
+    }
+    signalImaxWasActive.current = signalImax
+  }, [center, obstacles, portrait, signalImax])
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
@@ -1161,7 +1378,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
 
     desired.current.set(0, 0, 0)
     let autoNavigating = false
-    if (mode === 'explore') {
+    if (mode === 'explore' || signalImax) {
       const forward = input.current.forward + touchControls.moveY
       const strafe = input.current.strafe + touchControls.moveX
       const manual = Math.abs(forward) > 0.02 || Math.abs(strafe) > 0.02
@@ -1169,6 +1386,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       if (manual) {
         clearCourseMoveTarget()
         runtime.pendingOpen = null
+        runtime.pendingSceneAction = null
         desired.current.addScaledVector(FORWARD, forward).addScaledVector(RIGHT, strafe)
         if (desired.current.lengthSq() > 1) desired.current.normalize()
         desired.current.multiplyScalar(input.current.run ? 5.2 : 3.35)
@@ -1221,37 +1439,56 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       visual.current.rotation.y = runtime.playerFacing
     }
 
-    const store = useProgress.getState()
-    let nearby: NodeId | null = null
-    let nearbyDistance = Infinity
-    for (const id of WORLD_NODE_IDS[worldId]) {
-      if (store.getNodeState(id) === 'locked_for_credit') continue
-      const nodePosition = nodeWorldPosition(id)
-      const distance = Math.hypot(position.current.x - nodePosition.x, position.current.z - nodePosition.z)
-      if (distance < 1.25 && distance < nearbyDistance) {
-        nearby = id
-        nearbyDistance = distance
+    if (mode === 'explore') {
+      const store = useProgress.getState()
+      let nearby: NodeId | null = null
+      let nearbyDistance = Infinity
+      for (const id of WORLD_NODE_IDS[worldId]) {
+        if (store.getNodeState(id) === 'locked_for_credit') continue
+        const nodePosition = nodeWorldPosition(id)
+        const distance = Math.hypot(position.current.x - nodePosition.x, position.current.z - nodePosition.z)
+        if (distance < 1.25 && distance < nearbyDistance) {
+          nearby = id
+          nearbyDistance = distance
+        }
       }
-    }
-    setNearby(nearby)
+      setNearby(nearby)
 
-    const pending = runtime.pendingOpen as NodeId | null
-    if (pending && NODES[pending]?.worldId === worldId) {
-      const target = nodeWorldPosition(pending)
-      const distance = Math.hypot(position.current.x - target.x, position.current.z - target.z)
-      if (distance < NODE_INTERACTION_DISTANCE) {
-        runtime.pendingOpen = null
-        clearCourseMoveTarget()
-        openNode(pending)
+      const pending = runtime.pendingOpen as NodeId | null
+      if (pending && NODES[pending]?.worldId === worldId) {
+        const target = nodeWorldPosition(pending)
+        const distance = Math.hypot(position.current.x - target.x, position.current.z - target.z)
+        if (distance < NODE_INTERACTION_DISTANCE) {
+          runtime.pendingOpen = null
+          clearCourseMoveTarget()
+          openNode(pending)
+        }
       }
-    }
 
-    const interact = input.current.interactPressed || touchControls.interactEdge
-    if (interact) {
+      const interact = input.current.interactPressed || touchControls.interactEdge
+      if (interact) {
+        input.current.interactPressed = false
+        touchControls.interactEdge = false
+        if (nearby) openNode(nearby)
+      }
+
+      const sceneAction = runtime.pendingSceneAction
+      if (sceneAction && sceneAction.worldId === worldId) {
+        const distance = Math.hypot(position.current.x - sceneAction.target.x, position.current.z - sceneAction.target.z)
+        if (distance < sceneAction.radius) {
+          runtime.pendingSceneAction = null
+          clearCourseMoveTarget()
+          sceneAction.run()
+        }
+      }
+    } else {
+      if (useProgress.getState().nearbyNodeId !== null) setNearby(null)
+      runtime.pendingOpen = null
+      runtime.pendingSceneAction = null
       input.current.interactPressed = false
       touchControls.interactEdge = false
-      if (nearby) openNode(nearby)
     }
+
     input.current.jumpPressed = false
     touchControls.jumpEdge = false
   })
@@ -1448,7 +1685,7 @@ function nodeWorldPosition(id: NodeId): THREE.Vector3 {
   const node = NODES[id]
   const world = COURSE_WORLD_BY_ID[node.worldId]
   const index = Math.max(0, WORLD_NODE_IDS[node.worldId].indexOf(id))
-  const slot = NODE_SLOTS[index] ?? NODE_SLOTS[0]
+  const slot = nodeSlotFor(node.worldId, index)
   return new THREE.Vector3(world.position[0] + slot[0], PLAYER_Y, world.position[2] + slot[2])
 }
 

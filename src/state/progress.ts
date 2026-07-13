@@ -89,7 +89,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'npc-guide': {
     id: 'npc-guide',
     kind: 'npc',
-    title: 'Metric Keeper',
+    title: 'Signal City Briefing',
     subtitle: 'Guide',
     worldId: 'foundations-camp',
     position: [-6, 0, 4],
@@ -101,12 +101,10 @@ export const NODES: Record<NodeId, CourseNode> = {
   'week01-station': {
     id: 'week01-station',
     kind: 'lesson',
-    title: 'Week 01 · Ranking & Metrics',
+    title: 'Foundations · Core Concepts',
     subtitle: 'Lesson',
     worldId: 'foundations-camp',
     weekId: 'week-01',
-    // co-located with Guide Astra (LESSON_STAGE.astra.pos): she IS the station marker, so E is
-    // pressed at the narrator, not at a separate statue. The holo-board renders behind her.
     position: [3.9, 0, 2.0],
     requires: [],
     requiredAction: true,
@@ -116,7 +114,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'ranking-sandbox': {
     id: 'ranking-sandbox',
     kind: 'widget',
-    title: 'Ranking Sandbox',
+    title: 'Ordering & Metrics Experiment',
     subtitle: 'Lab',
     worldId: 'foundations-camp',
     weekId: 'week-01',
@@ -129,7 +127,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'quiz-gate': {
     id: 'quiz-gate',
     kind: 'quiz',
-    title: 'Metrics Quiz Gate',
+    title: 'Foundations Checkpoint',
     subtitle: 'Checkpoint',
     worldId: 'foundations-camp',
     weekId: 'week-01',
@@ -170,7 +168,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'two-tower-lesson': {
     id: 'two-tower-lesson',
     kind: 'lesson',
-    title: 'ANN & Negative Sampling',
+    title: 'Retrieval Contract & Two-Tower',
     subtitle: 'Lesson',
     worldId: 'retrieval-valley',
     weekId: 'week-02',
@@ -183,7 +181,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'retrieval-sandbox': {
     id: 'retrieval-sandbox',
     kind: 'widget',
-    title: 'Retrieval Sandbox',
+    title: 'Similarity vs Recall Experiment',
     subtitle: 'Lab',
     worldId: 'retrieval-valley',
     weekId: 'week-02',
@@ -196,7 +194,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'negatives-quiz': {
     id: 'negatives-quiz',
     kind: 'quiz',
-    title: 'Two-Tower Gate Quiz',
+    title: 'Retrieval Systems Checkpoint',
     subtitle: 'Checkpoint',
     worldId: 'retrieval-valley',
     weekId: 'week-02',
@@ -220,13 +218,12 @@ export const NODES: Record<NodeId, CourseNode> = {
   },
 
   // ---- World 03 · Sequential City --------------------------------------------------
-  // invisible welcome waypoint near the arrival (Guide Astra herself stands, rigged, at the
-  // transformer-lesson mark — this node fires her greeting as you step off the gate)
+  // Invisible arrival briefing retained as a state waypoint for existing saved progress.
   'astra-city-guide': {
     id: 'astra-city-guide',
     kind: 'npc',
-    title: 'Guide Astra',
-    subtitle: 'Course Guide',
+    title: 'Sequence Transit Briefing',
+    subtitle: 'Briefing',
     worldId: 'sequential-city',
     position: [1, 0, 9.5],
     requires: [],
@@ -237,7 +234,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'transformer-lesson': {
     id: 'transformer-lesson',
     kind: 'lesson',
-    title: 'Attention & Transformers',
+    title: 'Sequential Context & Attention',
     subtitle: 'Lesson',
     worldId: 'sequential-city',
     weekId: 'week-03',
@@ -250,7 +247,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'attention-lab': {
     id: 'attention-lab',
     kind: 'widget',
-    title: 'Flash Attention Lab',
+    title: 'Long-Context Memory Experiment',
     subtitle: 'Lab',
     worldId: 'sequential-city',
     weekId: 'week-03',
@@ -263,7 +260,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'attention-quiz': {
     id: 'attention-quiz',
     kind: 'quiz',
-    title: 'Attention Checkpoint',
+    title: 'Sequential Models Checkpoint',
     subtitle: 'Checkpoint',
     worldId: 'sequential-city',
     weekId: 'week-03',
@@ -287,13 +284,12 @@ export const NODES: Record<NodeId, CourseNode> = {
   },
 
   // ---- World 04 · Policy Tower -----------------------------------------------------
-  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
-  // policy-lesson mark — this node fires her greeting as you step off the bridge)
+  // Invisible arrival briefing retained as a state waypoint for existing saved progress.
   'astra-tower-guide': {
     id: 'astra-tower-guide',
     kind: 'npc',
-    title: 'Guide Astra',
-    subtitle: 'Course Guide',
+    title: 'Decision Tower Briefing',
+    subtitle: 'Briefing',
     worldId: 'policy-tower',
     position: [1, 0, 9.5],
     requires: [],
@@ -304,7 +300,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'policy-lesson': {
     id: 'policy-lesson',
     kind: 'lesson',
-    title: 'Bandits, Policies & Slates',
+    title: 'Decisions, Bandits & Slates',
     subtitle: 'Lesson',
     worldId: 'policy-tower',
     weekId: 'week-04',
@@ -317,7 +313,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'bandit-lab': {
     id: 'bandit-lab',
     kind: 'widget',
-    title: 'Bandit Lab',
+    title: 'Exploration Strategy Experiment',
     subtitle: 'Lab',
     worldId: 'policy-tower',
     weekId: 'week-04',
@@ -330,7 +326,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'policy-quiz': {
     id: 'policy-quiz',
     kind: 'quiz',
-    title: 'Policy Checkpoint',
+    title: 'Decisions & Policies Checkpoint',
     subtitle: 'Checkpoint',
     worldId: 'policy-tower',
     weekId: 'week-04',
@@ -354,13 +350,12 @@ export const NODES: Record<NodeId, CourseNode> = {
   },
 
   // ---- World 05 · Ecosystem Garden -------------------------------------------------
-  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
-  // ecosystem-lesson mark — this node fires her greeting as you step off the gate)
+  // Invisible arrival briefing retained as a state waypoint for existing saved progress.
   'astra-garden-guide': {
     id: 'astra-garden-guide',
     kind: 'npc',
-    title: 'Guide Astra',
-    subtitle: 'Course Guide',
+    title: 'Feedback Garden Briefing',
+    subtitle: 'Briefing',
     worldId: 'ecosystem-garden',
     position: [1, 0, 9.5],
     requires: [],
@@ -371,7 +366,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'ecosystem-lesson': {
     id: 'ecosystem-lesson',
     kind: 'lesson',
-    title: 'Ecosystems, Diversity & Feedback',
+    title: 'Feedback, Bias & Diversity',
     subtitle: 'Lesson',
     worldId: 'ecosystem-garden',
     weekId: 'week-05',
@@ -384,7 +379,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'diversity-lab': {
     id: 'diversity-lab',
     kind: 'widget',
-    title: 'Diversity Lab',
+    title: 'Slate Balance Experiment',
     subtitle: 'Lab',
     worldId: 'ecosystem-garden',
     weekId: 'week-05',
@@ -397,7 +392,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'ecosystem-quiz': {
     id: 'ecosystem-quiz',
     kind: 'quiz',
-    title: 'Ecosystem Checkpoint',
+    title: 'Feedback Ecosystems Checkpoint',
     subtitle: 'Checkpoint',
     worldId: 'ecosystem-garden',
     weekId: 'week-05',
@@ -410,7 +405,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'graduation': {
     id: 'graduation',
     kind: 'bridge',
-    title: 'Final Arena Gate',
+    title: 'System Synthesis Gate',
     subtitle: 'Next Region',
     worldId: 'ecosystem-garden',
     position: [2, 0, -13],
@@ -421,13 +416,12 @@ export const NODES: Record<NodeId, CourseNode> = {
   },
 
   // ---- World 06 · Final Arena ------------------------------------------------------
-  // invisible welcome waypoint at the arrival (Guide Astra herself stands, rigged, at the
-  // capstone-lesson mark — this node fires her greeting as you step off the gate)
+  // Invisible arrival briefing retained as a state waypoint for existing saved progress.
   'astra-arena-guide': {
     id: 'astra-arena-guide',
     kind: 'npc',
-    title: 'Guide Astra',
-    subtitle: 'Course Guide',
+    title: 'Synthesis Lab Briefing',
+    subtitle: 'Briefing',
     worldId: 'final-arena',
     position: [1, 0, 9.5],
     requires: [],
@@ -438,7 +432,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'capstone-lesson': {
     id: 'capstone-lesson',
     kind: 'lesson',
-    title: 'Capstone · Prove Your Mastery',
+    title: 'System Synthesis',
     subtitle: 'Recap',
     worldId: 'final-arena',
     weekId: 'capstone',
@@ -451,8 +445,8 @@ export const NODES: Record<NodeId, CourseNode> = {
   'capstone-arena': {
     id: 'capstone-arena',
     kind: 'arena',
-    title: 'Capstone Arena',
-    subtitle: 'Final Challenge',
+    title: 'Production Readiness Review',
+    subtitle: 'Applied review',
     worldId: 'final-arena',
     weekId: 'capstone',
     position: [9, 0, -1.5],
@@ -464,7 +458,7 @@ export const NODES: Record<NodeId, CourseNode> = {
   'champion': {
     id: 'champion',
     kind: 'bridge',
-    title: 'Hall of Champions',
+    title: 'Course Completion',
     subtitle: 'Course Complete',
     worldId: 'final-arena',
     position: [2, 0, -13],
@@ -675,15 +669,15 @@ export const useProgress = create<ProgressState>((set, get) => ({
       return { nodeId: 'world5-gate', label: 'Pass the Garden Gate' }
     }
     if (s.completed['ecosystem-quiz'] && !s.completed['graduation']) {
-      return { nodeId: 'graduation', label: 'Enter the Final Arena' }
+      return { nodeId: 'graduation', label: 'Enter System Synthesis' }
     }
     if (s.completed['capstone-arena'] && !s.completed['champion']) {
-      return { nodeId: 'champion', label: 'Claim your place in the Hall of Champions' }
+      return { nodeId: 'champion', label: 'Complete the course' }
     }
     if (s.completed['champion']) {
-      return { nodeId: null, label: '★ Champion — course complete' }
+      return { nodeId: null, label: 'Course complete · system reviewed' }
     }
-    return { nodeId: null, label: 'The Final Arena — prove your mastery' }
+    return { nodeId: null, label: 'Complete the production readiness review' }
   },
 
   collectedArtifacts: () => {

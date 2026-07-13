@@ -9,10 +9,9 @@ import {
 import { useProgress } from '../state/progress'
 
 /**
- * Capstone Arena — the World-06 final challenge. One synthesis question from each of the five
- * regions; each correct answer is worth CAPSTONE_PER_Q. A perfect run scores 100,000 and takes the
- * #1 seat in the Hall of Mastery. Clearing CAPSTONE_PASS (3 of 5) completes the course; you can
- * re-enter to beat your best.
+ * Production Readiness Review — the World-06 capstone. One integrated scenario from each system
+ * layer; each correct diagnosis is worth CAPSTONE_PER_Q. Clearing CAPSTONE_PASS (3 of 5) completes
+ * the course, and learners can re-enter to improve their best result.
  */
 export function CapstoneArena() {
   const completeNode = useProgress((s) => s.completeNode)
@@ -59,12 +58,12 @@ export function CapstoneArena() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Capstone · Final Challenge</div>
-        <h1>Capstone Arena</h1>
+        <div className="kicker">Capstone · Production review</div>
+        <h1>Production Readiness Review</h1>
         <p className="lead">
-          One question from every region — measure, retrieve, attend, decide, sustain. Each correct
-          answer is worth {CAPSTONE_PER_Q.toLocaleString()}. Score {CAPSTONE_PASS.toLocaleString()}+
-          to complete the course; a perfect run tops the <b>Hall of Mastery</b>.
+          Review five connected production decisions: measurement, retrieval, sequence modelling,
+          policy and ecosystem health. Each correct diagnosis is worth {CAPSTONE_PER_Q.toLocaleString()}.
+          Score {CAPSTONE_PASS.toLocaleString()}+ to complete the course; explanations remain visible after evaluation.
         </p>
 
         <div className="arena-grid">
@@ -95,7 +94,7 @@ export function CapstoneArena() {
           </div>
 
           <aside className="hall">
-            <div className="hall-title">♛ Hall of Mastery</div>
+            <div className="hall-title">Reference scores</div>
             {board.map((e, i) => (
               <div className={`hall-row ${e.you ? 'you' : ''} ${i === 0 ? 'top' : ''}`} key={`${e.name}-${i}`}>
                 <span className="hall-rank">{i + 1}</span>
@@ -104,7 +103,7 @@ export function CapstoneArena() {
               </div>
             ))}
             <div className="hall-best">
-              Your best: <b>{best > 0 ? best.toLocaleString() : '—'}</b>
+              Your best review: <b>{best > 0 ? best.toLocaleString() : '—'}</b>
             </div>
           </aside>
         </div>
@@ -112,20 +111,20 @@ export function CapstoneArena() {
         {submitted && (
           <p className={`hint ${passed ? 'ok' : ''}`}>
             {passed
-              ? `★ ${correct}/5 correct — you scored ${score.toLocaleString()}. Best: ${shownBest.toLocaleString()} (rank #${rank}). The course is complete!`
-              : `${correct}/5 correct — ${score.toLocaleString()} points, below ${CAPSTONE_PASS.toLocaleString()}. Review the explanations and try again.`}
+              ? `Review passed: ${correct}/5 decisions correct, ${score.toLocaleString()} points. Best: ${shownBest.toLocaleString()} (reference rank #${rank}). The course is complete.`
+              : `Review incomplete: ${correct}/5 decisions correct, ${score.toLocaleString()} points. Read each diagnosis, then run the review again.`}
           </p>
         )}
 
         <div className="modal-actions">
           {!submitted ? (
             <button className="btn primary" disabled={!answeredAll} onClick={submit} style={{ opacity: answeredAll ? 1 : 0.5 }}>
-              {answeredAll ? 'Submit challenge ▶' : 'Answer all five to submit'}
+              {answeredAll ? 'Evaluate design →' : 'Resolve all five scenarios'}
             </button>
           ) : passed ? (
-            <button className="btn primary" onClick={finish}>Claim your victory →</button>
+            <button className="btn primary" onClick={finish}>Complete course →</button>
           ) : (
-            <button className="btn primary" onClick={retry}>Try again ↻</button>
+            <button className="btn primary" onClick={retry}>Run review again ↻</button>
           )}
         </div>
       </div>

@@ -82,7 +82,7 @@ function SignFrame() {
         <meshBasicMaterial color="#7a2ffb" transparent opacity={0.18} toneMapped={false} />
       </mesh>
       <Text position={[0, 3.02, 0.14]} fontSize={0.42} letterSpacing={0.02} color="#f6ecff" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#1a0e30">
-        Metrics Plaza
+        Foundations
       </Text>
       {/* diamond emblem crowning the beam */}
       <mesh position={[0, 3.95, 0.02]} rotation={[0, 0, Math.PI / 4]}>

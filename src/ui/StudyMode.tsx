@@ -1,100 +1,145 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, ArrowRight, BookOpen, Check, Compass, Lightbulb, X } from 'lucide-react'
 import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON, type LessonSection } from '../data/course'
 import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
 
+const WORLD01_MANIM_CLIPS = [
+  'W01_00_Foundations',
+  'W01_01_UsefulSlate',
+  'W01_02_CoreEntities',
+  'W01_03_SignalsEvidence',
+  'W01_04_ProductionPipeline',
+  'W01_05_LabelsFeaturesScores',
+  'W01_06_FeedbackLoop',
+  'W01_07_ColdStart',
+  'W01_08_OrderMatters',
+  'W01_09_NDCG',
+  'W01_10_RecallCoverage',
+] as const
+
 /** Per-lesson content, keyed by the lesson node the player interacted with. */
 const LESSONS: Record<
   string,
-  { nodeId: NodeId; kicker: string; narrator: string; cards: Card[] }
+  { nodeId: NodeId; kicker: string; cards: Card[] }
 > = {
   'week01-station': {
     nodeId: 'week01-station',
-    kicker: 'Theory Module · Metrics Plaza',
-    narrator: 'Guide Astra',
+    kicker: 'World 01 · Recommender Foundations',
     cards: [
       {
         heading: WEEK01_LESSON.title,
         body: WEEK01_LESSON.intro,
-        narration: "Metrics are your compass. Let's learn to measure what matters — step by step.",
-        icon: 'order',
+        narration: 'Start with the decision, the evidence and the stages. Every later model fits into this map.',
+        icon: 'goal',
         intro: true,
+        terms: [
+          { term: 'Decision', definition: 'Choose a small ordered slate for this user and moment.' },
+          { term: 'Evidence', definition: 'Interpret logged behavior without mistaking it for ground truth.' },
+          { term: 'Pipeline', definition: 'Narrow, score, constrain and serve candidates in stages.' },
+          { term: 'Evaluation', definition: 'Measure ranking quality offline and product value online.' },
+        ],
       },
       ...WEEK01_LESSON.sections,
     ],
   },
   'two-tower-lesson': {
     nodeId: 'two-tower-lesson',
-    kicker: 'Theory Module · ANN Lab',
-    narrator: 'Vector Smith',
+    kicker: 'World 02 · Retrieval Systems',
     cards: [
       {
         heading: WEEK02_LESSON.title,
         body: WEEK02_LESSON.intro,
-        narration: 'Millions of items, milliseconds to answer. Retrieval is how we cope.',
+        narration: 'Preserve useful options under a strict latency budget; ranking can only work with what retrieval keeps.',
         icon: 'twotower',
         intro: true,
+        terms: [
+          { term: 'Candidate generation', definition: 'Fast narrowing from the full catalogue to a rankable shortlist.' },
+          { term: 'Embedding', definition: 'A vector representation used to compare users and items geometrically.' },
+          { term: 'ANN index', definition: 'A data structure for fast approximate vector search.' },
+          { term: 'Retrieval recall', definition: 'The share of relevant items preserved for downstream ranking.' },
+        ],
       },
       ...WEEK02_LESSON.sections,
     ],
   },
   'transformer-lesson': {
     nodeId: 'transformer-lesson',
-    kicker: 'Theory Module · Transformer Tower',
-    narrator: 'Guide Astra',
+    kicker: 'World 03 · Sequential Models',
     cards: [
       {
         heading: WEEK03_LESSON.title,
         body: WEEK03_LESSON.intro,
-        narration: 'Transformers process sequences with attention. Let’s step inside.',
+        narration: 'Order turns a bag of preferences into a changing intent. Attention learns which earlier events matter now.',
         icon: 'attention',
         intro: true,
+        terms: [
+          { term: 'Sequence', definition: 'An ordered history whose transitions and recency carry meaning.' },
+          { term: 'Self-attention', definition: 'A mechanism that lets each position gather context from other positions.' },
+          { term: 'Causal mask', definition: 'A boundary preventing future events from leaking into a prediction.' },
+          { term: 'Session state', definition: 'A representation of the user’s current short-term intent.' },
+        ],
       },
       ...WEEK03_LESSON.sections,
     ],
   },
   'policy-lesson': {
     nodeId: 'policy-lesson',
-    kicker: 'Theory Module · Policy Tower',
-    narrator: 'Guide Astra',
+    kicker: 'World 04 · Decisions and Policies',
     cards: [
       {
         heading: WEEK04_LESSON.title,
         body: WEEK04_LESSON.intro,
-        narration: 'Policies decide what to do next. Let’s build one together.',
+        narration: 'A model estimates; a policy acts. Exploration is the price of learning what the current policy cannot yet know.',
         icon: 'policy',
         intro: true,
+        terms: [
+          { term: 'Policy', definition: 'A rule or probability distribution for choosing an action in a state.' },
+          { term: 'Exploration', definition: 'Allocating decisions to uncertain actions in order to learn.' },
+          { term: 'Regret', definition: 'Accumulated reward lost relative to the best available action.' },
+          { term: 'Return', definition: 'Immediate and future reward attributed to a sequence of decisions.' },
+        ],
       },
       ...WEEK04_LESSON.sections,
     ],
   },
   'ecosystem-lesson': {
     nodeId: 'ecosystem-lesson',
-    kicker: 'Theory Module · Ecosystem Garden',
-    narrator: 'Guide Astra',
+    kicker: 'World 05 · Feedback Ecosystems',
     cards: [
       {
         heading: WEEK05_LESSON.title,
         body: WEEK05_LESSON.intro,
-        narration: 'Healthy ecosystems thrive on variety. Balance drives growth.',
+        narration: 'The policy allocates attention and then learns from that allocation. Ecosystem quality must be designed, not assumed.',
         icon: 'diversity',
         intro: true,
+        terms: [
+          { term: 'Exposure', definition: 'The opportunity an item received to be seen and acted on.' },
+          { term: 'Propensity', definition: 'The logging policy’s probability of choosing an observed action.' },
+          { term: 'Slate diversity', definition: 'The breadth of information or intent represented within one response.' },
+          { term: 'Catalogue health', definition: 'Sustainable breadth, freshness and supply across the item ecosystem.' },
+        ],
       },
       ...WEEK05_LESSON.sections,
     ],
   },
   'capstone-lesson': {
     nodeId: 'capstone-lesson',
-    kicker: 'Capstone · Final Arena',
-    narrator: 'Guide Astra',
+    kicker: 'World 06 · System Synthesis',
     cards: [
       {
         heading: CAPSTONE_LESSON.title,
         body: CAPSTONE_LESSON.intro,
-        narration: 'You have walked the whole pipeline. Time to prove your mastery.',
+        narration: 'A production design is a chain of explicit contracts, measurements and failure plans, not a pile of models.',
         icon: 'capstone',
         intro: true,
+        terms: [
+          { term: 'Decision contract', definition: 'The request, objective, eligible catalogue, constraints and budget.' },
+          { term: 'Stage contract', definition: 'The input, output, metric and latency responsibility of a pipeline stage.' },
+          { term: 'Lineage', definition: 'The trace from source evidence to every recommendation decision.' },
+          { term: 'Operational readiness', definition: 'Monitoring, fallback, rollback and ownership prepared before launch.' },
+        ],
       },
       ...CAPSTONE_LESSON.sections,
     ],
@@ -102,114 +147,463 @@ const LESSONS: Record<
 }
 
 /**
- * Cinematic lesson: the camera zooms to the narrator (3D, on the right) while this holographic
- * theory panel takes the left of the screen. The right side is transparent so the narrator shows
- * through, with their speech bubble floating over them. Content is chosen by the active lesson node.
+ * Focused theory reader. The world remains visible as context, while the lesson itself owns the
+ * interaction surface; the only character left in the scene is the player's explorer.
  */
 export function StudyMode() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
-  const setLessonPage = useProgress((s) => s.setLessonPage)
   const activeNodeId = useProgress((s) => s.activeNodeId)
+  const setLessonPage = useProgress((s) => s.setLessonPage)
 
   const lesson = useMemo(
     () => LESSONS[activeNodeId ?? 'week01-station'] ?? LESSONS['week01-station'],
-    [activeNodeId]
+    [activeNodeId],
   )
-  const CARDS = lesson.cards
+  const cards = lesson.cards
   const done = useProgress((s) => s.completed[lesson.nodeId])
 
-  const [i, setI] = useState(0)
-  const card = CARDS[i]
-  const last = i === CARDS.length - 1
+  const [index, setIndex] = useState(() => Math.min(useProgress.getState().lessonPage, cards.length - 1))
+  const card = cards[index]
+  const last = index === cards.length - 1
+  const progress = ((index + 1) / cards.length) * 100
 
-  // publish the active slide so the 3D narrator can play a per-page gesture
-  useEffect(() => {
-    setLessonPage(i)
-  }, [i, setLessonPage])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setI((v) => Math.min(CARDS.length - 1, v + 1))
-      if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1))
+    setIndex(Math.min(useProgress.getState().lessonPage, cards.length - 1))
+  }, [cards.length, lesson.nodeId])
+
+  useEffect(() => {
+    setLessonPage(index)
+  }, [index, setLessonPage])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        setIndex((value) => Math.min(cards.length - 1, value + 1))
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        setIndex((value) => Math.max(0, value - 1))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [cards.length])
 
   const finish = () => {
     completeNode(lesson.nodeId)
     closeNode()
   }
-  const primary = () => (last ? finish() : setI((v) => v + 1))
+
+  if (lesson.nodeId === 'week01-station') {
+    return (
+      <SignalImaxLesson
+        kicker={lesson.kicker}
+        cards={cards}
+        card={card}
+        index={index}
+        progress={progress}
+        done={done}
+        onSelect={setIndex}
+        onClose={closeNode}
+        onFinish={finish}
+      />
+    )
+  }
 
   return (
     <div className="study-cinematic">
-      {/* LEFT — holographic theory module */}
-      <div className="holo-panel">
-        <div className="holo-frame" aria-hidden>
-          <i /><i /><i /><i />
-        </div>
+      <article className="holo-panel lesson-panel" role="dialog" aria-modal="true" aria-labelledby="lesson-title">
         <div className="holo-head">
-          <span className="holo-kicker">{lesson.kicker}</span>
-          <button className="btn ghost" onClick={closeNode}>✕ Esc</button>
-        </div>
-
-        <h1 className="holo-title">{card.heading}</h1>
-
-        <div className="holo-display">
-          {card.video ? (
-            <video className="holo-video" src={card.video} autoPlay loop muted playsInline />
-          ) : (
-            <HoloVisual icon={card.icon} intro={card.intro} />
-          )}
-          <span className="holo-scan" aria-hidden />
-        </div>
-
-        <div className="holo-body">
-          <p>{card.body}</p>
-          {card.formula && <div className="holo-formula">{card.formula}</div>}
-        </div>
-
-        <div className="holo-nav">
-          <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)} style={{ opacity: i === 0 ? 0.4 : 1 }}>
-            ‹ Back
-          </button>
-          <div className="holo-dots">
-            {CARDS.map((_, k) => (
-              <span key={k} className={`dot ${k === i ? 'on' : ''} ${k < i ? 'seen' : ''}`} onClick={() => setI(k)} />
-            ))}
+          <div className="lesson-heading-meta">
+            <span className="holo-kicker">{lesson.kicker}</span>
+            <span className="lesson-progress-label">Concept {index + 1} of {cards.length}</span>
           </div>
-          <span className="holo-count">
-            {last ? 'final' : `scroll for next ›`} &nbsp; {i + 1}/{CARDS.length}
-          </span>
-        </div>
-      </div>
-
-      {/* RIGHT — floats over the 3D narrator (Astra shows through the transparent area) */}
-      <div className="study-right">
-        <div className="narrator-float">
-          <div className="narrator-name">{lesson.narrator}</div>
-          <div className="narrator-bubble">{card.narration ?? card.body}</div>
-        </div>
-        <div className="narrator-actions">
-          <button className="btn primary big" onClick={primary}>
-            {last ? (done ? 'Reviewed — close' : 'Complete checkpoint →') : 'Next ›'}
+          <button type="button" className="lesson-close" onClick={closeNode} aria-label="Close lesson" title="Close lesson">
+            <X size={19} aria-hidden />
           </button>
-          {!last && (
-            <button className="btn ghost" onClick={finish}>
-              Skip to lab
-            </button>
+        </div>
+
+        <div className="lesson-progress" aria-hidden>
+          <i style={{ width: `${progress}%` }} />
+        </div>
+
+        <section className="lesson-grid" key={`${lesson.nodeId}-${index}`}>
+          <div className="lesson-visual-column">
+            <div className="holo-display">
+              {card.video ? (
+                <video className="holo-video" src={card.video} autoPlay loop muted playsInline />
+              ) : (
+                <HoloVisual icon={card.icon} intro={card.intro} />
+              )}
+            </div>
+            {card.narration && (
+              <div className="holo-insight">
+                <Lightbulb size={18} aria-hidden />
+                <p>{card.narration}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="lesson-copy-column">
+            <h1 className="holo-title" id="lesson-title">{card.heading}</h1>
+            <div className="holo-body">
+              <p>{card.body}</p>
+              {card.formula && <div className="holo-formula">{card.formula}</div>}
+              {card.terms && card.terms.length > 0 && (
+                <div className="lesson-glossary">
+                  <h2>Key terms</h2>
+                  <dl className="holo-terms">
+                    {card.terms.map(({ term, definition }) => (
+                      <div key={term}>
+                        <dt>{term}</dt>
+                        <dd>{definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <footer className="holo-nav">
+          <button
+            type="button"
+            className="btn ghost lesson-nav-button"
+            disabled={index === 0}
+            onClick={() => setIndex((value) => Math.max(0, value - 1))}
+          >
+            <ArrowLeft size={17} aria-hidden />
+            Back
+          </button>
+
+          <div className="lesson-page-index">
+            <div className="holo-dots" aria-label="Lesson concepts">
+              {cards.map((item, itemIndex) => (
+                <button
+                  type="button"
+                  key={item.heading}
+                  className={`dot ${itemIndex === index ? 'on' : ''} ${itemIndex < index ? 'seen' : ''}`}
+                  onClick={() => setIndex(itemIndex)}
+                  aria-label={`Open concept ${itemIndex + 1}: ${item.heading}`}
+                  aria-current={itemIndex === index ? 'step' : undefined}
+                />
+              ))}
+            </div>
+            <span className="holo-count">{index + 1} / {cards.length}</span>
+          </div>
+
+          <button
+            type="button"
+            className="btn primary lesson-nav-button lesson-next"
+            onClick={last ? finish : () => setIndex((value) => value + 1)}
+          >
+            {last ? (
+              <>
+                <Check size={17} aria-hidden />
+                {done ? 'Close review' : 'Complete theory'}
+              </>
+            ) : (
+              <>
+                Next
+                <ArrowRight size={17} aria-hidden />
+              </>
+            )}
+          </button>
+        </footer>
+      </article>
+    </div>
+  )
+}
+function SignalImaxLesson({
+  kicker,
+  cards,
+  card,
+  index,
+  progress,
+  done,
+  onSelect,
+  onClose,
+  onFinish,
+}: {
+  kicker: string
+  cards: Card[]
+  card: Card
+  index: number
+  progress: number
+  done: boolean
+  onSelect: (index: number) => void
+  onClose: () => void
+  onFinish: () => void
+}) {
+  const [notesOpen, setNotesOpen] = useState(false)
+  const last = index === cards.length - 1
+  const manimClip = WORLD01_MANIM_CLIPS[index]
+
+  useEffect(() => {
+    setNotesOpen(false)
+  }, [index])
+
+  return (
+    <div
+      className={'imax-study ' + (notesOpen ? 'notes-open' : '')}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="imax-concept-title"
+    >
+      <header className="imax-topbar">
+        <div className="imax-brand">
+          <span>IMAX THEORY</span>
+          <strong>{kicker}</strong>
+        </div>
+        <div className="imax-top-progress" aria-label={'Concept ' + (index + 1) + ' of ' + cards.length}>
+          <span>{String(index + 1).padStart(2, '0')}</span>
+          <i aria-hidden><b style={{ width: String(progress) + '%' }} /></i>
+          <small>{cards.length}</small>
+        </div>
+        <button type="button" className="imax-icon-button" onClick={onClose} aria-label="Close IMAX lesson" title="Close">
+          <X size={19} aria-hidden />
+        </button>
+      </header>
+
+      <section className="imax-projection imax-projection--manim" key={'imax-' + index} aria-live="polite">
+        <div className="imax-screen-visual is-manim">
+          <video
+            key={manimClip}
+            className="imax-manim-video"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-label={'Manim explanation: ' + card.heading}
+          >
+            <source src={'/video/manim/world01/' + manimClip + '.webm'} type="video/webm" />
+            <source src={'/video/manim/world01/' + manimClip + '.mp4'} type="video/mp4" />
+          </video>
+        </div>
+      </section>
+
+      <section className="imax-caption" aria-label="Current concept">
+        <span>CONCEPT {String(index + 1).padStart(2, '0')}</span>
+        <h1 id="imax-concept-title">{card.heading}</h1>
+        <p>{card.narration ?? card.body}</p>
+        <button type="button" className="imax-explore-button" onClick={onClose} aria-label="Explore exhibits">
+          <Compass size={17} aria-hidden />
+          <span>Explore exhibits</span>
+        </button>
+      </section>
+
+      <button
+        type="button"
+        className={'imax-notes-toggle ' + (notesOpen ? 'is-open' : '')}
+        onClick={() => setNotesOpen((value) => !value)}
+        aria-expanded={notesOpen}
+        aria-controls="imax-theory-notes"
+      >
+        <BookOpen size={17} aria-hidden />
+        Theory notes
+      </button>
+
+      <aside className="imax-notes" id="imax-theory-notes" aria-hidden={!notesOpen}>
+        <header>
+          <span>DETAILED THEORY</span>
+          <button type="button" className="imax-icon-button" onClick={() => setNotesOpen(false)} aria-label="Close theory notes">
+            <X size={18} aria-hidden />
+          </button>
+        </header>
+        <div className="imax-notes-scroll">
+          <h2>{card.heading}</h2>
+          <p>{card.body}</p>
+          {card.formula && <div className="imax-notes-formula">{card.formula}</div>}
+          {card.terms && card.terms.length > 0 && (
+            <div className="imax-notes-terms">
+              <h3>Key terms</h3>
+              <dl>
+                {card.terms.map(({ term, definition }) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{definition}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           )}
         </div>
-      </div>
+      </aside>
+
+      <footer className="imax-controls">
+        <button
+          type="button"
+          className="imax-control-button"
+          disabled={index === 0}
+          onClick={() => onSelect(Math.max(0, index - 1))}
+          aria-label="Previous concept"
+        >
+          <ArrowLeft size={18} aria-hidden />
+        </button>
+
+        <div className="imax-chapters" aria-label="Theory chapters">
+          {cards.map((item, itemIndex) => (
+            <button
+              type="button"
+              key={item.heading}
+              className={(itemIndex === index ? 'is-active ' : '') + (itemIndex < index ? 'is-seen' : '')}
+              onClick={() => onSelect(itemIndex)}
+              aria-label={'Open concept ' + (itemIndex + 1) + ': ' + item.heading}
+              aria-current={itemIndex === index ? 'step' : undefined}
+            >
+              {String(itemIndex + 1).padStart(2, '0')}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className={'imax-next-button ' + (last ? 'is-complete' : '')}
+          onClick={last ? onFinish : () => onSelect(index + 1)}
+          aria-label={last ? (done ? 'Return to Signal City' : 'Complete & explore') : 'Next concept'}
+        >
+          {last ? (
+            <>
+              <Check size={18} aria-hidden />
+              <span>{done ? 'Return to Signal City' : 'Complete & explore'}</span>
+            </>
+          ) : (
+            <>
+              <span>Next concept</span>
+              <ArrowRight size={18} aria-hidden />
+            </>
+          )}
+        </button>
+      </footer>
     </div>
   )
 }
 
-/** Animated holographic "explainer" per concept (stands in for a manim clip). */
+
+/** Lightweight fallback visual used by worlds that do not have rendered Manim films yet. */
 function HoloVisual({ icon, intro }: { icon?: string; intro?: boolean }) {
-  if (intro || icon === 'order') {
+  if (icon === 'goal') {
+    return (
+      <div className="hv hv-goal">
+        <div className="goal-sources">
+          <span className="goal-user">U</span>
+          <div className="goal-catalog">
+            {Array.from({ length: 9 }).map((_, item) => <i key={item} />)}
+          </div>
+        </div>
+        <span className="goal-arrow">→</span>
+        <div className="goal-slate">
+          {[0.96, 0.83, 0.71].map((score, rank) => (
+            <span key={score} style={{ animationDelay: `${rank * 0.12}s` }}>
+              <b>{rank + 1}</b>
+              <i />
+              <em>{score}</em>
+            </span>
+          ))}
+        </div>
+        <div className="hv-caption">user + context + catalogue → ordered slate</div>
+      </div>
+    )
+  }
+  if (icon === 'entities') {
+    return (
+      <div className="hv hv-entities">
+        <div className="entity-map">
+          <span className="entity user">user</span>
+          <span className="entity context">context</span>
+          <span className="entity interaction">interaction</span>
+          <span className="entity item">item</span>
+          <span className="entity catalogue">catalogue</span>
+          <i className="entity-link one" />
+          <i className="entity-link two" />
+          <i className="entity-link three" />
+          <i className="entity-link four" />
+        </div>
+        <div className="hv-caption">name the entities before choosing the model</div>
+      </div>
+    )
+  }
+  if (icon === 'signals') {
+    return (
+      <div className="hv hv-signals">
+        {[
+          ['impression', 'exposure'],
+          ['click', 'implicit'],
+          ['watch 82%', 'implicit'],
+          ['rating 5★', 'explicit'],
+        ].map(([event, kind], item) => (
+          <div className={`signal-event signal-${kind}`} key={event} style={{ animationDelay: `${item * 0.1}s` }}>
+            <i />
+            <strong>{event}</strong>
+            <span>{kind}</span>
+          </div>
+        ))}
+        <div className="hv-caption">behavior becomes evidence only with exposure and context</div>
+      </div>
+    )
+  }
+  if (icon === 'pipeline') {
+    return (
+      <div className="hv hv-pipeline">
+        {[
+          ['01', 'retrieve', '1M → 1k'],
+          ['02', 'rank', '1k → 100'],
+          ['03', 'select', '100 → 20'],
+          ['04', 'serve', '20 items'],
+        ].map(([number, label, volume], item) => (
+          <div className="pipeline-stage" key={label} style={{ animationDelay: `${item * 0.12}s` }}>
+            <span>{number}</span>
+            <strong>{label}</strong>
+            <small>{volume}</small>
+          </div>
+        ))}
+        <div className="hv-caption">each stage narrows, scores or constrains the response</div>
+      </div>
+    )
+  }
+  if (icon === 'scores') {
+    return (
+      <div className="hv hv-scores">
+        {[
+          ['Film A', 92, 'clicked'],
+          ['Film B', 74, 'not clicked'],
+          ['Film C', 61, 'unseen'],
+        ].map(([label, score, outcome], item) => (
+          <div className="score-row" key={String(label)} style={{ animationDelay: `${item * 0.12}s` }}>
+            <strong>{label}</strong>
+            <div><i style={{ width: `${score}%` }} /></div>
+            <span>{outcome}</span>
+          </div>
+        ))}
+        <div className="hv-caption">a score estimates a label; it is not ground truth</div>
+      </div>
+    )
+  }
+  if (icon === 'coldstart') {
+    return (
+      <div className="hv hv-coldstart">
+        <div className="cold-profile">
+          <span>new user</span>
+          <div>{Array.from({ length: 5 }).map((_, item) => <i key={item} />)}</div>
+          <small>no history</small>
+        </div>
+        <span className="cold-plus">+</span>
+        <div className="cold-bridge">
+          <span>context</span>
+          <span>metadata</span>
+          <span>popular now</span>
+        </div>
+        <span className="cold-arrow">→</span>
+        <div className="cold-first">first slate</div>
+        <div className="hv-caption">start simple, explore, then personalize as evidence arrives</div>
+      </div>
+    )
+  }
+  if (icon === 'order' || (intro && !icon)) {
     return (
       <div className="hv">
         {[1, 0.66, 0.44, 0.28, 0.18].map((w, k) => (

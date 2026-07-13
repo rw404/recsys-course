@@ -34,7 +34,7 @@ export const COURSE_WORLDS: CourseWorldDefinition[] = [
     short: 'Retrieval',
     name: 'Retrieval Foundry',
     eyebrow: 'Candidates at scale',
-    summary: 'Forge embeddings, build an index and search millions of items in milliseconds.',
+    summary: 'Train embeddings, build an index and search millions of items within a serving budget.',
     question: 'How do we search millions in milliseconds?',
     accent: '#438cf3',
     accentDark: '#245daf',

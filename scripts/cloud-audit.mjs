@@ -25,6 +25,7 @@ const browser = await chromium.launch({
 const errors = []
 const failedResponses = []
 const explorerResponses = []
+const narratorResponses = []
 
 function watch(page, label) {
   page.on('pageerror', (error) => errors.push(`${label} page: ${error.stack ?? error.message}`))
@@ -34,6 +35,9 @@ function watch(page, label) {
   page.on('response', (response) => {
     if (response.url().includes('/models/explorer/')) {
       explorerResponses.push({ url: response.url(), status: response.status() })
+    }
+    if (response.url().includes('/models/astra-rigged/') || response.url().includes('/models/vector-smith/')) {
+      narratorResponses.push({ url: response.url(), status: response.status() })
     }
     if (response.status() >= 400 && !response.url().includes('favicon')) {
       failedResponses.push({ url: response.url(), status: response.status() })
@@ -105,24 +109,54 @@ await page.locator('.journey-shell').waitFor({ state: 'detached' })
 await page.waitForTimeout(2600)
 await page.screenshot({ path: 'artifacts/journey-play.png' })
 
-await page.getByRole('button', { name: /Week 01 · Ranking & Metrics/ }).evaluate((button) => button.click())
-await page.locator('.study-cinematic').waitFor({ state: 'visible', timeout: 30000 })
+await page.getByRole('button', { name: /Foundations · Core Concepts/ }).evaluate((button) => button.click())
+await page.locator('.imax-study').waitFor({ state: 'visible', timeout: 30000 })
+await page.getByRole('heading', { name: 'World 01 · Recommender Foundations' }).waitFor()
 const stationApproachDistance = await page.evaluate(() => {
   const position = window.__runtime.playerPosition
-  return Math.hypot(position.x + 5.15, position.z - 31.65)
+  return Math.hypot(position.x + 4.15, position.z - 32.75)
 })
-await page.getByRole('button', { name: 'Skip to lab' }).click()
-await page.locator('.study-cinematic').waitFor({ state: 'detached' })
+const conceptCount = await page.locator('.imax-chapters button').count()
+assert.equal(conceptCount, 11)
+assert.equal(await page.getByText(/Astra/i).count(), 0)
+await page.screenshot({ path: 'artifacts/foundations-lesson-start.png' })
 
-await page.getByRole('button', { name: /Ranking Sandbox/ }).evaluate((button) => button.click())
-await page.getByRole('heading', { name: 'Ranking Sandbox', exact: true }).waitFor({ timeout: 30000 })
+for (let concept = 1; concept < conceptCount; concept += 1) {
+  await page.getByRole('button', { name: 'Next concept', exact: true }).click()
+}
+await page.getByRole('heading', { name: 'Recall and coverage answer different questions' }).waitFor()
+await page.screenshot({ path: 'artifacts/foundations-lesson-final.png' })
+await page.getByRole('button', { name: 'Complete & explore' }).click()
+await page.locator('.imax-study').waitFor({ state: 'detached' })
+await page.waitForTimeout(900)
+const signalExhibitCount = await page.locator('.signal-exhibit-label').count()
+assert.equal(signalExhibitCount, 4)
+await page.screenshot({ path: 'artifacts/foundations-exhibits.png' })
+await page.getByRole('button', { name: /Profile observatory/ }).click()
+await page.locator('.imax-study').waitFor({ state: 'visible', timeout: 30000 })
+await page.getByRole('heading', { name: 'Labels, features and scores' }).waitFor()
+assert.equal(await page.locator('.imax-chapters button[aria-current="step"]').textContent(), '06')
+await page.screenshot({ path: 'artifacts/foundations-profile-exhibit.png' })
+await page.getByRole('button', { name: 'Close IMAX lesson' }).click()
+await page.locator('.imax-study').waitFor({ state: 'detached' })
+
+
+await page.getByRole('button', { name: /Ordering & Metrics Experiment/ }).evaluate((button) => button.click())
+await page.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ timeout: 30000 })
 const rankingApproachDistance = await page.evaluate(() => {
   const position = window.__runtime.playerPosition
-  return Math.hypot(position.x - 0.35, position.z - 31.55)
+  return Math.hypot(position.x + 2.4, position.z - 33.62)
 })
+const rankingBriefSteps = await page.locator('.experiment-steps article').count()
+assert.equal(rankingBriefSteps, 3)
+const rankingModalOverflow = await page.locator('.modal').evaluate((element) => ({
+  x: element.scrollWidth - element.clientWidth,
+  scrollable: element.scrollHeight > element.clientHeight,
+}))
+assert.equal(rankingModalOverflow.x, 0)
 await page.screenshot({ path: 'artifacts/journey-ranking-approach.png' })
 await page.getByRole('button', { name: '✕ Esc' }).click()
-await page.getByRole('heading', { name: 'Ranking Sandbox', exact: true }).waitFor({ state: 'detached' })
+await page.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ state: 'detached' })
 
 const before = await page.evaluate(() => window.__runtime.playerPosition.toArray())
 await page.keyboard.down('s')
@@ -141,11 +175,11 @@ await page.evaluate(() => {
   const probe = { minimumDistance: Infinity, timer: 0 }
   probe.timer = window.setInterval(() => {
     const position = runtime.playerPosition
-    probe.minimumDistance = Math.min(probe.minimumDistance, Math.hypot(position.x + 2.4, position.z - 30))
+    probe.minimumDistance = Math.min(probe.minimumDistance, Math.hypot(position.x + 5.58, position.z - 29.85))
   }, 16)
   window.__collisionProbe = probe
   if (!runtime.requestMove) throw new Error('Course path planner is not available')
-  runtime.requestMove(runtime.playerPosition.clone().set(-2.4, 0.76, 26.8))
+  runtime.requestMove(runtime.playerPosition.clone().set(-6.3, 0.76, 28.8))
 })
 await page.waitForTimeout(1400)
 await page.screenshot({ path: 'artifacts/journey-collision.png' })
@@ -158,7 +192,7 @@ const obstacleProbe = await page.evaluate(() => {
   runtime.moveTarget = null
   return {
     minimumDistance: probe.minimumDistance,
-    targetDistance: Math.hypot(position[0] + 2.4, position[2] - 26.8),
+    targetDistance: Math.hypot(position[0] + 6.3, position[2] - 28.8),
     position,
   }
 })
@@ -196,6 +230,48 @@ await mobile.locator('.journey-shell').waitFor({ state: 'detached' })
 await mobile.waitForTimeout(2200)
 await mobile.screenshot({ path: 'artifacts/journey-mobile-play.png' })
 
+await mobile.getByRole('button', { name: /Foundations · Core Concepts/ }).evaluate((button) => button.click())
+await mobile.getByRole('heading', { name: 'World 01 · Recommender Foundations' }).waitFor({ timeout: 30000 })
+const mobileLessonMetrics = await mobile.locator('.imax-study').evaluate((element) => {
+  const rect = element.getBoundingClientRect()
+  return {
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+    right: Math.round(rect.right),
+    bottom: Math.round(rect.bottom),
+    scrollOverflow: element.scrollWidth - element.clientWidth,
+  }
+})
+console.log('mobileLessonMetrics', mobileLessonMetrics)
+await mobile.screenshot({ path: 'artifacts/foundations-lesson-mobile.png' })
+assert.ok(mobileLessonMetrics.right <= 390)
+assert.ok(mobileLessonMetrics.bottom <= 844)
+assert.equal(mobileLessonMetrics.scrollOverflow, 0)
+for (let concept = 1; concept < conceptCount; concept += 1) {
+  await mobile.getByRole('button', { name: 'Next concept', exact: true }).click()
+}
+await mobile.getByRole('button', { name: 'Complete & explore' }).click()
+await mobile.locator('.imax-study').waitFor({ state: 'detached' })
+
+await mobile.getByRole('button', { name: /Ordering & Metrics Experiment/ }).evaluate((button) => button.click())
+await mobile.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ timeout: 30000 })
+const mobileExperimentMetrics = await mobile.locator('.modal').evaluate((element) => {
+  const rect = element.getBoundingClientRect()
+  return {
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+    right: Math.round(rect.right),
+    bottom: Math.round(rect.bottom),
+    scrollOverflow: element.scrollWidth - element.clientWidth,
+  }
+})
+assert.ok(mobileExperimentMetrics.right <= 390)
+assert.ok(mobileExperimentMetrics.bottom <= 844)
+assert.equal(mobileExperimentMetrics.scrollOverflow, 0)
+assert.equal(await mobile.locator('.experiment-steps article').count(), 3)
+await mobile.screenshot({ path: 'artifacts/ranking-experiment-mobile.png' })
+await mobile.getByRole('button', { name: '✕ Esc' }).click()
+
 const mobileOverflow = await mobile.evaluate(() => ({
   x: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   y: document.documentElement.scrollHeight - document.documentElement.clientHeight,
@@ -216,13 +292,19 @@ const report = {
   initialCanvas,
   movementForward: Number(movementForward.toFixed(2)),
   movementStrafe: Number(movementStrafe.toFixed(2)),
+  conceptCount,
   stationApproachDistance: Number(stationApproachDistance.toFixed(2)),
   rankingApproachDistance: Number(rankingApproachDistance.toFixed(2)),
-  landmarkMinimumDistance: Number(obstacleProbe.minimumDistance.toFixed(2)),
+  rankingBriefSteps,
+  rankingModalOverflow,
+  mobileExperimentMetrics,
+  antennaMinimumDistance: Number(obstacleProbe.minimumDistance.toFixed(2)),
   obstacleTargetDistance: Number(obstacleProbe.targetDistance.toFixed(2)),
   obstacleFinalPosition: obstacleProbe.position.map((value) => Number(value.toFixed(2))),
   touchVisible: await mobile.locator('.mobile-controls').isVisible(),
   explorerAssetsLoaded: explorerResponses.filter((response) => response.status === 200).length,
+  narratorAssetsLoaded: narratorResponses.filter((response) => response.status === 200).length,
+  mobileLessonMetrics,
   desktopOverflow,
   mobileOverflow,
   failedResponses,
@@ -234,12 +316,13 @@ console.log(JSON.stringify(report, null, 2))
 assert.ok(movementForward + movementStrafe > 0.2)
 assert.ok(stationApproachDistance < 1.26)
 assert.ok(rankingApproachDistance < 1.26)
-assert.ok(obstacleProbe.minimumDistance >= 2.3)
+assert.ok(obstacleProbe.minimumDistance >= 1.02)
 assert.ok(obstacleProbe.targetDistance < 0.65)
 assert.equal(desktopOverflow.x, 0)
 assert.equal(mobileOverflow.x, 0)
 assert.equal(failedResponses.length, 0)
 assert.equal(errors.length, 0)
+assert.equal(narratorResponses.length, 0)
 assert.ok(explorerResponses.some((response) => response.url.endsWith('/models/explorer/character.glb') && response.status === 200))
 
 await browser.close()

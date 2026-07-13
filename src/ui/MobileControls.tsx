@@ -33,8 +33,11 @@ const R = 52 // joystick travel radius (px)
 export function MobileControls() {
   const isMobile = useIsMobile()
   const mode = useProgress((s) => s.mode)
+  const activeNodeId = useProgress((s) => s.activeNodeId)
   const nearbyId = useProgress((s) => s.nearbyNodeId)
   const atlasOpen = useProgress((s) => s.atlasOpen)
+  const movementOnly = mode === 'study' && activeNodeId === 'week01-station'
+  const movementEnabled = mode === 'explore' || movementOnly
 
   const baseRef = useRef<HTMLDivElement>(null)
   const [thumb, setThumb] = useState({ x: 0, y: 0 })
@@ -42,14 +45,14 @@ export function MobileControls() {
 
   // release joystick if we leave explore mode mid-drag
   useEffect(() => {
-    if (mode !== 'explore') {
+    if (!movementEnabled) {
       activePointer.current = null
       resetTouchMove()
       setThumb({ x: 0, y: 0 })
     }
-  }, [mode])
+  }, [movementEnabled])
 
-  if (!isMobile || mode !== 'explore' || atlasOpen) return null
+  if (!isMobile || !movementEnabled || atlasOpen) return null
 
   const start = (e: React.PointerEvent) => {
     activePointer.current = e.pointerId
@@ -84,7 +87,7 @@ export function MobileControls() {
   const prompt = nearbyId ? promptFor(nearbyId) : null
 
   return (
-    <div className="mobile-controls">
+    <div className={'mobile-controls' + (movementOnly ? ' movement-only' : '')}>
       <div
         ref={baseRef}
         className="joystick"
@@ -97,17 +100,19 @@ export function MobileControls() {
         <span className="joystick-hint">MOVE</span>
       </div>
 
-      <button
-        className={`interact-btn ${prompt ? 'active' : ''}`}
-        aria-label={prompt ?? 'No nearby station'}
-        title={prompt ?? 'No nearby station'}
-        onPointerDown={(e) => {
-          e.preventDefault()
-          if (prompt) touchControls.interactEdge = true
-        }}
-      >
-        <MousePointer2 size={22} />
-      </button>
+      {!movementOnly && (
+        <button
+          className={`interact-btn ${prompt ? 'active' : ''}`}
+          aria-label={prompt ?? 'No nearby station'}
+          title={prompt ?? 'No nearby station'}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            if (prompt) touchControls.interactEdge = true
+          }}
+        >
+          <MousePointer2 size={22} />
+        </button>
+      )}
     </div>
   )
 }

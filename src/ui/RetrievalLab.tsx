@@ -7,6 +7,7 @@ import {
   type RetrievalItem,
 } from '../data/course'
 import { useProgress } from '../state/progress'
+import { ExperimentBrief } from './ExperimentBrief'
 
 const PASS_RECALL = 0.75 // retrieve 3 of the 4 truly-relevant items
 
@@ -58,18 +59,23 @@ export function RetrievalLab() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Lab Mode · Interactive</div>
-        <h1>Retrieval Sandbox</h1>
+        <div className="kicker">Practice · Guided experiment</div>
+        <h1>Similarity is a retrieval signal, not the answer</h1>
         <p className="lead">
-          The two-tower model returns these {RETRIEVAL_ITEMS.length} candidates, sorted by embedding
-          similarity to the query user. But similarity is not relevance — trending items and ads
-          crowd the top (hard negatives). Pick the {RETRIEVAL_K} that maximise <b>recall</b> of the
-          truly-relevant items.
+          These candidates came from one query vector. Similarity is observable at serving time;
+          relevance is held-out evidence shown here so you can diagnose the retriever.
         </p>
+
+        <ExperimentBrief
+          question="Will the nearest vectors also preserve the most relevant items?"
+          hypothesis="Popular decoys sit close to many users. Replacing them with slightly more distant true positives should raise Recall even if Mean similarity falls."
+          action={`First run the naive similarity baseline. Then edit the top-${RETRIEVAL_K} set until at least three of four relevant items survive.`}
+          observe="Treat Recall as the stage objective and Mean similarity as a model signal. A lower similarity average can represent a better candidate set."
+        />
 
         <div className="lab-grid">
           <div className="pool">
-            <h4>ANN candidates — click to add / remove (sorted by similarity)</h4>
+            <h4>ANN evidence · sorted by similarity</h4>
             {candidates.map((it) => {
               const on = chosenIds.includes(it.id)
               return (
@@ -87,7 +93,7 @@ export function RetrievalLab() {
           </div>
 
           <div className="slate">
-            <h4>Retrieval set (top-{RETRIEVAL_K})</h4>
+            <h4>Candidate contract · top-{RETRIEVAL_K}</h4>
             {chosen.map((it, i) => (
               <div className="item" key={it.id} onClick={() => toggle(it)}>
                 <span className="slot-idx">{i + 1}</span>
@@ -100,7 +106,7 @@ export function RetrievalLab() {
                 </span>
               </div>
             ))}
-            {chosen.length === 0 && <p className="hint">Click candidates on the left to retrieve them.</p>}
+            {chosen.length === 0 && <p className="hint">Select candidates to define what the ranker will be allowed to see.</p>}
           </div>
         </div>
 
@@ -111,19 +117,19 @@ export function RetrievalLab() {
 
         <p className={`hint ${passed ? 'ok' : ''}`}>
           {!full
-            ? `Add ${RETRIEVAL_K - chosen.length} more item(s) to complete the retrieval set.`
+            ? `Next step: add ${RETRIEVAL_K - chosen.length} more item(s), then inspect both readouts.`
             : passed
-            ? '✓ You retrieved the relevant items over the popular decoys. The Vector Core is ready.'
-            : `Recall@${RETRIEVAL_K} is ${recall.toFixed(2)} — below ${PASS_RECALL}. The highest-similarity items include ads and trending decoys; swap them for the genuinely relevant ones.`}
+            ? 'Observed: the better retrieval set preserves relevant options for ranking even though it does not maximize raw similarity.'
+            : `Observed: Recall@${RETRIEVAL_K} is ${recall.toFixed(2)}, below ${PASS_RECALL}. The nearest set contains popular hard negatives; replace decoys with relevant candidates before ranking.`}
         </p>
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={takeTopSim} title="What a naive ANN-by-similarity policy would return">
-            Take top-{RETRIEVAL_K} by similarity
+            Run similarity baseline
           </button>
           <button className="btn ghost" onClick={() => setChosenIds([])}>Reset</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save set — close' : 'Forge Vector Core →'}
+            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   type DiversityItem,
 } from '../data/course'
 import { useProgress } from '../state/progress'
+import { ExperimentBrief } from './ExperimentBrief'
 
 const CAT_COLOR: Record<string, string> = {
   News: '#ff6bd0',
@@ -63,17 +64,23 @@ export function DiversityLab() {
     <div className="overlay" onClick={closeNode}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Lab Mode · Interactive</div>
-        <h1>Diversity Lab</h1>
+        <div className="kicker">Practice · Guided experiment</div>
+        <h1>When relevance collapses into repetition</h1>
         <p className="lead">
-          Build a feed of {DIVERSITY_K}. The most <b>relevant</b> items are all “News” — pick only those
-          and you get a filter bubble; pick one of everything and relevance collapses. Clear <b>both</b>
-          {' '}the relevance and the diversity floor — balance keeps the ecosystem healthy.
+          The candidate pool is intentionally concentrated: the strongest individual scores belong
+          to one category. Build a slate-level decision rather than sorting items independently.
         </p>
+
+        <ExperimentBrief
+          question="Can the most relevant individual items form an unhealthy feed?"
+          hypothesis="Pure relevance will create a News-heavy bubble. A balanced slate should give up a little average relevance while crossing both quality floors."
+          action="Run the pure-relevance baseline, then compare MMR at λ=0.6. Edit the five-item feed to test your own balance."
+          observe={`Read Relevance and Diversity separately. Ecosystem health only becomes meaningful when both clear their floors: ${REL_FLOOR} and ${DIV_FLOOR}.`}
+        />
 
         <div className="lab-grid">
           <div className="pool">
-            <h4>Candidate items — click to add / remove</h4>
+            <h4>Candidate evidence · sorted by relevance</h4>
             {pool.map((it) => {
               const on = chosenIds.includes(it.id)
               return (
@@ -93,7 +100,7 @@ export function DiversityLab() {
           </div>
 
           <div className="slate">
-            <h4>Your feed (pick {DIVERSITY_K})</h4>
+            <h4>Slate decision · pick {DIVERSITY_K}</h4>
             {chosen.map((it, i) => (
               <div className="item" key={it.id} onClick={() => toggle(it)}>
                 <span className="slot-idx">{i + 1}</span>
@@ -106,7 +113,7 @@ export function DiversityLab() {
                 <span className="rel r3">{Math.round(it.relevance * 100)}</span>
               </div>
             ))}
-            {chosen.length === 0 && <p className="hint">Click candidates on the left to add them.</p>}
+            {chosen.length === 0 && <p className="hint">Select items to assemble the feed, then compare both quality axes.</p>}
           </div>
         </div>
 
@@ -122,24 +129,24 @@ export function DiversityLab() {
 
         <p className={`hint ${passed ? 'ok' : ''}`}>
           {!full
-            ? `Add ${DIVERSITY_K - chosen.length} more item(s) to complete the feed.`
+            ? `Next step: add ${DIVERSITY_K - chosen.length} more item(s), then inspect the two floors.`
             : passed
-            ? '✓ Relevant AND diverse — a healthy feed that will not collapse into a bubble. The Diversity Seed is ready.'
+            ? 'Observed: the slate keeps strong anchors while adding enough distinct intent to avoid a one-category loop. Balance, not maximum variety, creates the healthy result.'
             : div < DIV_FLOOR
-            ? `Diversity ${div.toFixed(2)} is below ${DIV_FLOOR} — this is a filter bubble. Swap some “News” for other categories.`
-            : `Relevance ${rel.toFixed(2)} is below ${REL_FLOOR} — too much low-value filler. Keep a couple of strong items in the mix.`}
+            ? `Observed: Diversity is ${div.toFixed(2)}, below ${DIV_FLOOR}. Individual relevance produced redundant exposures; replace some News items with distinct categories.`
+            : `Observed: Relevance is ${rel.toFixed(2)}, below ${REL_FLOOR}. Novelty without user value becomes filler; restore a few strong anchors.`}
         </p>
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={takeTopRel} title="What a pure-relevance ranker returns — a filter bubble">
-            Take top-{DIVERSITY_K} by relevance
+            Run relevance baseline
           </button>
           <button className="btn ghost" onClick={autoBalance} title="What MMR (λ=0.6) picks — a balanced slate">
-            MMR auto-balance
+            Run MMR · λ 0.6
           </button>
           <button className="btn ghost" onClick={() => setChosenIds([])}>Reset</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save feed — close' : 'Forge Diversity Seed →'}
+            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
           </button>
         </div>
       </div>

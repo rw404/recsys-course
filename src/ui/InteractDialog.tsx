@@ -14,10 +14,10 @@ function specFor(nodeId: NodeId): DialogSpec {
   switch (nodeId) {
     case 'npc-guide':
       return {
-        who: 'Metric Keeper',
-        avatar: '🧭',
+        who: 'Signal City',
+        avatar: '◇',
         text:
-          'Welcome to Foundations Camp, porter. Ranking is not about picking good items — it is about the order you place them in. Head to the Week 01 station to learn the metrics that judge a slate, then prove it in the Ranking Sandbox.',
+          'Start with the foundations: define the recommendation decision, identify users, items and context, then follow signals through retrieval, ranking and serving. The Ranking Sandbox turns those concepts into your first measurable slate.',
         primary: 'Got it — set my objective',
         showObjective: true,
       }
@@ -31,10 +31,10 @@ function specFor(nodeId: NodeId): DialogSpec {
       }
     case 'ann-guide':
       return {
-        who: 'Vector Smith',
-        avatar: '🥽',
+        who: 'Retrieval Foundry',
+        avatar: '◇',
         text:
-          'You made it across! This is Retrieval Valley. See the two glowing clouds? Users on the left, items on the right — both embedded into the SAME space. My ANN Lab teaches how we search millions of items in milliseconds. Study the lesson, then prove it in the Retrieval Sandbox.',
+          'Retrieval Valley maps users and items into the same space. The ANN lesson explains how a live system searches millions of items in milliseconds; the sandbox then exposes the candidates that survive.',
         primary: 'Got it — set my objective',
         showObjective: true,
       }
@@ -43,15 +43,15 @@ function specFor(nodeId: NodeId): DialogSpec {
         who: 'Two-Tower Gate',
         avatar: '⛩️',
         text:
-          'The gate hums open — you have mastered retrieval. Beyond lies Sequential City, where attention and Transformers await. Step through.',
+          'The Retrieval Systems checkpoint is complete. Sequential Models is now available: follow ordered behavior into attention, context and next-item prediction.',
         primary: 'Enter Sequential City →',
       }
     case 'astra-city-guide':
       return {
-        who: 'Guide Astra',
-        avatar: '🧭',
+        who: 'Sequence Transit',
+        avatar: '◇',
         text:
-          'Welcome to Sequential City! Retrieval found the candidates — now we must understand a whole sequence at once. That is attention. Study it at the Transformer Tower, then see Flash Attention run for real in the lab. Meet me at the tower.',
+          'Retrieval found the candidates; this world explains how attention reads a sequence as context. Study the Transformer Tower, then inspect Flash Attention in the lab.',
         primary: 'Got it — set my objective',
         showObjective: true,
       }
@@ -60,15 +60,15 @@ function specFor(nodeId: NodeId): DialogSpec {
         who: 'Policy Bridge',
         avatar: '🌉',
         text:
-          'The bridge is lit — you have mastered attention and the Transformer. Beyond lies the Policy Tower, where recommendation becomes sequential decision-making: bandits, policies and slates. Step across.',
+          'The Sequential Models checkpoint is complete. Decisions and Policies is now available: move from predicted scores to exploration, reward and constrained slates.',
         primary: 'Cross into the Policy Tower →',
       }
     case 'astra-tower-guide':
       return {
-        who: 'Guide Astra',
-        avatar: '🧭',
+        who: 'Decision Tower',
+        avatar: '◇',
         text:
-          'Welcome to the Policy Tower! Ranking gave us an order — but a live system must DECIDE what to show and learn from what happens. That is a policy. Study bandits at the tower, then build one yourself in the Bandit Lab. Meet me at the tower.',
+          'Ranking gives an order, but a live system must decide, observe reward and adapt. Study policies and bandits at the tower, then build one in the Bandit Lab.',
         primary: 'Got it — set my objective',
         showObjective: true,
       }
@@ -82,37 +82,37 @@ function specFor(nodeId: NodeId): DialogSpec {
       }
     case 'astra-garden-guide':
       return {
-        who: 'Guide Astra',
-        avatar: '🧭',
+        who: 'Feedback Garden',
+        avatar: '◇',
         text:
-          'Welcome to the Ecosystem Garden — the last region. A recommender is not a passive observer: what it shows changes what people do, and that becomes its next lesson. Keep the garden alive with diversity, debiasing and long-term balance. Study it with me, then grow variety in the Diversity Lab.',
+          'A recommender is not a passive observer: what it shows changes what people do, and that becomes its next training data. Study diversity, debiasing and long-term balance, then grow a healthier slate in the lab.',
         primary: 'Got it — set my objective',
         showObjective: true,
       }
     case 'graduation':
       return {
-        who: 'Final Arena Gate',
-        avatar: '⛩️',
+        who: 'System Synthesis',
+        avatar: '◇',
         text:
-          'You have crossed every region — metrics, retrieval, attention, policies and a living ecosystem. Five artifacts forged, the whole pipeline walked. One trial remains: the Final Arena, where you prove your mastery before the Hall of Champions. Step through.',
-        primary: 'Enter the Final Arena →',
+          'You have studied measurement, retrieval, sequences, policies and feedback as separate decisions. The final region connects them into one production design with explicit stage contracts, lineage, guardrails and failure plans.',
+        primary: 'Enter System Synthesis →',
       }
     case 'astra-arena-guide':
       return {
-        who: 'Guide Astra',
-        avatar: '🧭',
+        who: 'Production Review',
+        avatar: '◇',
         text:
-          'This is it — the Final Arena. No new theory, only proof. The Capstone draws one question from every region you have walked. Study my closing recap, then step into the arena and climb the Hall of Mastery. Make it count, Champion.',
-        primary: 'Got it — set my objective',
+          'Start with the system synthesis lesson, then review five connected production scenarios. The goal is not to recall isolated terms, but to explain which stage failed, what evidence is missing and which trade-off the decision protects.',
+        primary: 'Set the review objective',
         showObjective: true,
       }
     case 'champion':
       return {
-        who: 'Hall of Champions',
-        avatar: '🏆',
+        who: 'Course complete',
+        avatar: '✓',
         text:
-          'You did it. Metrics, retrieval, attention, policies, ecosystems — and a capstone to prove it all. The whole recommender pipeline, walked and mastered. Your name belongs in the Hall of Champions now. The course is complete. Congratulations, porter.',
-        primary: '★ Complete the course',
+          'You can now describe a recommender as an observable decision system: define its objective, preserve candidates, model intent, choose a policy, evaluate causally and protect long-term ecosystem health. The final review is complete.',
+        primary: 'Close course review',
       }
     default:
       return { who: NODES[nodeId].title, avatar: '•', text: '', primary: 'Close' }
@@ -140,7 +140,7 @@ export function InteractDialog({ nodeId }: { nodeId: NodeId }) {
             <div className="who">{spec.who}</div>
             <p>{spec.text}</p>
             {spec.showObjective && (
-              <p style={{ color: 'var(--accent)', marginTop: 10 }}>Objective: {next.label}</p>
+              <p style={{ color: 'var(--accent)', marginTop: 10 }}>Current objective: {next.label}</p>
             )}
           </div>
         </div>

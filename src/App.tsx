@@ -25,23 +25,23 @@ const FoundryAssetViewer = lazy(() => import('./game/FoundryAssetViewer'))
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
 
 const ARTIFACT_NAMES: Record<string, string> = {
-  'metric-compass': 'Metric Compass',
-  'vector-core': 'Vector Core',
-  'attention-lens': 'Attention Lens',
-  'policy-controller': 'Policy Controller',
-  'diversity-seed': 'Diversity Seed',
+  'metric-compass': 'Ranking evaluation note',
+  'vector-core': 'Retrieval diagnostics',
+  'attention-lens': 'Attention memory profile',
+  'policy-controller': 'Policy experiment report',
+  'diversity-seed': 'Slate health report',
 }
 
 // Completing a region's checkpoint quiz lights the gate onward — toast it (all five regions).
 const GATE_TOAST: Record<string, string> = {
-  'quiz-gate': '🌉 The Retrieval Bridge is now lit',
-  'negatives-quiz': '⛩️ The Two-Tower Gate has opened',
-  'attention-quiz': '🌉 The Policy Bridge is now lit',
-  'policy-quiz': '⛩️ The Garden Gate has bloomed open',
-  'ecosystem-quiz': '⛩️ The Final Arena Gate has opened',
+  'quiz-gate': 'Retrieval Systems is now available',
+  'negatives-quiz': 'Sequential Models is now available',
+  'attention-quiz': 'Decisions and Policies is now available',
+  'policy-quiz': 'Feedback Ecosystems is now available',
+  'ecosystem-quiz': 'System Synthesis is now available',
 }
 // Claiming the champion finale completes the course — a special celebratory toast.
-const CHAMPION_TOAST = '🏆 Course Completed — you are a Champion!'
+const CHAMPION_TOAST = 'Course complete — production readiness review passed'
 
 export function App() {
   if (VIEW === 'character') {
@@ -87,13 +87,13 @@ function Game() {
   const [builderOpen, setBuilderOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  // toast when a new artifact is forged or a gate onward lights up
+  // Toast when a new experiment record is saved or the next region becomes available.
   const prevArtifacts = useRef(artifacts)
   const prevCompleted = useRef(completed)
   useEffect(() => {
     for (const [key, on] of Object.entries(artifacts)) {
       if (on && !prevArtifacts.current[key as keyof typeof artifacts]) {
-        showToast(`★ Artifact forged: ${ARTIFACT_NAMES[key] ?? key} — check your backpack`)
+        showToast(`Experiment complete: ${ARTIFACT_NAMES[key] ?? key} saved`)
       }
     }
     prevArtifacts.current = artifacts

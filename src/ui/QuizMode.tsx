@@ -5,37 +5,37 @@ import { useProgress, type NodeId } from '../state/progress'
 const QUIZZES: Record<string, { nodeId: NodeId; kicker: string; title: string; lead: string; questions: QuizQuestion[] }> = {
   'quiz-gate': {
     nodeId: 'quiz-gate',
-    kicker: 'Quiz Gate · Checkpoint',
-    title: 'Metrics Quiz',
-    lead: 'Answer all three correctly to light the bridge to Retrieval Valley.',
+    kicker: 'Signal City · Foundations Checkpoint',
+    title: 'Recommender Foundations Quiz',
+    lead: 'Connect the core entities, signals, pipeline and metrics to light the bridge to Retrieval Valley.',
     questions: METRICS_QUIZ,
   },
   'negatives-quiz': {
     nodeId: 'negatives-quiz',
-    kicker: 'Two-Tower Gate · Checkpoint',
-    title: 'Retrieval & Negatives Quiz',
-    lead: 'Answer all three correctly to open the Two-Tower Gate onward.',
+    kicker: 'World 02 · Applied Checkpoint',
+    title: 'Retrieval Systems Checkpoint',
+    lead: 'Resolve six training and serving scenarios. Each answer explains the stage contract or trade-off behind the decision.',
     questions: NEGATIVES_QUIZ,
   },
   'attention-quiz': {
     nodeId: 'attention-quiz',
-    kicker: 'Sequential City · Checkpoint',
-    title: 'Attention & Transformers Quiz',
-    lead: 'Answer all three correctly to light the Policy Bridge onward.',
+    kicker: 'World 03 · Applied Checkpoint',
+    title: 'Sequential Models Checkpoint',
+    lead: 'Diagnose six sequence-model scenarios, from input leakage and attention semantics to long-context execution.',
     questions: ATTENTION_QUIZ,
   },
   'policy-quiz': {
     nodeId: 'policy-quiz',
-    kicker: 'Policy Tower · Checkpoint',
-    title: 'Bandits & Policies Quiz',
-    lead: 'Answer all three correctly to open the Garden Gate onward.',
+    kicker: 'World 04 · Applied Checkpoint',
+    title: 'Decisions & Policies Checkpoint',
+    lead: 'Choose the right policy reasoning in six cases involving uncertainty, regret, logged propensities and slates.',
     questions: POLICY_QUIZ,
   },
   'ecosystem-quiz': {
     nodeId: 'ecosystem-quiz',
-    kicker: 'Ecosystem Garden · Checkpoint',
-    title: 'Ecosystems & Diversity Quiz',
-    lead: 'Answer all three correctly to open the gate to the Final Arena.',
+    kicker: 'World 05 · Applied Checkpoint',
+    title: 'Feedback Ecosystems Checkpoint',
+    lead: 'Trace six ecosystem failures through exposure, bias, counterfactual evaluation, diversity and long-term guardrails.',
     questions: ECOSYSTEM_QUIZ,
   },
 }
@@ -95,17 +95,15 @@ export function QuizMode() {
         })}
 
         <div className="modal-actions">
-          <button className="btn ghost" onClick={() => setAnswers({})}>Clear</button>
+          <button className="btn ghost" onClick={() => setAnswers({})}>Reset answers</button>
           <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
             {passed
               ? quiz.nodeId === 'ecosystem-quiz'
-                ? 'To the Final Arena →'
-                : quiz.nodeId === 'negatives-quiz' || quiz.nodeId === 'policy-quiz'
-                ? 'Open the gate →'
-                : 'Light the bridge →'
+                ? 'Continue to system synthesis →'
+                : 'Complete checkpoint →'
               : answeredAll
-              ? 'Fix the wrong answers'
-              : 'Answer all to continue'}
+              ? 'Review the highlighted reasoning'
+              : 'Answer every scenario to continue'}
           </button>
         </div>
       </div>

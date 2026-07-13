@@ -175,8 +175,8 @@ function promptFor(id: NodeId): string {
   switch (node.action) {
     case 'talk': return 'Talk'
     case 'open_lesson': return 'Open lesson'
-    case 'open_lab': return 'Enter lab'
-    case 'open_quiz': return 'Take quiz'
+    case 'open_lab': return 'Open experiment'
+    case 'open_quiz': return 'Open checkpoint'
     case 'unlock_bridge': return id === 'champion' ? 'Complete course' : 'Continue'
     default: return 'Open'
   }
