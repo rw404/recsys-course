@@ -1411,6 +1411,52 @@ function RecommendationExplanation({
   )
 }
 
+interface CinemetaPosterResult {
+  id?: string
+  imdb_id?: string
+  poster?: string
+  releaseInfo?: string
+}
+
+const posterFallbackCache = new Map<string, Promise<string | undefined>>()
+
+function normalizePosterSearchTitle(title: string): string {
+  const suffix = title.match(/^(.*),\s+(The|A|An)$/i)
+  const reordered = suffix ? `${suffix[2]} ${suffix[1]}` : title
+  return reordered.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function resolveFallbackPoster(movie: SandboxMovie): Promise<string | undefined> {
+  const imdbId = movie.imdbUrl?.match(/tt\d{7,10}/i)?.[0]?.toLowerCase()
+  const cacheKey = imdbId ?? `${movie.title}:${movie.year}`
+  const cached = posterFallbackCache.get(cacheKey)
+  if (cached) return cached
+
+  const request = (async () => {
+    try {
+      const query = encodeURIComponent(imdbId ?? normalizePosterSearchTitle(movie.title))
+      const response = await fetch(`https://v3-cinemeta.strem.io/catalog/movie/top/search=${query}.json`, {
+        cache: 'force-cache',
+      })
+      if (!response.ok) return undefined
+      const payload = await response.json() as { metas?: CinemetaPosterResult[] }
+      const candidates = payload.metas ?? []
+      const match = candidates.find((candidate) => (
+        Boolean(imdbId) && (candidate.id?.toLowerCase() === imdbId || candidate.imdb_id?.toLowerCase() === imdbId)
+      )) ?? candidates.find((candidate) => Number.parseInt(candidate.releaseInfo ?? '', 10) === movie.year)
+        ?? candidates[0]
+      const poster = match?.poster
+      if (!poster?.startsWith('https://') || poster.includes('images.metahub.space')) return undefined
+      return poster
+    } catch {
+      return undefined
+    }
+  })()
+
+  posterFallbackCache.set(cacheKey, request)
+  return request
+}
+
 function MoviePoster({
   movie,
   dataset,
@@ -1424,13 +1470,43 @@ function MoviePoster({
   title?: string
   ariaLabel?: string
 }) {
-  const [posterFailed, setPosterFailed] = useState(false)
-  const posterUrl = posterFailed ? undefined : movie.posterUrl
+  const posterLoaded = useRef(false)
+  const [fallbackPosterUrl, setFallbackPosterUrl] = useState<string>()
+  const [posterUrl, setPosterUrl] = useState(movie.posterUrl)
+
+  useEffect(() => {
+    let cancelled = false
+    posterLoaded.current = false
+    setFallbackPosterUrl(undefined)
+    setPosterUrl(movie.posterUrl)
+
+    if (!dataset.meta.isOfficial) return () => { cancelled = true }
+    void resolveFallbackPoster(movie).then((fallback) => {
+      if (cancelled || !fallback) return
+      setFallbackPosterUrl(fallback)
+      if (!posterLoaded.current) setPosterUrl(fallback)
+    })
+
+    return () => { cancelled = true }
+  }, [dataset.meta.isOfficial, movie.id, movie.imdbUrl, movie.posterUrl, movie.title, movie.year])
+
+  const handlePosterError = () => {
+    posterLoaded.current = false
+    setPosterUrl((current) => (
+      fallbackPosterUrl && current !== fallbackPosterUrl ? fallbackPosterUrl : undefined
+    ))
+  }
+
   const classes = [
     'movie-poster-art',
     className,
     posterUrl ? 'has-real-poster' : undefined,
   ].filter(Boolean).join(' ')
+  const posterSource = !posterUrl
+    ? 'placeholder'
+    : posterUrl.includes('media-amazon.com')
+    ? 'fallback'
+    : 'primary'
 
   return (
     <span
@@ -1438,18 +1514,21 @@ function MoviePoster({
       style={moviePosterStyle(movie, dataset)}
       data-mark={posterUrl ? undefined : movie.mark}
       data-year={movie.year}
+      data-poster-source={posterSource}
       role="img"
       aria-label={ariaLabel ?? `${movie.title} cover`}
       title={title}
     >
       {posterUrl && (
         <img
+          key={posterUrl}
           src={posterUrl}
           alt=""
-          loading="lazy"
+          loading="eager"
           decoding="async"
           referrerPolicy="no-referrer"
-          onError={() => setPosterFailed(true)}
+          onLoad={() => { posterLoaded.current = true }}
+          onError={handlePosterError}
         />
       )}
     </span>

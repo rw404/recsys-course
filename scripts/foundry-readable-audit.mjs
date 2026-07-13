@@ -56,6 +56,24 @@ assert.ok(primaryTextSize >= 10, `Movie title text is only ${primaryTextSize}px`
 const loadedDesktopPosters = expectsImdbPosters
   ? await assertRealPosters(desktop, '.foundry-movie-card .movie-cover img', 4)
   : 0
+
+let fallbackPosterCount = 0
+let fallbackViewerTitles = []
+if (expectsImdbPosters) {
+  await desktop.route('https://images.metahub.space/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'image/jpeg',
+    body: '',
+  }))
+  await desktop.locator('.foundry-select select').first().selectOption('u106')
+  await desktop.getByRole('button', { name: 'Run pipeline' }).click()
+  await desktop.locator('.foundry-run.status-complete').waitFor({ timeout: 20000 })
+  fallbackPosterCount = await assertRealPosters(desktop, '.foundry-movie-card .movie-cover[data-poster-source="fallback"] img', 4)
+  fallbackViewerTitles = await desktop.locator('.foundry-movie-card .movie-copy strong').allTextContents()
+  assert.deepEqual(fallbackViewerTitles, ['Vaiana', 'Capharnaüm', 'The Act of Killing', 'Halloween'])
+  await desktop.unroute('https://images.metahub.space/**')
+}
+
 await desktop.screenshot({ path: 'artifacts/foundry-readable-recommendations.png' })
 
 await desktop.getByRole('tab', { name: /Stage trace/ }).click()
@@ -121,5 +139,5 @@ const mobileOverflow = await mobile.evaluate(() => ({
 assert.deepEqual(mobileOverflow, { x: 0, y: 0 })
 assert.deepEqual(errors, [])
 
-console.log(JSON.stringify({ expectedDataset, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, serviceGeometry, desktopOverflow, mobileOverflow, errors }, null, 2))
+console.log(JSON.stringify({ expectedDataset, primaryTextSize, loadedDesktopPosters, loadedMobilePosters, fallbackPosterCount, fallbackViewerTitles, serviceGeometry, desktopOverflow, mobileOverflow, errors }, null, 2))
 await browser.close()

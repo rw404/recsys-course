@@ -7348,7 +7348,7 @@ body {
 .movie-poster-art > img {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   display: block;
@@ -7360,7 +7360,7 @@ body {
 
 .movie-poster-art.has-real-poster::before {
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   background: linear-gradient(180deg, transparent 58%, rgba(7, 17, 35, 0.18));
   mix-blend-mode: normal;
   transform: none;
@@ -7392,7 +7392,7 @@ body {
   position: absolute;
   right: 8%;
   bottom: 7%;
-  z-index: 1;
+  z-index: 3;
   max-width: 84%;
   color: #fff;
   font-family: "Space Mono", ui-monospace, monospace;
