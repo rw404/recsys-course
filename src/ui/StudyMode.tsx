@@ -5,20 +5,6 @@ import { useProgress, type NodeId } from '../state/progress'
 
 type Card = LessonSection & { intro?: boolean }
 
-const WORLD01_MANIM_CLIPS = [
-  'W01_00_Foundations',
-  'W01_01_UsefulSlate',
-  'W01_02_CoreEntities',
-  'W01_03_SignalsEvidence',
-  'W01_04_ProductionPipeline',
-  'W01_05_LabelsFeaturesScores',
-  'W01_06_FeedbackLoop',
-  'W01_07_ColdStart',
-  'W01_08_OrderMatters',
-  'W01_09_NDCG',
-  'W01_10_RecallCoverage',
-] as const
-
 /** Per-lesson content, keyed by the lesson node the player interacted with. */
 const LESSONS: Record<
   string,
@@ -340,7 +326,6 @@ function SignalImaxLesson({
 }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const last = index === cards.length - 1
-  const manimClip = WORLD01_MANIM_CLIPS[index]
 
   useEffect(() => {
     setNotesOpen(false)
@@ -367,24 +352,6 @@ function SignalImaxLesson({
           <X size={19} aria-hidden />
         </button>
       </header>
-
-      <section className="imax-projection imax-projection--manim" key={'imax-' + index} aria-live="polite">
-        <div className="imax-screen-visual is-manim">
-          <video
-            key={manimClip}
-            className="imax-manim-video"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-label={'Manim explanation: ' + card.heading}
-          >
-            <source src={'/video/manim/world01/' + manimClip + '.webm'} type="video/webm" />
-            <source src={'/video/manim/world01/' + manimClip + '.mp4'} type="video/mp4" />
-          </video>
-        </div>
-      </section>
 
       <section className="imax-caption" aria-label="Current concept">
         <span>CONCEPT {String(index + 1).padStart(2, '0')}</span>

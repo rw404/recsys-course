@@ -28,6 +28,7 @@ import {
   steerAroundObstacles,
   type NavigationObstacle,
 } from './courseNavigation'
+import { SIGNAL_REPLAY_CONSOLE_OBSTACLE, SIGNAL_STAGE_OBSTACLES } from './signalStageLayout'
 
 const PLAYER_Y = 0.76
 const ISLAND_RADIUS = 4.75
@@ -48,19 +49,6 @@ const LANDMARK_RADII: Record<WorldId, number> = {
   'ecosystem-garden': 1.98,
   'final-arena': 2.18,
 }
-
-const SIGNAL_STAGE_OBSTACLES: readonly NavigationObstacle[] = [
-  { id: 'signal-screen-left-edge', x: -3.6, z: -2.88, radius: 0.64 },
-  { id: 'signal-screen-left', x: -1.8, z: -2.88, radius: 0.64 },
-  { id: 'signal-screen-center', x: 0, z: -2.88, radius: 0.64 },
-  { id: 'signal-screen-right', x: 1.8, z: -2.88, radius: 0.64 },
-  { id: 'signal-screen-right-edge', x: 3.6, z: -2.88, radius: 0.64 },
-  { id: 'signal-beacons', x: -3.18, z: -0.15, radius: 0.78 },
-  { id: 'signal-stream-left', x: -0.45, z: -0.25, radius: 0.42 },
-  { id: 'signal-stream-right', x: 0.95, z: -0.25, radius: 0.42 },
-  { id: 'signal-profile', x: 3.02, z: -0.45, radius: 0.66 },
-  { id: 'signal-content', x: 2.78, z: 2.15, radius: 0.78 },
-]
 
 const NODE_SLOTS: [number, number, number][] = [
   [-2.75, 0.32, 1.65],
@@ -130,7 +118,11 @@ function islandTreeLayout(world: CourseWorldDefinition): IslandTreeLayout[] {
   })
 }
 
-function worldNavigationObstacles(worldId: WorldId, includeCourseNodes = true): NavigationObstacle[] {
+function worldNavigationObstacles(
+  worldId: WorldId,
+  includeCourseNodes = true,
+  includeReplayConsole = false,
+): NavigationObstacle[] {
   const world = COURSE_WORLD_BY_ID[worldId]
   const offsetX = world.position[0]
   const offsetZ = world.position[2]
@@ -140,6 +132,13 @@ function worldNavigationObstacles(worldId: WorldId, includeCourseNodes = true): 
       x: offsetX + obstacle.x,
       z: offsetZ + obstacle.z,
     }))
+    if (includeReplayConsole) {
+      obstacles.push({
+        ...SIGNAL_REPLAY_CONSOLE_OBSTACLE,
+        x: offsetX + SIGNAL_REPLAY_CONSOLE_OBSTACLE.x,
+        z: offsetZ + SIGNAL_REPLAY_CONSOLE_OBSTACLE.z,
+      })
+    }
     if (includeCourseNodes) {
       WORLD_NODE_IDS[worldId].forEach((id, index) => {
         const slot = nodeSlotFor(worldId, index)
@@ -186,7 +185,7 @@ function setCourseMoveTarget(worldId: WorldId, target: THREE.Vector3, targetMarg
   const path = planObstaclePath(
     runtime.playerPosition,
     target,
-    worldNavigationObstacles(worldId, !signalImax),
+    worldNavigationObstacles(worldId, !signalImax, signalImax),
     targetMargin,
     { x: world.position[0], z: world.position[2], radius: WALK_RADIUS - 0.04 },
   )
@@ -1325,7 +1324,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
   const world = COURSE_WORLD_BY_ID[worldId]
   const center = useMemo(() => new THREE.Vector3(world.position[0], PLAYER_Y, world.position[2]), [world])
   const obstacles = useMemo(
-    () => worldNavigationObstacles(worldId, !signalImax),
+    () => worldNavigationObstacles(worldId, !signalImax, signalImax),
     [signalImax, worldId],
   )
   const position = useRef(center.clone().add(new THREE.Vector3(0, 0, PORTAL_OFFSET_Z)))

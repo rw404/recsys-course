@@ -12006,7 +12006,7 @@ body {
 
 @media (max-width: 720px), (pointer: coarse) {
   .imax-study {
-    background: rgba(222, 237, 239, 0.22);
+    background: transparent;
   }
 
   .imax-topbar {
@@ -12204,42 +12204,7 @@ body {
   }
 }
 
-/* Real Manim film mapped onto the physical screen in Signal City. */
-.imax-projection.imax-projection--manim {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid rgba(78, 168, 174, 0.38);
-  border-radius: 5px;
-  background: #07131d;
-  box-shadow:
-    0 0 0 1px rgba(6, 24, 31, 0.42),
-    0 18px 54px rgba(5, 22, 29, 0.28),
-    0 0 48px rgba(47, 159, 179, 0.14);
-}
-
-.imax-screen-visual.is-manim {
-  position: absolute;
-  inset: 0;
-  display: block;
-  background: #07131d;
-}
-
-.imax-manim-video {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  background: #07131d;
-}
-
 @media (max-width: 720px), (pointer: coarse) {
-  .imax-projection.imax-projection--manim {
-    padding: 0;
-    background: #07131d;
-    backdrop-filter: none;
-  }
-
   .course-app.mode-study .mobile-controls.movement-only {
     z-index: 74;
   }
@@ -12262,11 +12227,17 @@ body {
     pointer-events: none;
   }
 }
+.signal-replay-hit {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
 
-@media (max-width: 720px) and (orientation: portrait) {
-  .imax-projection.imax-projection--manim {
-    top: 13.25vh;
-    height: auto;
-    aspect-ratio: 184 / 85;
-  }
+.signal-replay-hit:focus-visible {
+  outline: 3px solid rgba(117, 103, 229, 0.86);
+  outline-offset: 4px;
 }

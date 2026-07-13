@@ -17,6 +17,10 @@ import {
   resolveObstacleCollisions,
   steerAroundObstacles,
 } from './src/game/courseNavigation'
+import {
+  SIGNAL_REPLAY_CONSOLE_OBSTACLE,
+  SIGNAL_STAGE_OBSTACLES,
+} from './src/game/signalStageLayout'
 
 let failed = 0
 function assert(name: string, cond: boolean, extra?: unknown) {
@@ -348,6 +352,59 @@ console.log('course navigation:')
       rankingPath: rankingPath.map((point) => point.toArray()),
       rankingDistance,
     },
+  )
+
+  const contentObstacles = SIGNAL_STAGE_OBSTACLES.filter((item) => item.id.startsWith('signal-content-'))
+  assert('every content pedestal has its own collider', contentObstacles.length === 3, {
+    contentObstacles,
+  })
+
+  const contentStart = new THREE.Vector3(1.45, 0, 2.7)
+  const contentTarget = new THREE.Vector3(4.05, 0, 1.55)
+  const contentPath = planObstaclePath(
+    contentStart,
+    contentTarget,
+    SIGNAL_STAGE_OBSTACLES,
+    0.08,
+    boundary,
+  )
+  const contentRoute = [contentStart, ...contentPath]
+  const contentRouteIsClear = contentRoute.slice(1).every((end, index) => {
+    const start = contentRoute[index]
+    return contentObstacles.every((item) => {
+      const segmentX = end.x - start.x
+      const segmentZ = end.z - start.z
+      const lengthSquared = segmentX * segmentX + segmentZ * segmentZ
+      const ratio = lengthSquared > 0.000001
+        ? THREE.MathUtils.clamp(
+          ((item.x - start.x) * segmentX + (item.z - start.z) * segmentZ) / lengthSquared,
+          0,
+          1,
+        )
+        : 0
+      const closestX = start.x + segmentX * ratio
+      const closestZ = start.z + segmentZ * ratio
+      return Math.hypot(closestX - item.x, closestZ - item.z)
+        >= item.radius + PLAYER_COLLISION_RADIUS - 1e-6
+    })
+  })
+  assert('planned route does not cut through content pedestals', contentRouteIsClear, {
+    contentPath: contentPath.map((point) => point.toArray()),
+  })
+
+  const replayTarget = new THREE.Vector3(
+    SIGNAL_REPLAY_CONSOLE_OBSTACLE.x,
+    0,
+    SIGNAL_REPLAY_CONSOLE_OBSTACLE.z,
+  )
+  projectOutsideObstacles(replayTarget, [SIGNAL_REPLAY_CONSOLE_OBSTACLE])
+  assert(
+    'replay console keeps the character outside its physical base',
+    Math.hypot(
+      replayTarget.x - SIGNAL_REPLAY_CONSOLE_OBSTACLE.x,
+      replayTarget.z - SIGNAL_REPLAY_CONSOLE_OBSTACLE.z,
+    ) >= SIGNAL_REPLAY_CONSOLE_OBSTACLE.radius + PLAYER_COLLISION_RADIUS,
+    { replayTarget: replayTarget.toArray() },
   )
 }
 

@@ -1,12 +1,63 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Html, PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useProgress } from '../state/progress'
+import {
+  SIGNAL_CONTENT_GROUP_POSITION,
+  SIGNAL_CONTENT_GROUP_ROTATION_Y,
+  SIGNAL_CONTENT_PEDESTALS,
+  SIGNAL_REPLAY_CONSOLE_POSITION,
+} from './signalStageLayout'
 
 type SignalTheoryStageProps = {
   accent: string
   accentDark: string
+}
+
+const WORLD01_MANIM_CLIPS = [
+  'W01_00_Foundations',
+  'W01_01_UsefulSlate',
+  'W01_02_CoreEntities',
+  'W01_03_SignalsEvidence',
+  'W01_04_ProductionPipeline',
+  'W01_05_LabelsFeaturesScores',
+  'W01_06_FeedbackLoop',
+  'W01_07_ColdStart',
+  'W01_08_OrderMatters',
+  'W01_09_NDCG',
+  'W01_10_RecallCoverage',
+] as const
+
+const SCREEN_VERTEX_SHADER = /* glsl */ `
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const SCREEN_GLAZE_SHADER = /* glsl */ `
+  varying vec2 vUv;
+
+  void main() {
+    float side = smoothstep(0.58, 1.0, abs(vUv.x - 0.5) * 2.0);
+    float horizontalRim = smoothstep(0.9, 1.0, abs(vUv.y - 0.5) * 2.0);
+    float alpha = side * 0.105 + horizontalRim * 0.025;
+    vec3 tint = mix(vec3(0.015, 0.055, 0.075), vec3(0.12, 0.48, 0.52), horizontalRim);
+    gl_FragColor = vec4(tint, alpha);
+  }
+`
+
+const SCREEN_HALF_WIDTH = 4.6
+const SCREEN_CURVE_DEPTH = 0.86
+const SCREEN_ASPECT = 9.2 / 4.25
+const FINAL_FRAME_HOLD_SECONDS = 1.05
+
+function screenCurveDepth(x: number): number {
+  const normalized = x / SCREEN_HALF_WIDTH
+  return SCREEN_CURVE_DEPTH * normalized * normalized
 }
 
 function curvedScreenGeometry(): THREE.PlaneGeometry {
@@ -14,12 +65,144 @@ function curvedScreenGeometry(): THREE.PlaneGeometry {
   const positions = geometry.attributes.position as THREE.BufferAttribute
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index)
-    const normalized = x / 4.6
-    positions.setZ(index, 0.52 * normalized * normalized)
+    positions.setZ(index, screenCurveDepth(x))
   }
   positions.needsUpdate = true
   geometry.computeVertexNormals()
   return geometry
+}
+
+function curvedScreenRailGeometry(): THREE.TubeGeometry {
+  const points = Array.from({ length: 49 }, (_, index) => {
+    const x = -4.78 + (index / 48) * 9.56
+    return new THREE.Vector3(x, 0, screenCurveDepth(x) + 0.055)
+  })
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 64, 0.085, 8, false)
+}
+
+function CurvedScreenFallback({ geometry }: { geometry: THREE.PlaneGeometry }) {
+  return (
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshPhysicalMaterial
+        color="#07131d"
+        emissive="#102d39"
+        emissiveIntensity={0.52}
+        roughness={0.16}
+        metalness={0.02}
+        clearcoat={0.7}
+        clearcoatRoughness={0.22}
+      />
+    </mesh>
+  )
+}
+
+function CurvedManimScreen({
+  geometry,
+  page,
+  onFinished,
+}: {
+  geometry: THREE.PlaneGeometry
+  page: number
+  onFinished: () => void
+}) {
+  const clip = WORLD01_MANIM_CLIPS[page] ?? WORLD01_MANIM_CLIPS[0]
+  const [texture, setTexture] = useState<THREE.VideoTexture | null>(null)
+  const [contentScale, setContentScale] = useState<[number, number]>([1, 1])
+  const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()))
+
+  useEffect(() => {
+    const video = document.createElement('video')
+    const supportsWebm = video.canPlayType('video/webm; codecs="vp9"') !== ''
+    video.src = `/video/manim/world01/${clip}.${supportsWebm ? 'webm' : 'mp4'}`
+    video.crossOrigin = 'anonymous'
+    video.autoplay = true
+    video.loop = false
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    const videoTexture = new THREE.VideoTexture(video)
+    videoTexture.colorSpace = THREE.SRGBColorSpace
+    videoTexture.minFilter = THREE.LinearFilter
+    videoTexture.magFilter = THREE.LinearFilter
+    videoTexture.anisotropy = anisotropy
+    videoTexture.generateMipmaps = false
+    videoTexture.wrapS = THREE.ClampToEdgeWrapping
+    videoTexture.wrapT = THREE.ClampToEdgeWrapping
+
+    let textureVisible = false
+    let playbackFinished = false
+    const showTexture = () => {
+      if (textureVisible) return
+      textureVisible = true
+      const videoAspect = video.videoWidth > 0 && video.videoHeight > 0
+        ? video.videoWidth / video.videoHeight
+        : SCREEN_ASPECT
+      if (videoAspect > SCREEN_ASPECT) {
+        setContentScale([1, SCREEN_ASPECT / videoAspect])
+      } else if (videoAspect < SCREEN_ASPECT) {
+        setContentScale([videoAspect / SCREEN_ASPECT, 1])
+      } else {
+        setContentScale([1, 1])
+      }
+      setTexture(videoTexture)
+      void video.play().catch(() => undefined)
+    }
+    const finishPlayback = () => {
+      if (playbackFinished || !Number.isFinite(video.duration)) return
+      const holdAt = Math.max(0, video.duration - FINAL_FRAME_HOLD_SECONDS)
+      if (!video.ended && video.currentTime < holdAt) return
+      playbackFinished = true
+      video.pause()
+      if (Math.abs(video.currentTime - holdAt) > 0.04) video.currentTime = holdAt
+      onFinished()
+    }
+
+    setTexture(null)
+    setContentScale([1, 1])
+    video.addEventListener('loadeddata', showTexture, { once: true })
+    video.addEventListener('canplay', showTexture, { once: true })
+    video.addEventListener('timeupdate', finishPlayback)
+    video.addEventListener('ended', finishPlayback)
+    video.load()
+    void video.play().catch(() => undefined)
+
+    return () => {
+      video.removeEventListener('loadeddata', showTexture)
+      video.removeEventListener('canplay', showTexture)
+      video.removeEventListener('timeupdate', finishPlayback)
+      video.removeEventListener('ended', finishPlayback)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+      videoTexture.dispose()
+    }
+  }, [anisotropy, clip, onFinished])
+
+  if (!texture) return <CurvedScreenFallback geometry={geometry} />
+
+  return (
+    <>
+      <CurvedScreenFallback geometry={geometry} />
+      <mesh
+        geometry={geometry}
+        position={[0, 0, 0.012]}
+        scale={[contentScale[0], contentScale[1], 1]}
+        castShadow
+        receiveShadow
+      >
+        <meshBasicMaterial map={texture} toneMapped={false} />
+      </mesh>
+      <mesh geometry={geometry} position={[0, 0, 0.028]} renderOrder={3}>
+        <shaderMaterial
+          vertexShader={SCREEN_VERTEX_SHADER}
+          fragmentShader={SCREEN_GLAZE_SHADER}
+          transparent
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </>
+  )
 }
 
 export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps) {
@@ -27,6 +210,8 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
   const screen = useRef<THREE.Group>(null)
   const portal = useRef<THREE.Group>(null)
   const age = useRef(0)
+  const [replayVersion, setReplayVersion] = useState(0)
+  const [videoComplete, setVideoComplete] = useState(false)
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08
   const screenY = portrait ? 4.5 : 3.05
@@ -34,9 +219,22 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
   const page = useProgress((state) => state.lessonPage)
   const mode = useProgress((state) => state.mode)
   const screenGeometry = useMemo(curvedScreenGeometry, [])
+  const screenRailGeometry = useMemo(curvedScreenRailGeometry, [])
   const showingTheory = mode === 'study'
+  const handleVideoFinished = useCallback(() => setVideoComplete(true), [])
+  const replayVideo = useCallback(() => {
+    setVideoComplete(false)
+    setReplayVersion((value) => value + 1)
+  }, [])
 
-  useEffect(() => () => screenGeometry.dispose(), [screenGeometry])
+  useEffect(() => {
+    setVideoComplete(false)
+  }, [page, showingTheory])
+
+  useEffect(() => () => {
+    screenGeometry.dispose()
+    screenRailGeometry.dispose()
+  }, [screenGeometry, screenRailGeometry])
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
@@ -75,31 +273,40 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
       </mesh>
 
       <group ref={screen} position={[0, screenY, -2.9]} scale={screenScale}>
-        <mesh geometry={screenGeometry} castShadow receiveShadow>
-          <meshPhysicalMaterial
-            color={showingTheory ? '#07131d' : '#edf8fb'}
-            emissive={showingTheory ? '#102d39' : '#d9f4f7'}
-            emissiveIntensity={showingTheory ? 0.52 : 0.24}
-            roughness={showingTheory ? 0.16 : 0.22}
-            metalness={0.02}
-            clearcoat={0.7}
-            clearcoatRoughness={0.22}
+        {showingTheory ? (
+          <CurvedManimScreen
+            key={`${page}-${replayVersion}`}
+            geometry={screenGeometry}
+            page={page}
+            onFinished={handleVideoFinished}
           />
-        </mesh>
-        <RoundedBox args={[9.56, 0.14, 0.19]} radius={0.07} smoothness={4} position={[0, 2.18, 0.24]} castShadow>
+        ) : (
+          <mesh geometry={screenGeometry} castShadow receiveShadow>
+            <meshPhysicalMaterial
+              color="#edf8fb"
+              emissive="#d9f4f7"
+              emissiveIntensity={0.24}
+              roughness={0.22}
+              metalness={0.02}
+              clearcoat={0.7}
+              clearcoatRoughness={0.22}
+            />
+          </mesh>
+        )}
+        <mesh geometry={screenRailGeometry} position={[0, 2.18, 0]} castShadow>
           <meshStandardMaterial color="#fdfefe" metalness={0.18} roughness={0.28} />
-        </RoundedBox>
-        <RoundedBox args={[9.56, 0.14, 0.19]} radius={0.07} smoothness={4} position={[0, -2.18, 0.24]} castShadow>
+        </mesh>
+        <mesh geometry={screenRailGeometry} position={[0, -2.18, 0]} castShadow>
           <meshStandardMaterial color="#dfeceb" metalness={0.14} roughness={0.34} />
-        </RoundedBox>
+        </mesh>
         {[-1, 1].map((side) => (
           <RoundedBox
             key={side}
             args={[0.18, 4.48, 0.23]}
             radius={0.07}
             smoothness={4}
-            position={[side * 4.7, 0, 0.5]}
-            rotation={[0, side * -0.12, 0]}
+            position={[side * 4.7, 0, screenCurveDepth(4.7)]}
+            rotation={[0, side * -0.36, 0]}
             castShadow
           >
             <meshStandardMaterial color="#f8fbfb" metalness={0.16} roughness={0.3} />
@@ -126,6 +333,14 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
       <EventStreamChannel active={streamActive} accent={accent} />
       <ProfileObservatory active={profileActive} accent={accentDark} />
       <ContentPedestals active={contentActive} accent={accent} />
+      {showingTheory && (
+        <ReplayConsole
+          accent={accent}
+          ready={videoComplete}
+          replayVersion={replayVersion}
+          onReplay={replayVideo}
+        />
+      )}
 
       <group ref={portal} position={[-1.75, 1.25, 2.75]} renderOrder={9}>
         {[0.78, 0.98, 1.17].map((radius, index) => (
@@ -336,9 +551,12 @@ function ProfileObservatory({ active, accent }: { active: boolean; accent: strin
 
 function ContentPedestals({ active, accent }: { active: boolean; accent: string }) {
   return (
-    <group position={[2.78, 0.4, 2.15]} rotation={[0, -0.28, 0]}>
-      {[-0.72, 0, 0.72].map((x, index) => (
-        <group key={x} position={[x, 0, index === 1 ? -0.12 : 0.08]}>
+    <group
+      position={[SIGNAL_CONTENT_GROUP_POSITION[0], 0.4, SIGNAL_CONTENT_GROUP_POSITION[1]]}
+      rotation={[0, SIGNAL_CONTENT_GROUP_ROTATION_Y, 0]}
+    >
+      {SIGNAL_CONTENT_PEDESTALS.map(({ x, z }, index) => (
+        <group key={`${x}-${z}`} position={[x, 0, z]}>
           <mesh position={[0, 0.16, 0]} castShadow>
             <cylinderGeometry args={[0.35, 0.42, 0.32, 24]} />
             <meshStandardMaterial color="#ffffff" roughness={0.44} />
@@ -353,6 +571,128 @@ function ContentPedestals({ active, accent }: { active: boolean; accent: string 
           </RoundedBox>
         </group>
       ))}
+    </group>
+  )
+}
+
+function ReplayConsole({
+  accent,
+  ready,
+  replayVersion,
+  onReplay,
+}: {
+  accent: string
+  ready: boolean
+  replayVersion: number
+  onReplay: () => void
+}) {
+  const root = useRef<THREE.Group>(null)
+  const button = useRef<THREE.Group>(null)
+  const orbit = useRef<THREE.Group>(null)
+  const [hovered, setHovered] = useState(false)
+  const pressed = useRef(0)
+  const playShape = useMemo(() => {
+    const shape = new THREE.Shape()
+    shape.moveTo(-0.085, -0.12)
+    shape.lineTo(0.14, 0)
+    shape.lineTo(-0.085, 0.12)
+    shape.closePath()
+    return shape
+  }, [])
+
+  useEffect(() => () => {
+    if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+  }, [])
+
+  useFrame((state, rawDt) => {
+    const dt = Math.min(rawDt, 0.1)
+    if (root.current) {
+      root.current.position.y = 0.4 + Math.sin(state.clock.elapsedTime * 1.7) * 0.018
+    }
+    if (orbit.current) {
+      orbit.current.rotation.y += dt * (ready ? 1.6 : 0.48)
+    }
+    if (button.current) {
+      pressed.current = Math.max(0, pressed.current - dt * 5.5)
+      const idlePulse = ready ? Math.sin(state.clock.elapsedTime * 3.2) * 0.025 : 0
+      const targetScale = (hovered ? 1.08 : 1) + idlePulse - pressed.current * 0.12
+      const nextScale = THREE.MathUtils.damp(button.current.scale.x, targetScale, 14, dt)
+      button.current.scale.setScalar(nextScale)
+    }
+  })
+
+  return (
+    <group
+      ref={root}
+      position={[SIGNAL_REPLAY_CONSOLE_POSITION[0], 0.4, SIGNAL_REPLAY_CONSOLE_POSITION[1]]}
+      rotation={[0, 0.08, 0]}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        pressed.current = 1
+        onReplay()
+      }}
+      onPointerOver={(event) => {
+        event.stopPropagation()
+        setHovered(true)
+        if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'
+      }}
+      onPointerOut={() => {
+        setHovered(false)
+        if (typeof document !== 'undefined') document.body.style.cursor = 'auto'
+      }}
+    >
+      <mesh position={[0, 0.14, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.54, 0.64, 0.28, 32]} />
+        <meshStandardMaterial color="#eef7f5" metalness={0.12} roughness={0.36} />
+      </mesh>
+      <mesh position={[0, 0.31, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.34, 0.47, 40]} />
+        <meshBasicMaterial color={accent} transparent opacity={ready ? 0.42 : 0.18} toneMapped={false} />
+      </mesh>
+      <Html position={[0, 0.53, 0]} center distanceFactor={8} zIndexRange={[18, 12]}>
+        <button
+          type="button"
+          className="signal-replay-hit"
+          aria-label="Replay theory animation"
+          data-playback={ready ? 'ready' : 'playing'}
+          data-replay-version={replayVersion}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            pressed.current = 1
+            onReplay()
+          }}
+        />
+      </Html>
+      <group ref={button} position={[0, 0.43, 0]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.34, 0.39, 0.14, 32]} />
+          <meshStandardMaterial
+            color={ready ? '#ffffff' : '#dff1ef'}
+            emissive={accent}
+            emissiveIntensity={ready ? 0.48 : 0.18}
+            metalness={0.08}
+            roughness={0.28}
+          />
+        </mesh>
+        <group ref={orbit} position={[0, 0.081, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0.42]}>
+            <torusGeometry args={[0.215, 0.027, 8, 36, Math.PI * 1.62]} />
+            <meshBasicMaterial color={accent} toneMapped={false} />
+          </mesh>
+          <mesh position={[0.18, 0.006, -0.12]} rotation={[-Math.PI / 2, 0, -0.15]}>
+            <shapeGeometry args={[playShape]} />
+            <meshBasicMaterial color={accent} side={THREE.DoubleSide} toneMapped={false} />
+          </mesh>
+        </group>
+      </group>
+      <pointLight
+        position={[0, 0.62, 0]}
+        color={accent}
+        intensity={ready ? 3.2 : 1.1}
+        distance={2.2}
+        decay={2}
+      />
     </group>
   )
 }

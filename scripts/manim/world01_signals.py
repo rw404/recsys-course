@@ -14,18 +14,18 @@ AMBER = "#F0B44D"
 CORAL = "#EF6B67"
 
 config.background_color = BG
-config.pixel_width = 1500
-config.pixel_height = 600
+config.pixel_width = 1920
+config.pixel_height = 888
 config.frame_width = 15
-config.frame_height = 6
+config.frame_height = 6.9375
 config.frame_rate = 30
 
 
-def text(label, size=24, color=INK, weight="NORMAL"):
+def text(label, size=28, color=INK, weight="NORMAL"):
     return Text(label, font="DejaVu Sans", font_size=size, color=color, weight=weight)
 
 
-def mono(label, size=18, color=MUTED):
+def mono(label, size=20, color=MUTED):
     return Text(label, font="DejaVu Sans Mono", font_size=size, color=color)
 
 
@@ -37,16 +37,20 @@ def panel(width, height, color=PANEL, stroke=GRID, radius=0.18):
         fill_color=color,
         fill_opacity=0.96,
         stroke_color=stroke,
-        stroke_width=1.5,
+        stroke_width=2,
     )
 
 
 def node(label, color, width=1.65, height=0.72, subtitle=None):
     shell = panel(width, height, PANEL_2, color, 0.14)
     shell.set_stroke(opacity=0.72)
-    title = text(label, 19, INK, "BOLD")
+    title = text(label, 22, INK, "BOLD")
+    if title.width > width - 0.3:
+        title.scale_to_fit_width(width - 0.3)
     if subtitle:
-        sub = mono(subtitle, 11, MUTED)
+        sub = mono(subtitle, 13, MUTED)
+        if sub.width > width - 0.24:
+            sub.scale_to_fit_width(width - 0.24)
         copy = VGroup(title, sub).arrange(DOWN, buff=0.08)
     else:
         copy = title
@@ -55,7 +59,7 @@ def node(label, color, width=1.65, height=0.72, subtitle=None):
 
 
 def pill(label, color, width=None):
-    copy = mono(label.upper(), 13, color)
+    copy = mono(label.upper(), 14, color)
     shell = RoundedRectangle(
         width=width or copy.width + 0.38,
         height=0.38,
@@ -89,11 +93,11 @@ class FoundationScene(Scene):
     def setup(self):
         self.camera.background_color = BG
         vertical = [
-            Line([x, -3, 0], [x, 3, 0], color=GRID, stroke_width=0.6, stroke_opacity=0.2)
+            Line([x, -3, 0], [x, 3, 0], color=GRID, stroke_width=0.8, stroke_opacity=0.22)
             for x in [i * 0.5 for i in range(-15, 16)]
         ]
         horizontal = [
-            Line([-7.5, y, 0], [7.5, y, 0], color=GRID, stroke_width=0.6, stroke_opacity=0.2)
+            Line([-7.5, y, 0], [7.5, y, 0], color=GRID, stroke_width=0.8, stroke_opacity=0.22)
             for y in [i * 0.5 for i in range(-6, 7)]
         ]
         self.grid = VGroup(*vertical, *horizontal)
@@ -102,20 +106,23 @@ class FoundationScene(Scene):
     def header(self):
         marker = pill("WORLD 01 / " + self.scene_number, GREEN)
         marker.to_corner(UL, buff=0.34)
-        heading = text(self.scene_title, 27, INK, "BOLD")
+        heading = text(self.scene_title, 32, INK, "BOLD")
+        if heading.width > 8.2:
+            heading.scale_to_fit_width(8.2)
         heading.next_to(marker, RIGHT, buff=0.28)
-        subtitle = mono(self.scene_subtitle, 13, MUTED)
+        subtitle = mono(self.scene_subtitle, 15, MUTED)
+        if subtitle.width > 4.1:
+            subtitle.scale_to_fit_width(4.1)
         subtitle.to_corner(UR, buff=0.38)
-        divider = Line([-7.15, 2.35, 0], [7.15, 2.35, 0], color=GRID, stroke_width=1.2)
+        divider = Line([-7.15, 2.35, 0], [7.15, 2.35, 0], color=GRID, stroke_width=1.5)
         group = VGroup(marker, heading, subtitle, divider)
         self.play(FadeIn(marker, shift=RIGHT * 0.12), Write(heading), FadeIn(subtitle), Create(divider), run_time=0.65)
         return group
 
     def outro(self):
-        self.wait(0.55)
-        visible = Group(*[mob for mob in self.mobjects if mob is not self.grid])
-        self.play(FadeOut(visible, shift=DOWN * 0.08), run_time=0.45)
-        self.wait(0.12)
+        # Keep the explanatory result on screen. The Three.js player freezes here and exposes
+        # a spatial replay console instead of looping through a blank fade-out.
+        self.wait(1.35)
 
 
 class W01_00_Foundations(FoundationScene):
