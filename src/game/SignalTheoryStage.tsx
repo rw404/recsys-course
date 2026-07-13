@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useProgress } from '../state/progress'
 
@@ -27,6 +27,10 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
   const screen = useRef<THREE.Group>(null)
   const portal = useRef<THREE.Group>(null)
   const age = useRef(0)
+  const { size } = useThree()
+  const portrait = size.height > size.width * 1.08
+  const screenY = portrait ? 4.5 : 3.05
+  const screenScale = portrait ? 0.47 : 1
   const page = useProgress((state) => state.lessonPage)
   const mode = useProgress((state) => state.mode)
   const screenGeometry = useMemo(curvedScreenGeometry, [])
@@ -44,7 +48,8 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
       stage.current.position.y = (1 - reveal) * -0.35
     }
     if (screen.current) {
-      screen.current.position.y = 3.05 + (1 - reveal) * 0.42
+      screen.current.position.y = screenY + (1 - reveal) * 0.42
+      screen.current.scale.setScalar(screenScale)
     }
     if (portal.current) {
       portal.current.rotation.z += dt * 0.32
@@ -69,7 +74,7 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
         <meshBasicMaterial color={accent} transparent opacity={0.13} side={THREE.DoubleSide} />
       </mesh>
 
-      <group ref={screen} position={[0, 3.05, -2.9]}>
+      <group ref={screen} position={[0, screenY, -2.9]} scale={screenScale}>
         <mesh geometry={screenGeometry} castShadow receiveShadow>
           <meshPhysicalMaterial
             color={showingTheory ? '#07131d' : '#edf8fb'}
@@ -354,9 +359,19 @@ function ContentPedestals({ active, accent }: { active: boolean; accent: string 
 
 export function SignalImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
   const camera = useRef<THREE.PerspectiveCamera>(null)
+  const { size } = useThree()
+  const portrait = size.height > size.width * 1.08
   const target = useMemo(
     () => new THREE.Vector3(worldPosition[0], 2.28, worldPosition[2] - 0.9),
     [worldPosition],
+  )
+  const position = useMemo<[number, number, number]>(
+    () => [
+      worldPosition[0] + (portrait ? 0 : 0.8),
+      4.65,
+      worldPosition[2] + 10.2,
+    ],
+    [portrait, worldPosition],
   )
 
   useFrame(() => {
@@ -370,7 +385,7 @@ export function SignalImaxCamera({ worldPosition }: { worldPosition: [number, nu
       near={0.1}
       far={180}
       fov={42}
-      position={[worldPosition[0] + 0.8, 4.65, worldPosition[2] + 10.2]}
+      position={position}
     />
   )
 }

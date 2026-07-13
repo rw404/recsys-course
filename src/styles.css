@@ -12237,6 +12237,7 @@ body {
   .imax-projection.imax-projection--manim {
     padding: 0;
     background: #07131d;
+    backdrop-filter: none;
   }
 
   .course-app.mode-study .mobile-controls.movement-only {
@@ -12259,5 +12260,13 @@ body {
   .course-app:has(.imax-study.notes-open) .mobile-controls.movement-only .joystick {
     opacity: 0;
     pointer-events: none;
+  }
+}
+
+@media (max-width: 720px) and (orientation: portrait) {
+  .imax-projection.imax-projection--manim {
+    top: 13.25vh;
+    height: auto;
+    aspect-ratio: 184 / 85;
   }
 }
