@@ -182,9 +182,9 @@ export function StudyMode() {
     closeNode()
   }
 
-  if (lesson.nodeId === 'week01-station') {
+  if (LESSONS[lesson.nodeId]) {
     return (
-      <SignalImaxLesson
+      <ImaxLesson
         kicker={lesson.kicker}
         cards={cards}
         card={card}
@@ -303,7 +303,7 @@ export function StudyMode() {
     </div>
   )
 }
-function SignalImaxLesson({
+function ImaxLesson({
   kicker,
   cards,
   card,
@@ -431,12 +431,12 @@ function SignalImaxLesson({
           type="button"
           className={'imax-next-button ' + (last ? 'is-complete' : '')}
           onClick={last ? onFinish : () => onSelect(index + 1)}
-          aria-label={last ? (done ? 'Return to Signal City' : 'Complete & explore') : 'Next concept'}
+          aria-label={last ? (done ? 'Return to world' : 'Complete & explore') : 'Next concept'}
         >
           {last ? (
             <>
               <Check size={18} aria-hidden />
-              <span>{done ? 'Return to Signal City' : 'Complete & explore'}</span>
+              <span>{done ? 'Return to world' : 'Complete & explore'}</span>
             </>
           ) : (
             <>

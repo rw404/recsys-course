@@ -8,7 +8,7 @@ export const SIGNAL_CONTENT_PEDESTALS = [
   { x: 0.72, z: 0.08 },
 ] as const
 
-export const SIGNAL_REPLAY_CONSOLE_POSITION = [0, -1.45] as const
+export const SIGNAL_REPLAY_CONSOLE_POSITION = [1.55, -1.52] as const
 
 function contentStagePosition(localX: number, localZ: number): { x: number; z: number } {
   const cosine = Math.cos(SIGNAL_CONTENT_GROUP_ROTATION_Y)

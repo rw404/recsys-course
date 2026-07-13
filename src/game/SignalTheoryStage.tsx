@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Html, PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useProgress } from '../state/progress'
+import { useProgress, type WorldId } from '../state/progress'
 import {
   SIGNAL_CONTENT_GROUP_POSITION,
   SIGNAL_CONTENT_GROUP_ROTATION_Y,
   SIGNAL_CONTENT_PEDESTALS,
   SIGNAL_REPLAY_CONSOLE_POSITION,
 } from './signalStageLayout'
+import { THEORY_EXHIBIT_OBSTACLES } from './theoryStageLayout'
 
-type SignalTheoryStageProps = {
+type TheoryWorldStageProps = {
+  worldId: WorldId
   accent: string
   accentDark: string
 }
@@ -28,6 +30,75 @@ const WORLD01_MANIM_CLIPS = [
   'W01_09_NDCG',
   'W01_10_RecallCoverage',
 ] as const
+
+const THEORY_MANIM_CLIPS: Record<WorldId, readonly string[]> = {
+  'foundations-camp': WORLD01_MANIM_CLIPS,
+  'retrieval-valley': [
+    'W02_00_RetrievalSystems',
+    'W02_01_RetrievalContract',
+    'W02_02_UserItemRepresentations',
+    'W02_03_CompatibilityScore',
+    'W02_04_ContrastiveLearning',
+    'W02_05_HardNegatives',
+    'W02_06_ApproximateSearch',
+    'W02_07_RecallLatency',
+    'W02_08_BlendedRetrieval',
+  ],
+  'sequential-city': [
+    'W03_00_SequentialModels',
+    'W03_01_OrderMatters',
+    'W03_02_EventTokens',
+    'W03_03_QueryKeyValue',
+    'W03_04_MultiHeadAttention',
+    'W03_05_TransformerBlock',
+    'W03_06_LearningObjective',
+    'W03_07_SequenceServing',
+    'W03_08_FlashAttention',
+  ],
+  'policy-tower': [
+    'W04_00_DecisionsAndPolicies',
+    'W04_01_PredictionToIntervention',
+    'W04_02_ExploreExploit',
+    'W04_03_Regret',
+    'W04_04_Uncertainty',
+    'W04_05_ContextualBandits',
+    'W04_06_DelayedReward',
+    'W04_07_OfflinePolicyEvaluation',
+    'W04_08_ConstrainedSlate',
+  ],
+  'ecosystem-garden': [
+    'W05_00_FeedbackEcosystems',
+    'W05_01_RecommendationIntervention',
+    'W05_02_FeedbackLoops',
+    'W05_03_ExposureBias',
+    'W05_04_CounterfactualValue',
+    'W05_05_MultiAxisQuality',
+    'W05_06_MMR',
+    'W05_07_LongTermValue',
+    'W05_08_CatalogueHealth',
+  ],
+  'final-arena': [
+    'W06_00_SystemSynthesis',
+    'W06_01_DecisionContract',
+    'W06_02_EvidenceBeforeFeatures',
+    'W06_03_RetrieveAndRank',
+    'W06_04_TasteAndIntent',
+    'W06_05_PredictionAndPolicy',
+    'W06_06_LearningLoop',
+    'W06_07_OperationalReadiness',
+  ],
+}
+
+const THEORY_MANIM_FOLDERS: Record<WorldId, string> = {
+  'foundations-camp': 'world01',
+  'retrieval-valley': 'world02',
+  'sequential-city': 'world03',
+  'policy-tower': 'world04',
+  'ecosystem-garden': 'world05',
+  'final-arena': 'world06',
+}
+
+const unavailableManimClips = new Set<string>()
 
 const SCREEN_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
@@ -98,14 +169,15 @@ function CurvedScreenFallback({ geometry }: { geometry: THREE.PlaneGeometry }) {
 
 function CurvedManimScreen({
   geometry,
-  page,
+  source,
   onFinished,
+  onUnavailable,
 }: {
   geometry: THREE.PlaneGeometry
-  page: number
+  source: string
   onFinished: () => void
+  onUnavailable: () => void
 }) {
-  const clip = WORLD01_MANIM_CLIPS[page] ?? WORLD01_MANIM_CLIPS[0]
   const [texture, setTexture] = useState<THREE.VideoTexture | null>(null)
   const [contentScale, setContentScale] = useState<[number, number]>([1, 1])
   const anisotropy = useThree((state) => Math.min(8, state.gl.capabilities.getMaxAnisotropy()))
@@ -113,7 +185,7 @@ function CurvedManimScreen({
   useEffect(() => {
     const video = document.createElement('video')
     const supportsWebm = video.canPlayType('video/webm; codecs="vp9"') !== ''
-    video.src = `/video/manim/world01/${clip}.${supportsWebm ? 'webm' : 'mp4'}`
+    video.src = `${source}.${supportsWebm ? 'webm' : 'mp4'}`
     video.crossOrigin = 'anonymous'
     video.autoplay = true
     video.loop = false
@@ -156,6 +228,7 @@ function CurvedManimScreen({
       if (Math.abs(video.currentTime - holdAt) > 0.04) video.currentTime = holdAt
       onFinished()
     }
+    const reportUnavailable = () => onUnavailable()
 
     setTexture(null)
     setContentScale([1, 1])
@@ -163,6 +236,7 @@ function CurvedManimScreen({
     video.addEventListener('canplay', showTexture, { once: true })
     video.addEventListener('timeupdate', finishPlayback)
     video.addEventListener('ended', finishPlayback)
+    video.addEventListener('error', reportUnavailable, { once: true })
     video.load()
     void video.play().catch(() => undefined)
 
@@ -171,12 +245,13 @@ function CurvedManimScreen({
       video.removeEventListener('canplay', showTexture)
       video.removeEventListener('timeupdate', finishPlayback)
       video.removeEventListener('ended', finishPlayback)
+      video.removeEventListener('error', reportUnavailable)
       video.pause()
       video.removeAttribute('src')
       video.load()
       videoTexture.dispose()
     }
-  }, [anisotropy, clip, onFinished])
+  }, [anisotropy, onFinished, onUnavailable, source])
 
   if (!texture) return <CurvedScreenFallback geometry={geometry} />
 
@@ -205,7 +280,488 @@ function CurvedManimScreen({
   )
 }
 
-export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps) {
+const THEORY_SCREEN_COLORS: Record<WorldId, readonly string[]> = {
+  'foundations-camp': ['#65cdb6', '#7668e6', '#e6ad50', '#49afba', '#ffffff'],
+  'retrieval-valley': ['#5f75ea', '#58c8db', '#9c72ed', '#61d6b7', '#ffffff'],
+  'sequential-city': ['#8f62e8', '#b67bed', '#5f7bea', '#ef9a58', '#ffffff'],
+  'policy-tower': ['#ef9662', '#f4bd58', '#7464e7', '#57c6ba', '#ffffff'],
+  'ecosystem-garden': ['#52bd88', '#84d36d', '#4ab8b0', '#efb454', '#ffffff'],
+  'final-arena': ['#8068eb', '#54c9d5', '#54bd8d', '#edab54', '#ffffff'],
+}
+
+function ProceduralTheoryScreen({
+  geometry,
+  worldId,
+  page,
+  accent,
+  accentDark,
+  onFinished,
+}: {
+  geometry: THREE.PlaneGeometry
+  worldId: WorldId
+  page: number
+  accent: string
+  accentDark: string
+  onFinished: () => void
+}) {
+  const nodes = useRef<Array<THREE.Group | null>>([])
+  const packet = useRef<THREE.Group>(null)
+  const elapsed = useRef(0)
+  const finished = useRef(false)
+  const colors = THEORY_SCREEN_COLORS[worldId]
+  const pageShift = page % colors.length
+  const nodeXs = [-3.3, -1.65, 0, 1.65, 3.3]
+  const nodeYs = theoryNodeLayout(worldId)
+
+  useFrame((state, rawDt) => {
+    elapsed.current += Math.min(rawDt, 0.1)
+    nodes.current.forEach((node, index) => {
+      if (!node) return
+      const reveal = THREE.MathUtils.smoothstep(elapsed.current, 0.34 + index * 0.42, 0.86 + index * 0.42)
+      const pulse = reveal > 0.99 ? 1 + Math.sin(state.clock.elapsedTime * 1.35 + index) * 0.018 : 1
+      node.scale.setScalar(Math.max(0.001, reveal * pulse))
+      node.position.y = nodeYs[index] + (1 - reveal) * -0.24
+    })
+    if (packet.current) {
+      const progress = THREE.MathUtils.smoothstep(elapsed.current, 0.72, 3.35)
+      packet.current.position.x = -3.3 + progress * 6.6
+      packet.current.position.y = theoryPathY(nodeYs, progress)
+      packet.current.rotation.z += rawDt * 1.6
+    }
+    if (!finished.current && elapsed.current >= 4.1) {
+      finished.current = true
+      onFinished()
+    }
+  })
+
+  return (
+    <>
+      <CurvedScreenFallback geometry={geometry} />
+      <group position={[0, 0, 0.64]}>
+        {Array.from({ length: 9 }, (_, row) => (
+          <RoundedBox
+            key={`grid-row-${row}`}
+            args={[8.35, 0.012, 0.012]}
+            radius={0.006}
+            smoothness={2}
+            position={[0, -1.72 + row * 0.43, -0.04]}
+          >
+            <meshBasicMaterial color="#8bb7bf" transparent opacity={0.075} toneMapped={false} />
+          </RoundedBox>
+        ))}
+        {Array.from({ length: 17 }, (_, column) => (
+          <RoundedBox
+            key={`grid-column-${column}`}
+            args={[0.012, 3.55, 0.012]}
+            radius={0.006}
+            smoothness={2}
+            position={[-4.08 + column * 0.51, 0, -0.04]}
+          >
+            <meshBasicMaterial color="#8bb7bf" transparent opacity={0.06} toneMapped={false} />
+          </RoundedBox>
+        ))}
+
+        {nodeXs.slice(0, -1).map((x, index) => {
+          const nextX = nodeXs[index + 1]
+          const y = nodeYs[index]
+          const nextY = nodeYs[index + 1]
+          const dx = nextX - x
+          const dy = nextY - y
+          const length = Math.hypot(dx, dy)
+          return (
+          <group
+            key={`${x}-${nextX}`}
+            position={[(x + nextX) / 2, (y + nextY) / 2, 0]}
+            rotation={[0, 0, Math.atan2(dy, dx)]}
+          >
+            <RoundedBox args={[length - 0.35, 0.055, 0.035]} radius={0.025} smoothness={2}>
+              <meshBasicMaterial
+                color={colors[(index + pageShift) % colors.length]}
+                transparent
+                opacity={0.68}
+                toneMapped={false}
+              />
+            </RoundedBox>
+            {Array.from({ length: 4 }, (_, dot) => (
+              <mesh key={dot} position={[-0.35 + dot * 0.23, 0, 0.055]}>
+                <circleGeometry args={[0.025, 16]} />
+                <meshBasicMaterial color="#d9f7f3" transparent opacity={0.82} toneMapped={false} />
+              </mesh>
+            ))}
+          </group>
+          )
+        })}
+
+        {nodeXs.map((x, index) => (
+          <group
+            key={`${worldId}-${index}`}
+            ref={(node) => { nodes.current[index] = node }}
+            position={[x, nodeYs[index], 0]}
+            scale={0.001}
+          >
+            <mesh position={[0, 0, -0.015]}>
+              <circleGeometry args={[0.65, 48]} />
+              <meshBasicMaterial
+                color={colors[(index + pageShift) % colors.length]}
+                transparent
+                opacity={0.1}
+                toneMapped={false}
+              />
+            </mesh>
+            <ScreenTheoryGlyph
+              worldId={worldId}
+              index={index}
+              color={colors[(index + pageShift) % colors.length]}
+              accent={accent}
+              accentDark={accentDark}
+            />
+          </group>
+        ))}
+
+        <group ref={packet} position={[-3.3, nodeYs[0], 0.22]}>
+          <mesh>
+            <octahedronGeometry args={[0.13, 0]} />
+            <meshBasicMaterial color="#ffffff" toneMapped={false} />
+          </mesh>
+          <pointLight color={accent} intensity={2.8} distance={1.15} decay={2} />
+        </group>
+      </group>
+      <mesh geometry={geometry} position={[0, 0, 0.7]} renderOrder={3}>
+        <shaderMaterial
+          vertexShader={SCREEN_VERTEX_SHADER}
+          fragmentShader={SCREEN_GLAZE_SHADER}
+          transparent
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </>
+  )
+}
+
+function theoryNodeLayout(worldId: WorldId): readonly number[] {
+  switch (worldId) {
+    case 'retrieval-valley': return [0.72, -0.48, 0.18, -0.48, 0.72]
+    case 'sequential-city': return [-0.62, 0.12, -0.28, 0.72, 0.18]
+    case 'policy-tower': return [0.66, -0.38, 0.74, -0.38, 0.66]
+    case 'ecosystem-garden': return [0.06, 0.72, -0.7, 0.72, 0.06]
+    case 'final-arena': return [-0.72, -0.36, 0, 0.36, 0.72]
+    default: return [0, 0, 0, 0, 0]
+  }
+}
+
+function theoryPathY(nodeYs: readonly number[], progress: number): number {
+  const scaled = THREE.MathUtils.clamp(progress, 0, 1) * (nodeYs.length - 1)
+  const index = Math.min(nodeYs.length - 2, Math.floor(scaled))
+  return THREE.MathUtils.lerp(nodeYs[index], nodeYs[index + 1], scaled - index)
+}
+
+function CurvedTheoryScreen({
+  geometry,
+  worldId,
+  page,
+  accent,
+  accentDark,
+  onFinished,
+}: {
+  geometry: THREE.PlaneGeometry
+  worldId: WorldId
+  page: number
+  accent: string
+  accentDark: string
+  onFinished: () => void
+}) {
+  const clips = THEORY_MANIM_CLIPS[worldId]
+  const clip = clips[page] ?? clips[0]
+  const source = `/video/manim/${THEORY_MANIM_FOLDERS[worldId]}/${clip}`
+  const [unavailable, setUnavailable] = useState(() => unavailableManimClips.has(source))
+  const handleUnavailable = useCallback(() => {
+    unavailableManimClips.add(source)
+    setUnavailable(true)
+  }, [source])
+
+  if (unavailable) {
+    return (
+      <ProceduralTheoryScreen
+        geometry={geometry}
+        worldId={worldId}
+        page={page}
+        accent={accent}
+        accentDark={accentDark}
+        onFinished={onFinished}
+      />
+    )
+  }
+
+  return (
+    <CurvedManimScreen
+      geometry={geometry}
+      source={source}
+      onFinished={onFinished}
+      onUnavailable={handleUnavailable}
+    />
+  )
+}
+
+function ScreenTheoryGlyph({
+  worldId,
+  index,
+  color,
+  accent,
+  accentDark,
+}: {
+  worldId: WorldId
+  index: number
+  color: string
+  accent: string
+  accentDark: string
+}) {
+  if (worldId === 'retrieval-valley') {
+    if (index === 2) {
+      return (
+        <group>
+          {[0.22, 0.39, 0.56].map((radius, ring) => (
+            <mesh key={radius} rotation={[0, 0, ring * 0.24]}>
+              <torusGeometry args={[radius, 0.035, 8, 48]} />
+              <meshBasicMaterial color={ring === 1 ? accent : color} transparent opacity={0.78} toneMapped={false} />
+            </mesh>
+          ))}
+          <mesh><circleGeometry args={[0.12, 24]} /><meshBasicMaterial color="#ffffff" toneMapped={false} /></mesh>
+        </group>
+      )
+    }
+    return (
+      <group>
+        {[-0.24, 0, 0.24].map((x, layer) => (
+          <RoundedBox key={x} args={[0.18, 0.54 - Math.abs(layer - 1) * 0.1, 0.08]} radius={0.04} smoothness={3} position={[x, 0, 0]}>
+            <meshBasicMaterial color={layer === 1 ? '#ffffff' : color} transparent opacity={0.88} toneMapped={false} />
+          </RoundedBox>
+        ))}
+      </group>
+    )
+  }
+
+  if (worldId === 'sequential-city') {
+    return (
+      <group>
+        <RoundedBox args={[0.82, 0.66, 0.08]} radius={0.1} smoothness={4}>
+          <meshBasicMaterial color={color} transparent opacity={0.25} toneMapped={false} />
+        </RoundedBox>
+        {[-0.2, 0, 0.2].map((y, bar) => (
+          <RoundedBox key={y} args={[0.46 - bar * 0.08, 0.055, 0.03]} radius={0.025} smoothness={2} position={[0, y, 0.07]}>
+            <meshBasicMaterial color={bar === index % 3 ? '#ffffff' : color} transparent opacity={0.9} toneMapped={false} />
+          </RoundedBox>
+        ))}
+      </group>
+    )
+  }
+
+  if (worldId === 'policy-tower') {
+    return (
+      <group>
+        <mesh><ringGeometry args={[0.34, 0.46, 40]} /><meshBasicMaterial color={color} transparent opacity={0.84} toneMapped={false} /></mesh>
+        {[0, 1, 2].map((arm) => (
+          <group key={arm} rotation={[0, 0, arm * Math.PI * 2 / 3 + index * 0.12]}>
+            <RoundedBox args={[0.42, 0.045, 0.035]} radius={0.02} smoothness={2} position={[0.42, 0, 0]}>
+              <meshBasicMaterial color={arm === index % 3 ? '#ffffff' : accent} transparent opacity={0.82} toneMapped={false} />
+            </RoundedBox>
+          </group>
+        ))}
+        <mesh><circleGeometry args={[0.13, 24]} /><meshBasicMaterial color={accentDark} toneMapped={false} /></mesh>
+      </group>
+    )
+  }
+
+  if (worldId === 'ecosystem-garden') {
+    return (
+      <group>
+        <mesh><ringGeometry args={[0.29, 0.43, 44]} /><meshBasicMaterial color={color} transparent opacity={0.78} toneMapped={false} /></mesh>
+        {[0, 1, 2, 3].map((leaf) => {
+          const angle = leaf * Math.PI / 2 + index * 0.14
+          return (
+            <mesh key={leaf} position={[Math.cos(angle) * 0.48, Math.sin(angle) * 0.48, 0.04]} scale={[1.45, 0.8, 1]} rotation={[0, 0, angle]}>
+              <circleGeometry args={[0.105, 18]} />
+              <meshBasicMaterial color={leaf % 2 ? '#ffffff' : accent} transparent opacity={0.88} toneMapped={false} />
+            </mesh>
+          )
+        })}
+      </group>
+    )
+  }
+
+  return (
+    <group rotation={[0, 0, index * 0.1]}>
+      <mesh><octahedronGeometry args={[0.46, 0]} /><meshBasicMaterial color={color} transparent opacity={0.34} toneMapped={false} /></mesh>
+      <mesh scale={0.58}><octahedronGeometry args={[0.46, 0]} /><meshBasicMaterial color="#ffffff" transparent opacity={0.92} toneMapped={false} /></mesh>
+    </group>
+  )
+}
+
+function WorldTheoryExhibits({
+  worldId,
+  page,
+  accent,
+  accentDark,
+}: {
+  worldId: WorldId
+  page: number
+  accent: string
+  accentDark: string
+}) {
+  const root = useRef<THREE.Group>(null)
+  const exhibits = THEORY_EXHIBIT_OBSTACLES[worldId]
+  const active = page % exhibits.length
+
+  useFrame((state) => {
+    if (!root.current) return
+    root.current.position.y = Math.sin(state.clock.elapsedTime * 1.25) * 0.012
+  })
+
+  return (
+    <group ref={root}>
+      {exhibits.map((obstacle, index) => (
+        <group key={obstacle.id} position={[obstacle.x, 0.4, obstacle.z]}>
+          <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[obstacle.radius * 0.62, obstacle.radius * 0.72, 0.32, 28]} />
+            <meshStandardMaterial color="#f8fcfb" roughness={0.42} metalness={0.04} />
+          </mesh>
+          <mesh position={[0, 0.335, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[obstacle.radius * 0.43, obstacle.radius * 0.59, 36]} />
+            <meshBasicMaterial
+              color={index === active ? accent : accentDark}
+              transparent
+              opacity={index === active ? 0.72 : 0.2}
+              toneMapped={false}
+            />
+          </mesh>
+          <TheoryExhibitSculpture
+            worldId={worldId}
+            index={index}
+            active={index === active}
+            accent={accent}
+            accentDark={accentDark}
+          />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function TheoryExhibitSculpture({
+  worldId,
+  index,
+  active,
+  accent,
+  accentDark,
+}: {
+  worldId: WorldId
+  index: number
+  active: boolean
+  accent: string
+  accentDark: string
+}) {
+  if (worldId === 'retrieval-valley') {
+    if (index === 1) {
+      return (
+        <group position={[0, 0.82, 0]}>
+          {[0.28, 0.46, 0.64].map((radius, ring) => (
+            <mesh key={radius} rotation={[Math.PI / 2 + ring * 0.18, 0, ring * 0.24]}>
+              <torusGeometry args={[radius, 0.035, 8, 44]} />
+              <meshStandardMaterial color={ring === 1 ? accent : accentDark} emissive={accent} emissiveIntensity={active ? 0.55 : 0.08} />
+            </mesh>
+          ))}
+          <mesh castShadow><sphereGeometry args={[0.16, 20, 16]} /><meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={active ? 0.8 : 0.18} /></mesh>
+        </group>
+      )
+    }
+    return (
+      <group position={[0, 0.72, 0]}>
+        {[-0.24, 0, 0.24].map((x, tower) => (
+          <RoundedBox key={x} args={[0.28, 0.65 + tower * 0.2, 0.28]} radius={0.06} smoothness={4} position={[x, tower * 0.1, 0]} castShadow>
+            <meshStandardMaterial color={tower === 1 ? '#ffffff' : accent} emissive={accent} emissiveIntensity={active ? 0.28 : 0.05} roughness={0.28} />
+          </RoundedBox>
+        ))}
+      </group>
+    )
+  }
+
+  if (worldId === 'sequential-city' || worldId === 'final-arena') {
+    return (
+      <group position={[0, 0.76, 0]} rotation={[0, index * 0.08, 0]}>
+        <RoundedBox args={[0.52, 0.82, 0.18]} radius={0.08} smoothness={4} castShadow>
+          <meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={active ? 0.26 : 0.04} roughness={0.32} />
+        </RoundedBox>
+        {[-0.2, 0, 0.2].map((y, bar) => (
+          <RoundedBox key={y} args={[0.3 - bar * 0.04, 0.065, 0.04]} radius={0.025} smoothness={2} position={[0, y, 0.115]}>
+            <meshBasicMaterial color={bar === index % 3 ? accent : accentDark} toneMapped={false} />
+          </RoundedBox>
+        ))}
+        {worldId === 'final-arena' && (
+          <mesh position={[0, 0.56, 0]} rotation={[0, 0, Math.PI / 4]}>
+            <octahedronGeometry args={[0.16, 0]} />
+            <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={active ? 0.8 : 0.2} />
+          </mesh>
+        )}
+      </group>
+    )
+  }
+
+  if (worldId === 'policy-tower') {
+    if (index === 1) {
+      return (
+        <group position={[0, 0.8, 0]}>
+          {[0.32, 0.54].map((radius) => (
+            <mesh key={radius} rotation={[Math.PI / 2, 0, radius]}>
+              <torusGeometry args={[radius, 0.045, 9, 48]} />
+              <meshStandardMaterial color={radius > 0.4 ? accent : accentDark} emissive={accent} emissiveIntensity={active ? 0.45 : 0.08} />
+            </mesh>
+          ))}
+          <mesh><sphereGeometry args={[0.17, 18, 14]} /><meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={active ? 0.7 : 0.12} /></mesh>
+        </group>
+      )
+    }
+    return (
+      <group position={[0, 0.76, 0]}>
+        {[-0.3, 0, 0.3].map((x, gate) => (
+          <group key={x} position={[x, 0, 0]}>
+            <RoundedBox args={[0.12, 0.76 - Math.abs(gate - 1) * 0.12, 0.14]} radius={0.04} smoothness={3} castShadow>
+              <meshStandardMaterial color={gate === 1 ? '#ffffff' : accent} emissive={accent} emissiveIntensity={active ? 0.28 : 0.04} />
+            </RoundedBox>
+          </group>
+        ))}
+        <RoundedBox args={[0.76, 0.12, 0.14]} radius={0.04} smoothness={3} position={[0, 0.34, 0]} castShadow>
+          <meshStandardMaterial color={accentDark} />
+        </RoundedBox>
+      </group>
+    )
+  }
+
+  if (index === 2) {
+    return (
+      <group position={[0, 0.55, 0]}>
+        <mesh position={[0, 0.42, 0]} castShadow><cylinderGeometry args={[0.1, 0.13, 0.84, 12]} /><meshStandardMaterial color="#6d7f72" /></mesh>
+        {[0, 1, 2].map((level) => (
+          <mesh key={level} position={[0, 0.62 + level * 0.27, 0]} castShadow>
+            <coneGeometry args={[0.44 - level * 0.08, 0.52, 10]} />
+            <meshStandardMaterial color={level % 2 ? accent : accentDark} emissive={accent} emissiveIntensity={active ? 0.16 : 0.02} />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+
+  return (
+    <group position={[0, 0.76, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, index * 0.28]}>
+        <torusGeometry args={[0.48, 0.075, 10, 48]} />
+        <meshStandardMaterial color={index === 0 ? accent : accentDark} emissive={accent} emissiveIntensity={active ? 0.42 : 0.08} />
+      </mesh>
+      <mesh castShadow><sphereGeometry args={[0.2, 20, 16]} /><meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={active ? 0.65 : 0.12} /></mesh>
+    </group>
+  )
+}
+
+export function TheoryWorldStage({ worldId, accent, accentDark }: TheoryWorldStageProps) {
   const stage = useRef<THREE.Group>(null)
   const screen = useRef<THREE.Group>(null)
   const portal = useRef<THREE.Group>(null)
@@ -274,10 +830,13 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
 
       <group ref={screen} position={[0, screenY, -2.9]} scale={screenScale}>
         {showingTheory ? (
-          <CurvedManimScreen
-            key={`${page}-${replayVersion}`}
+          <CurvedTheoryScreen
+            key={`${worldId}-${page}-${replayVersion}`}
             geometry={screenGeometry}
+            worldId={worldId}
             page={page}
+            accent={accent}
+            accentDark={accentDark}
             onFinished={handleVideoFinished}
           />
         ) : (
@@ -329,10 +888,21 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
         <meshBasicMaterial color="#74d3cf" transparent opacity={0.82} toneMapped={false} />
       </RoundedBox>
 
-      <SignalBeaconCluster active={signalsActive} accent={accent} />
-      <EventStreamChannel active={streamActive} accent={accent} />
-      <ProfileObservatory active={profileActive} accent={accentDark} />
-      <ContentPedestals active={contentActive} accent={accent} />
+      {worldId === 'foundations-camp' ? (
+        <>
+          <SignalBeaconCluster active={signalsActive} accent={accent} />
+          <EventStreamChannel active={streamActive} accent={accent} />
+          <ProfileObservatory active={profileActive} accent={accentDark} />
+          <ContentPedestals active={contentActive} accent={accent} />
+        </>
+      ) : (
+        <WorldTheoryExhibits
+          worldId={worldId}
+          page={page}
+          accent={accent}
+          accentDark={accentDark}
+        />
+      )}
       {showingTheory && (
         <ReplayConsole
           accent={accent}
@@ -347,7 +917,7 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
           <mesh key={radius} rotation={[0, index * 0.16, index * 0.25]}>
             <torusGeometry args={[radius, index === 1 ? 0.045 : 0.026, 12, 72]} />
             <meshBasicMaterial
-              color={index === 1 ? '#ffffff' : '#7567e5'}
+              color={index === 1 ? '#ffffff' : accent}
               transparent
               opacity={0.64 - index * 0.12}
               depthWrite={false}
@@ -357,9 +927,9 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
         ))}
         <mesh position={[0, 0, -0.03]}>
           <circleGeometry args={[0.73, 64]} />
-          <meshBasicMaterial color="#cfcafd" transparent opacity={0.12} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial color={accent} transparent opacity={0.12} depthWrite={false} toneMapped={false} />
         </mesh>
-        <pointLight color="#8172f1" intensity={8} distance={4.8} decay={2} />
+        <pointLight color={accent} intensity={8} distance={4.8} decay={2} />
       </group>
 
       <Sparkles
@@ -368,7 +938,7 @@ export function SignalTheoryStage({ accent, accentDark }: SignalTheoryStageProps
         position={[0, 2.2, -0.2]}
         size={1.8}
         speed={0.32}
-        color="#b8f2ef"
+        color={accent}
         opacity={0.48}
       />
     </group>
@@ -586,7 +1156,6 @@ function ReplayConsole({
   replayVersion: number
   onReplay: () => void
 }) {
-  const root = useRef<THREE.Group>(null)
   const button = useRef<THREE.Group>(null)
   const orbit = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
@@ -606,9 +1175,6 @@ function ReplayConsole({
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
-    if (root.current) {
-      root.current.position.y = 0.4 + Math.sin(state.clock.elapsedTime * 1.7) * 0.018
-    }
     if (orbit.current) {
       orbit.current.rotation.y += dt * (ready ? 1.6 : 0.48)
     }
@@ -623,7 +1189,6 @@ function ReplayConsole({
 
   return (
     <group
-      ref={root}
       position={[SIGNAL_REPLAY_CONSOLE_POSITION[0], 0.4, SIGNAL_REPLAY_CONSOLE_POSITION[1]]}
       rotation={[0, 0.08, 0]}
       onPointerDown={(event) => {
@@ -697,7 +1262,7 @@ function ReplayConsole({
   )
 }
 
-export function SignalImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
+export function TheoryImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
   const camera = useRef<THREE.PerspectiveCamera>(null)
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08

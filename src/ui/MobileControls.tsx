@@ -33,10 +33,9 @@ const R = 52 // joystick travel radius (px)
 export function MobileControls() {
   const isMobile = useIsMobile()
   const mode = useProgress((s) => s.mode)
-  const activeNodeId = useProgress((s) => s.activeNodeId)
   const nearbyId = useProgress((s) => s.nearbyNodeId)
   const atlasOpen = useProgress((s) => s.atlasOpen)
-  const movementOnly = mode === 'study' && activeNodeId === 'week01-station'
+  const movementOnly = mode === 'study'
   const movementEnabled = mode === 'explore' || movementOnly
 
   const baseRef = useRef<HTMLDivElement>(null)

@@ -21,6 +21,12 @@ import {
   SIGNAL_REPLAY_CONSOLE_OBSTACLE,
   SIGNAL_STAGE_OBSTACLES,
 } from './src/game/signalStageLayout'
+import {
+  THEORY_EXHIBIT_OBSTACLES,
+  THEORY_REPLAY_CONSOLE_OBSTACLE,
+  theoryStageObstacles,
+} from './src/game/theoryStageLayout'
+import type { WorldId } from './src/state/progress'
 
 let failed = 0
 function assert(name: string, cond: boolean, extra?: unknown) {
@@ -405,6 +411,76 @@ console.log('course navigation:')
       replayTarget.z - SIGNAL_REPLAY_CONSOLE_OBSTACLE.z,
     ) >= SIGNAL_REPLAY_CONSOLE_OBSTACLE.radius + PLAYER_COLLISION_RADIUS,
     { replayTarget: replayTarget.toArray() },
+  )
+
+  const theoryWorlds: WorldId[] = [
+    'retrieval-valley',
+    'sequential-city',
+    'policy-tower',
+    'ecosystem-garden',
+    'final-arena',
+  ]
+  const routeIsClear = (
+    points: THREE.Vector3[],
+    obstacles: readonly { x: number; z: number; radius: number }[],
+  ) => points.slice(1).every((end, index) => {
+    const start = points[index]
+    const segmentX = end.x - start.x
+    const segmentZ = end.z - start.z
+    const lengthSquared = segmentX * segmentX + segmentZ * segmentZ
+    return obstacles.every((obstacle) => {
+      const ratio = lengthSquared > 0.000001
+        ? THREE.MathUtils.clamp(
+          ((obstacle.x - start.x) * segmentX + (obstacle.z - start.z) * segmentZ) / lengthSquared,
+          0,
+          1,
+        )
+        : 0
+      const closestX = start.x + segmentX * ratio
+      const closestZ = start.z + segmentZ * ratio
+      return Math.hypot(closestX - obstacle.x, closestZ - obstacle.z)
+        >= obstacle.radius + PLAYER_COLLISION_RADIUS - 1e-6
+    })
+  })
+
+  theoryWorlds.forEach((worldId) => {
+    const stageObstacles = theoryStageObstacles(worldId)
+    const exhibits = THEORY_EXHIBIT_OBSTACLES[worldId]
+    const screen = stageObstacles.filter((obstacle) => obstacle.id.startsWith('theory-screen-'))
+    assert(`${worldId} protects the full curved screen`, screen.length === 5, { screen })
+    assert(`${worldId} exposes themed physical colliders`, exhibits.length >= 3, { exhibits })
+
+    const exhibitsStaySolid = exhibits.every((obstacle) => {
+      const target = new THREE.Vector3(obstacle.x, 0, obstacle.z)
+      projectOutsideObstacles(target, [obstacle])
+      return Math.hypot(target.x - obstacle.x, target.z - obstacle.z)
+        >= obstacle.radius + PLAYER_COLLISION_RADIUS - 1e-6
+    })
+    assert(`${worldId} keeps the traveler outside every exhibit`, exhibitsStaySolid)
+
+    const start = new THREE.Vector3(-3.92, 0, 2.34)
+    const target = new THREE.Vector3(3.92, 0, -1.72)
+    const path = planObstaclePath(start, target, stageObstacles, 0.08, boundary)
+    assert(
+      `${worldId} plans a clear route across its theater`,
+      routeIsClear([start, ...path], stageObstacles),
+      { path: path.map((point) => point.toArray()) },
+    )
+  })
+
+  const sharedReplayTarget = new THREE.Vector3(
+    THEORY_REPLAY_CONSOLE_OBSTACLE.x,
+    0,
+    THEORY_REPLAY_CONSOLE_OBSTACLE.z,
+  )
+  projectOutsideObstacles(sharedReplayTarget, [THEORY_REPLAY_CONSOLE_OBSTACLE])
+  assert(
+    'shared replay console collider protects the control in every theater',
+    Math.hypot(
+      sharedReplayTarget.x - THEORY_REPLAY_CONSOLE_OBSTACLE.x,
+      sharedReplayTarget.z - THEORY_REPLAY_CONSOLE_OBSTACLE.z,
+    ) >= THEORY_REPLAY_CONSOLE_OBSTACLE.radius + PLAYER_COLLISION_RADIUS,
+    { sharedReplayTarget: sharedReplayTarget.toArray() },
   )
 }
 
