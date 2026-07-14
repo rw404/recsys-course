@@ -1,4 +1,4 @@
-import type { NodeId, WorldId } from '../state/progress'
+import { NODES, type NodeId, type WorldId } from '../state/progress'
 import type { NavigationObstacle } from './courseNavigation'
 import {
   SIGNAL_REPLAY_CONSOLE_OBSTACLE,
@@ -16,6 +16,11 @@ export const THEORY_LESSON_BY_WORLD: Record<WorldId, NodeId> = {
 
 export function isTheoryLesson(nodeId: NodeId | null): boolean {
   return nodeId !== null && Object.values(THEORY_LESSON_BY_WORLD).includes(nodeId)
+}
+
+export function chapterActionNode(worldId: WorldId, nextNodeId: NodeId | null): NodeId {
+  if (nextNodeId && NODES[nextNodeId].worldId === worldId) return nextNodeId
+  return THEORY_LESSON_BY_WORLD[worldId]
 }
 
 const SCREEN_OBSTACLES: readonly NavigationObstacle[] = [

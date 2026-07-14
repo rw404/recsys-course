@@ -15,6 +15,7 @@ const WORLD_TOPICS: Record<WorldId, [string, string, string]> = {
 export function JourneyScroll({ onOpenBuilder }: { onOpenBuilder: () => void }) {
   const scroller = useRef<HTMLDivElement>(null)
   const raf = useRef(0)
+  const leavingJourney = useRef(false)
   const currentWorld = useProgress((state) => state.currentWorld)
   const reducedMotion = useProgress((state) => state.reducedMotion)
   const completed = useProgress((state) => state.completed)
@@ -49,6 +50,7 @@ export function JourneyScroll({ onOpenBuilder }: { onOpenBuilder: () => void }) 
 
     const updateActiveWorld = () => {
       raf.current = 0
+      if (leavingJourney.current) return
       const viewport = Math.max(1, element.clientHeight)
       const index = Math.max(0, Math.min(
         COURSE_WORLDS.length - 1,
@@ -79,6 +81,11 @@ export function JourneyScroll({ onOpenBuilder }: { onOpenBuilder: () => void }) 
   }
 
   const openWorld = (world: CourseWorldDefinition) => {
+    leavingJourney.current = true
+    if (raf.current) {
+      window.cancelAnimationFrame(raf.current)
+      raf.current = 0
+    }
     travelTo(world.id)
   }
 

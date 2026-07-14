@@ -22,6 +22,7 @@ import {
   SIGNAL_STAGE_OBSTACLES,
 } from './src/game/signalStageLayout'
 import {
+  chapterActionNode,
   THEORY_EXHIBIT_OBSTACLES,
   THEORY_REPLAY_CONSOLE_OBSTACLE,
   theoryStageObstacles,
@@ -75,6 +76,14 @@ const s = useProgress.getState
 assert('week01 starts as next_required', s().getNodeState('week01-station') === 'next_required')
 assert('ranking-sandbox starts locked', s().getNodeState('ranking-sandbox') === 'locked_for_credit')
 assert('initial objective targets week01', s().nextRequiredAction().nodeId === 'week01-station')
+assert(
+  'foundations CTA follows the current required action',
+  chapterActionNode('foundations-camp', s().nextRequiredAction().nodeId) === 'week01-station',
+)
+assert(
+  'retrieval CTA stays in retrieval when the global route is still in foundations',
+  chapterActionNode('retrieval-valley', s().nextRequiredAction().nodeId) === 'two-tower-lesson',
+)
 
 // complete lesson → sandbox unlocks & becomes next
 s().completeNode('week01-station')

@@ -12,6 +12,7 @@ import {
 import type { CSSProperties } from 'react'
 import { COURSE_WORLDS, COURSE_WORLD_BY_ID } from '../data/worlds'
 import { NODES, useProgress, type NodeId, type WorldId } from '../state/progress'
+import { chapterActionNode } from '../game/theoryStageLayout'
 
 export function HUD({
   onOpenCatalog,
@@ -45,23 +46,25 @@ export function HUD({
   const countedNodes = Object.values(NODES).filter((node) => node.kind !== 'npc')
   const courseDone = countedNodes.filter((node) => completed[node.id]).length
   const courseProgress = Math.round((courseDone / countedNodes.length) * 100)
-  const nextNode = next.nodeId ? NODES[next.nodeId] : null
   const nearbyNode = nearbyId ? NODES[nearbyId] : null
   const activeWorld = COURSE_WORLD_BY_ID[currentWorld]
   const activeIndex = COURSE_WORLDS.findIndex((world) => world.id === currentWorld)
+  const primaryNodeId = chapterActionNode(currentWorld, next.nodeId)
+  const primaryNode = NODES[primaryNodeId]
+  const primaryNodeState = useProgress((state) => state.getNodeState(primaryNodeId))
+  const followsGlobalRoute = primaryNodeId === next.nodeId
 
   const continueCourse = () => {
-    if (!nextNode) return
-    if (atlasOpen || nextNode.worldId !== currentWorld) {
-      travelTo(nextNode.worldId)
-      return
-    }
-    openNode(nextNode.id)
+    openNode(primaryNodeId)
   }
 
-  const continueLabel = atlasOpen || (nextNode && nextNode.worldId !== currentWorld)
-    ? `Explore ${nextNode ? COURSE_WORLD_BY_ID[nextNode.worldId].short : activeWorld.short}`
-    : 'Open next field note'
+  const continueLabel = followsGlobalRoute
+    ? 'Open next field note'
+    : primaryNodeState === 'locked_for_credit'
+    ? `Preview ${activeWorld.short} theory`
+    : primaryNodeState === 'completed'
+    ? `Review ${activeWorld.short} theory`
+    : `Open ${activeWorld.short} theory`
 
   return (
     <div className={`cloud-hud${atlasOpen ? ' is-overview' : ' is-focused'}${mode !== 'explore' ? ' is-learning' : ''}`}>
@@ -143,7 +146,12 @@ export function HUD({
           <span className="cloud-kicker">{activeWorld.eyebrow}</span>
           <h1>{activeWorld.name}</h1>
           <p>{activeWorld.question}</p>
-          <button type="button" className="cloud-primary-action" onClick={continueCourse} disabled={!nextNode}>
+          <button
+            type="button"
+            className="cloud-primary-action"
+            onClick={continueCourse}
+            aria-label={`${continueLabel}: ${primaryNode.title}`}
+          >
             {continueLabel}<ArrowRight size={17} />
           </button>
         </section>

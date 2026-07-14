@@ -148,6 +148,7 @@ export function StudyMode() {
   )
   const cards = lesson.cards
   const done = useProgress((s) => s.completed[lesson.nodeId])
+  const preview = useProgress((s) => s.getNodeState(lesson.nodeId) === 'locked_for_credit')
 
   const [index, setIndex] = useState(() => Math.min(useProgress.getState().lessonPage, cards.length - 1))
   const card = cards[index]
@@ -178,7 +179,7 @@ export function StudyMode() {
   }, [cards.length])
 
   const finish = () => {
-    completeNode(lesson.nodeId)
+    if (!preview) completeNode(lesson.nodeId)
     closeNode()
   }
 
@@ -191,6 +192,7 @@ export function StudyMode() {
         index={index}
         progress={progress}
         done={done}
+        preview={preview}
         onSelect={setIndex}
         onClose={closeNode}
         onFinish={finish}
@@ -310,6 +312,7 @@ function ImaxLesson({
   index,
   progress,
   done,
+  preview,
   onSelect,
   onClose,
   onFinish,
@@ -320,6 +323,7 @@ function ImaxLesson({
   index: number
   progress: number
   done: boolean
+  preview: boolean
   onSelect: (index: number) => void
   onClose: () => void
   onFinish: () => void
@@ -431,12 +435,12 @@ function ImaxLesson({
           type="button"
           className={'imax-next-button ' + (last ? 'is-complete' : '')}
           onClick={last ? onFinish : () => onSelect(index + 1)}
-          aria-label={last ? (done ? 'Return to world' : 'Complete & explore') : 'Next concept'}
+          aria-label={last ? (preview ? 'Close preview' : done ? 'Return to world' : 'Complete & explore') : 'Next concept'}
         >
           {last ? (
             <>
               <Check size={18} aria-hidden />
-              <span>{done ? 'Return to world' : 'Complete & explore'}</span>
+              <span>{preview ? 'Close preview' : done ? 'Return to world' : 'Complete & explore'}</span>
             </>
           ) : (
             <>
