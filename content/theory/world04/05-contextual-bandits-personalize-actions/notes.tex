@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Contextual bandits personalize actions}
+
+\begin{abstract}
+The best action depends on the user and moment, not only on a global arm average.
+\end{abstract}
+
+\subsection{Concept}
+A contextual bandit observes features of the user, item and request before choosing. It estimates reward for each action in that state, then explores around personalized uncertainty. Logged training data must include the action probability, or propensity, assigned by the behavior policy. Without it, offline comparisons confuse policy selection with action quality.
+
+\begin{equation*}
+xₜ \rightarrow π(a | xₜ) \rightarrow choose aₜ \rightarrow observe rₜ(aₜ)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Contextual bandit.} A bandit whose action values depend on observed request features.
+\item \textbf{Behavior policy.} The policy that generated the logged actions and rewards.
+\item \textbf{Propensity.} The probability that the logging policy assigned to the chosen action.
+\end{itemize}

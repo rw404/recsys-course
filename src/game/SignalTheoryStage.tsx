@@ -3,11 +3,15 @@ import { Html, PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useProgress, type WorldId } from '../state/progress'
+import { useTheoryConcept, useTheoryWorld } from '../content/theoryContent'
 import {
   SIGNAL_CONTENT_GROUP_POSITION,
   SIGNAL_CONTENT_GROUP_ROTATION_Y,
   SIGNAL_CONTENT_PEDESTALS,
   SIGNAL_REPLAY_CONSOLE_POSITION,
+  SIGNAL_SCREEN_POSITION,
+  SIGNAL_SCREEN_ROTATION_Y,
+  SIGNAL_SCREEN_SCALE,
 } from './signalStageLayout'
 import { THEORY_EXHIBIT_OBSTACLES } from './theoryStageLayout'
 
@@ -15,87 +19,6 @@ type TheoryWorldStageProps = {
   worldId: WorldId
   accent: string
   accentDark: string
-}
-
-const WORLD01_MANIM_CLIPS = [
-  'W01_00_Foundations',
-  'W01_01_UsefulSlate',
-  'W01_02_CoreEntities',
-  'W01_03_SignalsEvidence',
-  'W01_04_ProductionPipeline',
-  'W01_05_LabelsFeaturesScores',
-  'W01_06_FeedbackLoop',
-  'W01_07_ColdStart',
-  'W01_08_OrderMatters',
-  'W01_09_NDCG',
-  'W01_10_RecallCoverage',
-] as const
-
-const THEORY_MANIM_CLIPS: Record<WorldId, readonly string[]> = {
-  'foundations-camp': WORLD01_MANIM_CLIPS,
-  'retrieval-valley': [
-    'W02_00_RetrievalSystems',
-    'W02_01_RetrievalContract',
-    'W02_02_UserItemRepresentations',
-    'W02_03_CompatibilityScore',
-    'W02_04_ContrastiveLearning',
-    'W02_05_HardNegatives',
-    'W02_06_ApproximateSearch',
-    'W02_07_RecallLatency',
-    'W02_08_BlendedRetrieval',
-  ],
-  'sequential-city': [
-    'W03_00_SequentialModels',
-    'W03_01_OrderMatters',
-    'W03_02_EventTokens',
-    'W03_03_QueryKeyValue',
-    'W03_04_MultiHeadAttention',
-    'W03_05_TransformerBlock',
-    'W03_06_LearningObjective',
-    'W03_07_SequenceServing',
-    'W03_08_FlashAttention',
-  ],
-  'policy-tower': [
-    'W04_00_DecisionsAndPolicies',
-    'W04_01_PredictionToIntervention',
-    'W04_02_ExploreExploit',
-    'W04_03_Regret',
-    'W04_04_Uncertainty',
-    'W04_05_ContextualBandits',
-    'W04_06_DelayedReward',
-    'W04_07_OfflinePolicyEvaluation',
-    'W04_08_ConstrainedSlate',
-  ],
-  'ecosystem-garden': [
-    'W05_00_FeedbackEcosystems',
-    'W05_01_RecommendationIntervention',
-    'W05_02_FeedbackLoops',
-    'W05_03_ExposureBias',
-    'W05_04_CounterfactualValue',
-    'W05_05_MultiAxisQuality',
-    'W05_06_MMR',
-    'W05_07_LongTermValue',
-    'W05_08_CatalogueHealth',
-  ],
-  'final-arena': [
-    'W06_00_SystemSynthesis',
-    'W06_01_DecisionContract',
-    'W06_02_EvidenceBeforeFeatures',
-    'W06_03_RetrieveAndRank',
-    'W06_04_TasteAndIntent',
-    'W06_05_PredictionAndPolicy',
-    'W06_06_LearningLoop',
-    'W06_07_OperationalReadiness',
-  ],
-}
-
-const THEORY_MANIM_FOLDERS: Record<WorldId, string> = {
-  'foundations-camp': 'world01',
-  'retrieval-valley': 'world02',
-  'sequential-city': 'world03',
-  'policy-tower': 'world04',
-  'ecosystem-garden': 'world05',
-  'final-arena': 'world06',
 }
 
 const unavailableManimClips = new Set<string>()
@@ -169,12 +92,12 @@ function CurvedScreenFallback({ geometry }: { geometry: THREE.PlaneGeometry }) {
 
 function CurvedManimScreen({
   geometry,
-  source,
+  sources,
   onFinished,
   onUnavailable,
 }: {
   geometry: THREE.PlaneGeometry
-  source: string
+  sources: { webm?: string; mp4?: string }
   onFinished: () => void
   onUnavailable: () => void
 }) {
@@ -185,7 +108,12 @@ function CurvedManimScreen({
   useEffect(() => {
     const video = document.createElement('video')
     const supportsWebm = video.canPlayType('video/webm; codecs="vp9"') !== ''
-    video.src = `${source}.${supportsWebm ? 'webm' : 'mp4'}`
+    const source = supportsWebm && sources.webm ? sources.webm : sources.mp4 ?? sources.webm
+    if (!source) {
+      onUnavailable()
+      return
+    }
+    video.src = source
     video.crossOrigin = 'anonymous'
     video.autoplay = true
     video.loop = false
@@ -251,7 +179,7 @@ function CurvedManimScreen({
       video.load()
       videoTexture.dispose()
     }
-  }, [anisotropy, onFinished, onUnavailable, source])
+  }, [anisotropy, onFinished, onUnavailable, sources.mp4, sources.webm])
 
   if (!texture) return <CurvedScreenFallback geometry={geometry} />
 
@@ -471,16 +399,15 @@ function CurvedTheoryScreen({
   accentDark: string
   onFinished: () => void
 }) {
-  const clips = THEORY_MANIM_CLIPS[worldId]
-  const clip = clips[page] ?? clips[0]
-  const source = `/video/manim/${THEORY_MANIM_FOLDERS[worldId]}/${clip}`
-  const [unavailable, setUnavailable] = useState(() => unavailableManimClips.has(source))
+  const { concept } = useTheoryConcept(worldId, page)
+  const sourceKey = `${concept?.video?.webm ?? ''}|${concept?.video?.mp4 ?? ''}`
+  const [unavailable, setUnavailable] = useState(() => unavailableManimClips.has(sourceKey))
   const handleUnavailable = useCallback(() => {
-    unavailableManimClips.add(source)
+    unavailableManimClips.add(sourceKey)
     setUnavailable(true)
-  }, [source])
+  }, [sourceKey])
 
-  if (unavailable) {
+  if (unavailable || !concept?.video) {
     return (
       <ProceduralTheoryScreen
         geometry={geometry}
@@ -496,7 +423,7 @@ function CurvedTheoryScreen({
   return (
     <CurvedManimScreen
       geometry={geometry}
-      source={source}
+      sources={concept.video}
       onFinished={onFinished}
       onUnavailable={handleUnavailable}
     />
@@ -771,7 +698,16 @@ export function TheoryWorldStage({ worldId, accent, accentDark }: TheoryWorldSta
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08
   const screenY = portrait ? 4.5 : 3.05
-  const screenScale = portrait ? 0.47 : 1
+  const { world: contentWorld } = useTheoryWorld(worldId)
+  const screenAtSide = contentWorld?.screenPlacement === 'left'
+    || (!contentWorld && worldId === 'foundations-camp')
+  const screenScale = portrait ? 0.47 : screenAtSide ? SIGNAL_SCREEN_SCALE : 1
+  const screenPosition: [number, number, number] = screenAtSide
+    ? [SIGNAL_SCREEN_POSITION[0], screenY, SIGNAL_SCREEN_POSITION[1]]
+    : [0, screenY, -2.9]
+  const screenRotation: [number, number, number] = screenAtSide
+    ? [0, SIGNAL_SCREEN_ROTATION_Y, 0]
+    : [0, 0, 0]
   const page = useProgress((state) => state.lessonPage)
   const mode = useProgress((state) => state.mode)
   const screenGeometry = useMemo(curvedScreenGeometry, [])
@@ -828,7 +764,7 @@ export function TheoryWorldStage({ worldId, accent, accentDark }: TheoryWorldSta
         <meshBasicMaterial color={accent} transparent opacity={0.13} side={THREE.DoubleSide} />
       </mesh>
 
-      <group ref={screen} position={[0, screenY, -2.9]} scale={screenScale}>
+      <group ref={screen} position={screenPosition} rotation={screenRotation} scale={screenScale}>
         {showingTheory ? (
           <CurvedTheoryScreen
             key={`${worldId}-${page}-${replayVersion}`}
@@ -1262,21 +1198,26 @@ function ReplayConsole({
   )
 }
 
-export function TheoryImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
+export function TheoryImaxCamera({ worldId, worldPosition }: { worldId: WorldId; worldPosition: [number, number, number] }) {
   const camera = useRef<THREE.PerspectiveCamera>(null)
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08
+  const screenAtSide = worldId === 'foundations-camp'
   const target = useMemo(
-    () => new THREE.Vector3(worldPosition[0], 2.28, worldPosition[2] - 0.9),
-    [worldPosition],
+    () => new THREE.Vector3(
+      worldPosition[0] + (screenAtSide && !portrait ? -0.72 : 0),
+      screenAtSide && !portrait ? 2.08 : 2.28,
+      worldPosition[2] + (screenAtSide && !portrait ? -0.2 : -0.9),
+    ),
+    [portrait, screenAtSide, worldPosition],
   )
   const position = useMemo<[number, number, number]>(
     () => [
-      worldPosition[0] + (portrait ? 0 : 0.8),
-      4.65,
-      worldPosition[2] + 10.2,
+      worldPosition[0] + (portrait ? 0 : screenAtSide ? 2.2 : 0.8),
+      screenAtSide && !portrait ? 4.45 : 4.65,
+      worldPosition[2] + (screenAtSide && !portrait ? 10.8 : 10.2),
     ],
-    [portrait, worldPosition],
+    [portrait, screenAtSide, worldPosition],
   )
 
   useFrame(() => {

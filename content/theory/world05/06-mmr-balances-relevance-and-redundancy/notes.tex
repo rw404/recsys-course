@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{MMR balances relevance and redundancy}
+
+\begin{abstract}
+Each next item should be useful and add something the slate does not already contain.
+\end{abstract}
+
+\subsection{Concept}
+Maximal Marginal Relevance greedily selects the next item using its relevance minus its maximum similarity to already selected items. The parameter λ controls the trade-off: λ near one behaves like pure relevance; smaller λ penalizes redundancy more strongly. Similarity may use genre, creator, embeddings or calibrated business groups. MMR is transparent and practical, but it cannot fix poor candidates that retrieval never supplied.
+
+\begin{equation*}
+MMR(i) = λ\cdotrel(i) - (1-λ)\cdotmax_j∈S sim(i, j)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Redundancy.} Repeated information or intent within the same slate.
+\item \textbf{λ (lambda).} The control balancing relevance against diversity in MMR.
+\item \textbf{Greedy re-ranking.} Building a slate one locally best item at a time.
+\end{itemize}

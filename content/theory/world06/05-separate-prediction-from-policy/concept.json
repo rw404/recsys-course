@@ -1,0 +1,5 @@
+{
+  "title": "Separate prediction from policy",
+  "summary": "Scores estimate outcomes; the policy decides exposure, exploration and constraints.",
+  "icon": "policy"
+}

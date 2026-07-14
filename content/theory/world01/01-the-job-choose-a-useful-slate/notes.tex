@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{The job: choose a useful slate}
+
+\begin{abstract}
+A recommender does not predict taste in the abstract. It chooses what to show next.
+\end{abstract}
+
+\subsection{Concept}
+The input is a large catalogue and an incomplete view of the user. The output is a small ordered slate: a home-page row, feed, playlist or set of notifications. “Best” means expected user value under product constraints — not simply the items with the highest click probability. Long-term satisfaction, safety, freshness, availability and business rules can all shape the objective.
+
+\begin{equation*}
+slate* = arg max  E[user value | user, context, slate]  subject to constraints
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Objective.} The measurable outcome the system is designed to improve.
+\item \textbf{Slate.} The ordered set of items shown together.
+\item \textbf{Utility.} The value an outcome creates for the user or product.
+\end{itemize}

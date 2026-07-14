@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Represent both stable taste and current intent}
+
+\begin{abstract}
+Long-term embeddings and recent sequences answer different recommendation questions.
+\end{abstract}
+
+\subsection{Concept}
+Collaborative or two-tower embeddings capture broad affinity and scale well for retrieval. Sequential models capture intent shifts, transitions and recency. A practical design often combines them rather than choosing one ideology: retrieve with stable and session vectors, then let the ranker use both alongside item and context features. Cold-start fallbacks cover the period before either representation is reliable.
+
+\begin{equation*}
+user state = long-term preference ⊕ short-term session intent ⊕ current context
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Long-term profile.} A representation of stable preference across many interactions.
+\item \textbf{Session intent.} The short-term goal inferred from recent ordered behavior.
+\item \textbf{Fallback.} A simpler policy used when features, models or services are unavailable.
+\end{itemize}

@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Represent users and items}
+
+\begin{abstract}
+Two encoders translate different evidence into vectors that can be compared.
+\end{abstract}
+
+\subsection{Concept}
+The user tower combines history, profile and current context. The item tower combines identity, metadata and content. Both emit vectors in one embedding space, where nearby vectors represent a high learned compatibility. Item embeddings are independent of the current request, so they can be computed offline and indexed. The user embedding is produced online and becomes the query. This separation is what makes large-scale retrieval practical.
+
+\begin{equation*}
+q_u = f_user(history, profile, context)      v_i = f_item(id, metadata, content)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Embedding.} A dense vector that represents learned properties and relationships.
+\item \textbf{User tower.} The encoder that turns request-time user evidence into a query vector.
+\item \textbf{Item tower.} The encoder that creates indexable vectors for catalogue items.
+\end{itemize}

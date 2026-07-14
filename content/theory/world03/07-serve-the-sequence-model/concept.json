@@ -1,0 +1,5 @@
+{
+  "title": "Serve the sequence model",
+  "summary": "The online state must reproduce training semantics without rebuilding an unlimited history.",
+  "icon": "pipeline"
+}

@@ -22,6 +22,7 @@ tsconfig.tsbuildinfo
 /.cache/movietweetings/
 /public/data/generated/*
 !/public/data/generated/movietweetings-100k.compact.json
+/public/theory-content/
 
 # scratch capture/gen scripts
 *cap.mjs

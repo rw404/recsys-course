@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{From prediction to intervention}
+
+\begin{abstract}
+The system does not only estimate behavior — it chooses the exposure that can cause it.
+\end{abstract}
+
+\subsection{Concept}
+A ranker may estimate click or watch probability for each item, but serving one item consumes a scarce position and hides alternatives. The action changes the user’s experience and determines the feedback observed. A policy turns model estimates, uncertainty and constraints into a distribution over actions. Separating prediction from decision makes exploration, risk and product objectives explicit.
+
+\begin{equation*}
+scores + uncertainty + constraints  \rightarrow  policy π(a | s)  \rightarrow  exposure
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Action.} The item or slate the system chooses to expose.
+\item \textbf{Policy.} A rule or distribution mapping a state to an action.
+\item \textbf{Intervention.} A choice that changes what the user can experience and do.
+\end{itemize}

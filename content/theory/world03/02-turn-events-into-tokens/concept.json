@@ -1,0 +1,5 @@
+{
+  "title": "Turn events into tokens",
+  "summary": "Identity, action, position and time become the input sequence.",
+  "icon": "transformer"
+}

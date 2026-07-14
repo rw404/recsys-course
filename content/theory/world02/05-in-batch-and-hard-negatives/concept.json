@@ -1,0 +1,5 @@
+{
+  "title": "In-batch and hard negatives",
+  "summary": "Efficient negatives make training scalable; informative negatives make it discriminative.",
+  "icon": "inbatch"
+}

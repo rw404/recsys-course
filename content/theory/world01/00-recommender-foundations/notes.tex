@@ -1,0 +1,38 @@
+% RecSys Odyssey repository-backed lecture note.
+% Figures keep editable TikZ source beside a browser-ready SVG.
+\section{World 01 · Recommender Foundations}
+
+\begin{abstract}
+A recommender is a decision system for limited attention. It turns imperfect evidence about a person, a catalogue and the current context into a small ordered slate, then learns from the response.
+\end{abstract}
+
+\subsection{Begin with the decision}
+Before choosing a model, define the decision tuple: user $u$, context $x$, eligible catalogue $C(x)$, slate size $k$, constraints $\mathcal{K}$ and the value the product should create. A useful abstraction is
+
+\begin{equation*}
+S^*(u,x)=\arg\max_{S\subset C(x),\ |S|=k,\ S\in\mathcal{K}}
+\mathbb{E}\left[V(u,x,S)\right].
+\end{equation*}
+
+The score is not the decision. Retrieval proposes candidates, ranking estimates value, selectors enforce constraints and serving makes the action under a latency budget.
+
+\coursefigure{figures/decision-loop.svg}{A recommendation decision closes a learning loop: evidence shapes a slate, the slate creates exposure, and the response becomes future evidence.}
+
+\subsection{Evidence is created by an earlier policy}
+Clicks, watches and ratings are observations under a previous exposure policy. A missing interaction does not mean dislike: the item may never have been shown. This distinction is the foundation for unbiased evaluation, exploration and reinforcement learning later in the course.
+
+\begin{equation*}
+P(\text{click}) =
+P(\text{exposed})\,
+P(\text{noticed}\mid\text{exposed})\,
+P(\text{preferred}\mid\text{noticed}).
+\end{equation*}
+
+\subsection{Core vocabulary}
+\begin{itemize}
+\item \textbf{Decision.} Select a small ordered slate for this user and moment.
+\item \textbf{Evidence.} Logged behaviour interpreted with its exposure conditions.
+\item \textbf{Pipeline.} A sequence of contracts that narrows, scores, constrains and serves items.
+\item \textbf{Policy.} The rule that turns model estimates and constraints into an action.
+\item \textbf{Evaluation.} Offline ranking evidence plus online product and ecosystem outcomes.
+\end{itemize}

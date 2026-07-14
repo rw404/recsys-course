@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Begin with the decision contract}
+
+\begin{abstract}
+Name the user, moment, eligible catalogue, slate and value before choosing a model.
+\end{abstract}
+
+\subsection{Concept}
+Write the recommendation request as a product decision: who receives it, on which surface, from what eligible items, under which constraints and latency budget. Define the primary user value and the guardrails that must not deteriorate. This contract prevents an offline metric from becoming the objective by accident and gives every later stage a clear responsibility.
+
+\begin{equation*}
+request = (user, context, eligible items, slate size, constraints, latency budget)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Decision contract.} A precise statement of what the recommender must choose and under which limits.
+\item \textbf{Eligibility.} The rules determining which items may be considered for a request.
+\item \textbf{Guardrail.} A protected outcome that constrains optimization and launch decisions.
+\end{itemize}

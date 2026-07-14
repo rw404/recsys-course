@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{The Transformer block}
+
+\begin{abstract}
+Attention mixes positions; the feed-forward network transforms each position.
+\end{abstract}
+
+\subsection{Concept}
+A Transformer block combines multi-head attention with a position-wise feed-forward network. Residual connections preserve information and stabilize gradients; normalization keeps activations well behaved. Stacking blocks expands the depth of interaction the model can express. The final representation of the last token, a special token or a pooled sequence becomes the user state used for retrieval or ranking.
+
+\begin{equation*}
+H′ = Norm(H + MHA(H))      H″ = Norm(H′ + FFN(H′))
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Residual connection.} A skip path that adds a block’s input to its output.
+\item \textbf{Feed-forward network.} A per-position nonlinear transformation after attention.
+\item \textbf{Layer normalization.} Feature-wise normalization that stabilizes optimization.
+\end{itemize}

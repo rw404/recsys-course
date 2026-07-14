@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Recall and coverage answer different questions}
+
+\begin{abstract}
+Recall checks whether good items survived; coverage checks whether the system has breadth.
+\end{abstract}
+
+\subsection{Concept}
+Recall@k asks what fraction of known relevant items reached the top-k. It is especially important for candidate generation: a ranker cannot rescue an item that retrieval dropped. Coverage measures how much of the catalogue, categories or user population receives recommendations. Neither guarantees a satisfying slate, so teams read them beside NDCG, diversity, latency and online outcomes.
+
+\begin{equation*}
+Recall@k = |relevant ∩ top-k| / |relevant|      item coverage = |recommended items| / |catalogue|
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Recall@k.} The fraction of relevant items present in the first k results.
+\item \textbf{Coverage.} The breadth of items, categories or users reached by a policy.
+\item \textbf{Diversity.} How different the items within one slate are from each other.
+\end{itemize}

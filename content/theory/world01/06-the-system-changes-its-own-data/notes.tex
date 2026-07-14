@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{The system changes its own data}
+
+\begin{abstract}
+Recommendations create exposures; exposures create the next training set.
+\end{abstract}
+
+\subsection{Concept}
+Logged behavior is not a neutral sample of preference. The previous policy chose what users could see, top positions received more attention, and popular items accumulated more evidence. Training directly on those logs can amplify the same choices into a feedback loop. Exploration, randomized experiments and debiasing methods help estimate what would have happened under another policy.
+
+\begin{equation*}
+policyₜ \rightarrow exposureₜ \rightarrow behaviorₜ \rightarrow training dataₜ₊₁ \rightarrow policyₜ₊₁
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Position bias.} Items receive different attention because of where they appear.
+\item \textbf{Selection bias.} Observed data over-represents choices made by the current policy.
+\item \textbf{Counterfactual.} The unobserved outcome under a different recommendation.
+\end{itemize}

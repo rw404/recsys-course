@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Evaluate the whole learning loop}
+
+\begin{abstract}
+Offline replay diagnoses models; controlled online experiments test causal product value.
+\end{abstract}
+
+\subsection{Concept}
+Offline evaluation should use temporal splits, strong baselines and metrics matched to each stage. Segment results by user activity, item age and surface rather than trusting one average. Online tests measure causal effects on the primary outcome and guardrails. Long-term holdouts and catalogue-health metrics reveal feedback loops that short experiments miss. A launch is a monitored hypothesis, not the end of evaluation.
+
+\begin{equation*}
+offline quality + load tests + online lift + guardrails + long-term monitoring
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Temporal split.} Training on earlier data and evaluating on later data.
+\item \textbf{A/B test.} Randomized comparison that estimates causal policy impact.
+\item \textbf{Long-term holdout.} A stable control group used to measure accumulated policy effects.
+\end{itemize}

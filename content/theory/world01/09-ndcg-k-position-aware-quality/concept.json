@@ -1,0 +1,5 @@
+{
+  "title": "NDCG@k — position-aware quality",
+  "summary": "NDCG rewards relevant items most when they appear near the top.",
+  "icon": "ndcg"
+}

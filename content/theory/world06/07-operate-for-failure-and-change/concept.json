@@ -1,0 +1,5 @@
+{
+  "title": "Operate for failure and change",
+  "summary": "A good design explains refresh, observability, degradation and rollback before launch.",
+  "icon": "capstone"
+}

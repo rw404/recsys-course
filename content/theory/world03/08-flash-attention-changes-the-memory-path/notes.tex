@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Flash Attention changes the memory path}
+
+\begin{abstract}
+Tiling avoids storing the full score matrix while preserving the attention calculation.
+\end{abstract}
+
+\subsection{Concept}
+Standard implementations materialize an N×N attention matrix and repeatedly move it through slower memory. Flash Attention tiles queries, keys and values through fast on-chip memory and combines partial softmax statistics without storing that full matrix. It computes mathematically equivalent attention up to normal floating-point differences, with far lower memory traffic. Compute remains quadratic in sequence length; peak auxiliary memory becomes linear.
+
+\begin{equation*}
+compute O(N²d), auxiliary memory O(N²)  \rightarrow  O(N) with tiled exact attention
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Tiling.} Processing a large operation as blocks that fit in fast memory.
+\item \textbf{Memory traffic.} Data movement between fast on-chip and slower accelerator memory.
+\item \textbf{Numerical equivalence.} The same mathematical result within floating-point precision.
+\end{itemize}

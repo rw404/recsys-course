@@ -1,0 +1,5 @@
+{
+  "title": "Cold start needs honest baselines",
+  "summary": "When history is missing, simple context and popularity are often the strongest first system.",
+  "icon": "coldstart"
+}

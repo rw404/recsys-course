@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Compatibility becomes a score}
+
+\begin{abstract}
+A cheap geometric score lets one user vector compare against many item vectors.
+\end{abstract}
+
+\subsection{Concept}
+The two towers are trained so positive user–item pairs have a larger dot product or cosine similarity than unrelated pairs. Dot product also carries vector magnitude; cosine similarity compares direction only. Temperature controls how sharply the contrastive objective separates candidates. The score is useful for retrieval, but it is not a calibrated probability and does not include every business or slate-level consideration.
+
+\begin{equation*}
+s(u, i) = q_u^{\mathsf T}v_i      or      cos(q_u, v_i) = q_u^{\mathsf T}v_i / (‖q_u‖‖v_i‖)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Dot product.} A fast compatibility score between two vectors.
+\item \textbf{Cosine similarity.} Similarity based on vector direction after normalization.
+\item \textbf{Temperature.} A scale that controls how sharp contrastive probabilities become.
+\end{itemize}

@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Blend sources and inspect misses}
+
+\begin{abstract}
+One retriever rarely covers every intent, item age and failure mode.
+\end{abstract}
+
+\subsection{Concept}
+Production candidate sets often merge several sources: two-tower similarity, item-to-item neighbors, recent popularity, subscriptions, editorial pools and exploration. Source quotas prevent one retriever from crowding out all others; deduplication and eligibility checks create a clean union. Debugging should trace each final item back to its source and inspect relevant items that were missed. Retrieval is complete only when its outputs are observable and refreshable.
+
+\begin{equation*}
+C = dedupe(C_two-tower \cup C_item-item \cup C_popular \cup C_fresh \cup C_explore)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Candidate source.} One retrieval strategy contributing items to the merged shortlist.
+\item \textbf{Source quota.} A limit or reservation controlling each source’s contribution.
+\item \textbf{Lineage.} A trace of where an item entered and how it moved through the pipeline.
+\end{itemize}

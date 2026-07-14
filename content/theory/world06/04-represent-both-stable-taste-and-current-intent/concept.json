@@ -1,0 +1,5 @@
+{
+  "title": "Represent both stable taste and current intent",
+  "summary": "Long-term embeddings and recent sequences answer different recommendation questions.",
+  "icon": "transformer"
+}

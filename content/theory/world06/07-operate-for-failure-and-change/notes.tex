@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Operate for failure and change}
+
+\begin{abstract}
+A good design explains refresh, observability, degradation and rollback before launch.
+\end{abstract}
+
+\subsection{Concept}
+Document model and index refresh cadence, feature freshness limits, cache behavior and fallbacks. Monitor latency, errors, score drift, candidate-source mix, concentration and outcome shifts. Canary releases and rollback paths reduce blast radius. Ownership matters as much as architecture: alerts need thresholds, runbooks and a team able to act. Production quality is the ability to remain understandable while data and behavior change.
+
+\begin{equation*}
+observe \rightarrow detect \rightarrow degrade safely \rightarrow diagnose lineage \rightarrow rollback or repair
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Canary.} A limited rollout used to detect failures before broad release.
+\item \textbf{Drift.} A change in data, scores or outcomes relative to the expected distribution.
+\item \textbf{Runbook.} An operational procedure for diagnosing and responding to an alert.
+\end{itemize}

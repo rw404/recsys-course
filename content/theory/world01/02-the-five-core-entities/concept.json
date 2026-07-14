@@ -1,0 +1,5 @@
+{
+  "title": "The five core entities",
+  "summary": "Every recommender starts with users, items, interactions, context and a catalogue.",
+  "icon": "entities"
+}

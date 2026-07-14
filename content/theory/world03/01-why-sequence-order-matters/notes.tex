@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Why sequence order matters}
+
+\begin{abstract}
+The same events in a different order can describe a different intent.
+\end{abstract}
+
+\subsection{Concept}
+A user who watches a trailer after browsing family films may want a film tonight; the reverse order may describe idle exploration. Sequential recommenders preserve event order and model transitions, recency and session boundaries. They complement rather than replace long-term preference: a useful state combines stable taste with the current task. The learning target is often the next item or next meaningful action.
+
+\begin{equation*}
+stateₜ = f(long-term profile, i₁, i₂, …, iₜ, contextₜ)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Session.} A contiguous sequence of interactions representing one short-term intent.
+\item \textbf{Next-item prediction.} Predicting the item likely to follow the observed prefix.
+\item \textbf{Recency.} The principle that recent events often carry more current intent.
+\end{itemize}

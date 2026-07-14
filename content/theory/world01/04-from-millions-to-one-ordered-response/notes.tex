@@ -1,0 +1,22 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{From millions to one ordered response}
+
+\begin{abstract}
+Production systems narrow the problem in stages because no single model can do everything.
+\end{abstract}
+
+\subsection{Concept}
+Candidate generation retrieves hundreds or thousands of plausible items from a huge catalogue. A ranker predicts richer per-item utility and orders that shortlist. Re-ranking and selectors enforce diversity, safety, availability and product rules. Serving assembles features, respects latency budgets and returns the final slate. Each stage has its own inputs, failure modes and evaluation.
+
+\begin{equation*}
+catalogue \rightarrow candidates \rightarrow scores \rightarrow re-ranked slate \rightarrow served response
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Retrieval.} Fast narrowing from the full catalogue to candidates.
+\item \textbf{Ranking.} Scoring and ordering candidates for this request.
+\item \textbf{Re-ranking.} Adjusting the order to satisfy slate-level goals and constraints.
+\item \textbf{Serving.} Producing the response online within a latency budget.
+\end{itemize}

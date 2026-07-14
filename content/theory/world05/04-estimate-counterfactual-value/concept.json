@@ -1,0 +1,5 @@
+{
+  "title": "Estimate counterfactual value",
+  "summary": "Propensity weighting asks how outcomes would look under a different exposure policy.",
+  "icon": "debias"
+}

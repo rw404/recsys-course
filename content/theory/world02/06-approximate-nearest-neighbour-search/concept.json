@@ -1,0 +1,5 @@
+{
+  "title": "Approximate nearest-neighbour search",
+  "summary": "The index avoids scanning every vector by organizing the space for fast search.",
+  "icon": "ann"
+}

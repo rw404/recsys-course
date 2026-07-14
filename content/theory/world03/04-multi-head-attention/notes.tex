@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Multi-head attention}
+
+\begin{abstract}
+Several attention subspaces can represent different transition patterns at once.
+\end{abstract}
+
+\subsection{Concept}
+One attention map must compress every relationship into one pattern. Multi-head attention gives each head separate projections, allowing different heads to specialize in recency, repetition, category transitions or long-range dependencies. Their outputs are concatenated and mixed. More heads do not automatically mean more quality: model width, data, regularization and latency must support the added capacity.
+
+\begin{equation*}
+MHA(X) = Concat(head₁, …, headₕ)Wᴼ
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Head.} One independently projected attention computation.
+\item \textbf{Projection.} A learned linear transformation into a head-specific subspace.
+\item \textbf{Model width.} The dimensional capacity shared across the Transformer representation.
+\end{itemize}

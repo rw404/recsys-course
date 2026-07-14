@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{NDCG@k — position-aware quality}
+
+\begin{abstract}
+NDCG rewards relevant items most when they appear near the top.
+\end{abstract}
+
+\subsection{Concept}
+Discounted Cumulative Gain adds graded relevance while reducing the contribution of lower ranks. IDCG is the gain of the ideal ordering for the same items. Dividing by IDCG makes NDCG comparable across users: 1 means the available relevant items are ordered ideally, while 0 means no gain was captured in the evaluated prefix.
+
+\begin{equation*}
+DCG@k = \sum_i₌₁ᵏ (2ʳᵉˡⁱ - 1) / log₂(i + 1)      NDCG@k = DCG@k / IDCG@k
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Gain.} The value assigned to an item’s graded relevance.
+\item \textbf{Discount.} The decreasing weight applied at lower positions.
+\item \textbf{IDCG.} The maximum possible DCG for the same evaluation case.
+\end{itemize}

@@ -1,0 +1,5 @@
+{
+  "title": "Represent users and items",
+  "summary": "Two encoders translate different evidence into vectors that can be compared.",
+  "icon": "twotower"
+}

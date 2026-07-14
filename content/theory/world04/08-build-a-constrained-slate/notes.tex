@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Build a constrained slate}
+
+\begin{abstract}
+The best page is not simply the individually highest-scoring items.
+\end{abstract}
+
+\subsection{Concept}
+Items interact within a slate: duplicates cannibalize attention, diversity can improve discovery and some placements have hard eligibility rules. Exhaustive search over ordered slates is combinatorial. Greedy re-ranking, Maximal Marginal Relevance and beam search construct strong candidates incrementally while enforcing constraints. The policy should log both item-level scores and the final slate transformation so decisions remain explainable.
+
+\begin{equation*}
+keep top-B partial slates \rightarrow extend \rightarrow apply constraints \rightarrow score slate \rightarrow prune
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Slate.} An ordered group of items selected as one action.
+\item \textbf{Beam search.} Search that retains a limited set of best partial solutions.
+\item \textbf{Cannibalization.} Items reducing one another’s value when shown together.
+\end{itemize}

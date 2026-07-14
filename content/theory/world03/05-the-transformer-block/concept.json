@@ -1,0 +1,5 @@
+{
+  "title": "The Transformer block",
+  "summary": "Attention mixes positions; the feed-forward network transforms each position.",
+  "icon": "transformer"
+}

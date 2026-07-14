@@ -1,0 +1,5 @@
+{
+  "title": "Flash Attention changes the memory path",
+  "summary": "Tiling avoids storing the full score matrix while preserving the attention calculation.",
+  "icon": "flash"
+}

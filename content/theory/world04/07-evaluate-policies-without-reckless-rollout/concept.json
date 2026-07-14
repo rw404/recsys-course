@@ -1,0 +1,5 @@
+{
+  "title": "Evaluate policies without reckless rollout",
+  "summary": "Historical logs came from another policy, so offline policy value requires correction.",
+  "icon": "debias"
+}

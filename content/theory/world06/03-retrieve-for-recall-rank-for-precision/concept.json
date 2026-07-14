@@ -1,0 +1,5 @@
+{
+  "title": "Retrieve for recall, rank for precision",
+  "summary": "Use different models for different scales instead of forcing one stage to do every job.",
+  "icon": "pipeline"
+}

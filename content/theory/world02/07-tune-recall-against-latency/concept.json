@@ -1,0 +1,5 @@
+{
+  "title": "Tune recall against latency",
+  "summary": "Faster search visits less of the index; deeper search recovers more relevant items.",
+  "icon": "recall"
+}

@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Serve the sequence model}
+
+\begin{abstract}
+The online state must reproduce training semantics without rebuilding an unlimited history.
+\end{abstract}
+
+\subsection{Concept}
+At request time the service fetches a bounded recent history, applies the same tokenization and mask, and computes a sequence embedding. That vector can query an ANN index, feed a ranker or blend with a long-term user embedding. Caching helps stable prefixes, while incremental state avoids recomputing the whole session after every event. Monitor sequence length, truncation rate, feature freshness and p95 latency by device.
+
+\begin{equation*}
+recent events \rightarrow tokenize \rightarrow Transformer \rightarrow session vector \rightarrow retrieve / rank
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Context window.} The maximum sequence prefix processed for one request.
+\item \textbf{Truncation.} Dropping older events when history exceeds the context window.
+\item \textbf{Incremental inference.} Reusing cached state when new sequence events arrive.
+\end{itemize}

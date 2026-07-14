@@ -1,0 +1,5 @@
+{
+  "title": "Attention: Query, Key, Value",
+  "summary": "Each position asks which earlier events are useful for interpreting the current one.",
+  "icon": "attention"
+}

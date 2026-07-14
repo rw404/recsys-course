@@ -1,0 +1,5 @@
+{
+  "title": "Recall and coverage answer different questions",
+  "summary": "Recall checks whether good items survived; coverage checks whether the system has breadth.",
+  "icon": "recall"
+}

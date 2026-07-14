@@ -1,0 +1,5 @@
+{
+  "title": "The system changes its own data",
+  "summary": "Recommendations create exposures; exposures create the next training set.",
+  "icon": "feedback"
+}

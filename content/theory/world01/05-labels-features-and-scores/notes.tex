@@ -1,0 +1,22 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Labels, features and scores}
+
+\begin{abstract}
+The model learns a target from the past; its score is an estimate, not a fact.
+\end{abstract}
+
+\subsection{Concept}
+A label is the historical outcome chosen for learning: click, completion, rating or future retention. Features describe the user, item and context without using information unavailable at decision time. The model outputs a score such as a probability or expected value. Offline metrics test predictions on held-out logs; online experiments test whether the changed policy actually improves people’s outcomes.
+
+\begin{equation*}
+score(u, i, c) \approx P(label = 1 | user u, item i, context c)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Label.} The outcome used as the learning target.
+\item \textbf{Feature.} An input signal available when the decision is made.
+\item \textbf{Score.} A model estimate used to compare candidates.
+\item \textbf{Online test.} A controlled experiment that measures causal product impact.
+\end{itemize}

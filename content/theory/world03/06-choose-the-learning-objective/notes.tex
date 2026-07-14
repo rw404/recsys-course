@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Choose the learning objective}
+
+\begin{abstract}
+The target determines what information the sequence representation learns to preserve.
+\end{abstract}
+
+\subsection{Concept}
+Autoregressive objectives predict the next event from the past and match online serving naturally. Masked-item objectives hide events and reconstruct them using both sides, which is useful for representation learning but requires care when deployed causally. Losses may contrast the true next item against sampled negatives or classify over a smaller vocabulary. Time gaps, event values and multiple behaviors can become auxiliary targets.
+
+\begin{equation*}
+L_next = -log P(iₜ₊₁ | i₁:ₜ, contextₜ)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Autoregressive.} Predicting future tokens using only the observed prefix.
+\item \textbf{Masked modelling.} Reconstructing hidden tokens from their surrounding context.
+\item \textbf{Auxiliary task.} An additional target used to improve the learned representation.
+\end{itemize}

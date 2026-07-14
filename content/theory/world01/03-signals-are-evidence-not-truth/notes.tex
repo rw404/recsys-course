@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Signals are evidence, not truth}
+
+\begin{abstract}
+A click is evidence of interest, but it is also shaped by what was exposed and where.
+\end{abstract}
+
+\subsection{Concept}
+Explicit feedback is deliberately supplied: ratings, likes, dislikes or survey answers. Implicit feedback is inferred from behavior: impressions, clicks, watch time, skips, purchases and returns. Stronger events are not automatically cleaner. A purchase can reflect price or availability; a long watch can reflect autoplay. Always log the impression as well as the response, otherwise “not clicked” is confused with “never shown.”
+
+\begin{equation*}
+interaction = (user, item, event, timestamp, context, exposure)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Explicit feedback.} A preference the user intentionally reports.
+\item \textbf{Implicit feedback.} A preference inferred from observed behavior.
+\item \textbf{Exposure.} Evidence that an item was actually shown and could be acted on.
+\end{itemize}

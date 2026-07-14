@@ -1,0 +1,17 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Cold start needs honest baselines}
+
+\begin{abstract}
+When history is missing, simple context and popularity are often the strongest first system.
+\end{abstract}
+
+\subsection{Concept}
+New users have little behavioral history; new items have few interactions. This is the cold-start problem. Onboarding preferences, item metadata, contextual popularity and exploration provide a bridge until collaborative evidence arrives. A popularity baseline is not embarrassing — it is fast, robust and essential for measuring whether a complex model creates real incremental value.
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{User cold start.} Making decisions before a user history exists.
+\item \textbf{Item cold start.} Estimating relevance before an item has interactions.
+\item \textbf{Baseline.} A simple reference policy a new method must beat.
+\end{itemize}

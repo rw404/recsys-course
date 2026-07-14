@@ -1,0 +1,16 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Why order matters}
+
+\begin{abstract}
+Users scan from the top and often stop early, so position changes value.
+\end{abstract}
+
+\subsection{Concept}
+Recommendation is a ranking problem, not ordinary classification. A relevant item at position 1 is usually worth more than the same item at position 20. Precision or accuracy that ignores position can report the same result for two slates that feel completely different. Ranking metrics therefore evaluate the top-k prefix and discount lower positions.
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Top-k.} The first k positions of an ordered recommendation list.
+\item \textbf{Relevance.} How useful an item is for the user and objective being evaluated.
+\end{itemize}

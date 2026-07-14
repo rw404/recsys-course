@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Position and exposure bias}
+
+\begin{abstract}
+Higher positions receive more attention even when item quality is unchanged.
+\end{abstract}
+
+\subsection{Concept}
+A click at rank one and a non-click at rank ten are not comparable observations. The first item was easy to notice; the second may never have been examined. Presentation style, device and scroll depth create similar examination effects. Randomized swaps or interleaving experiments can estimate examination propensities. At minimum, logs must preserve rank, page, surface and impression visibility so the bias can be studied.
+
+\begin{equation*}
+P(click | item, position) \approx P(examined | position) \cdot P(relevant | examined, item)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Position bias.} Unequal interaction caused by where an item is displayed.
+\item \textbf{Examination.} The latent event that a user actually notices an exposure.
+\item \textbf{Interleaving.} An online comparison that mixes results from competing rankers.
+\end{itemize}

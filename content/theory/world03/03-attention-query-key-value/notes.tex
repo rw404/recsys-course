@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Attention: Query, Key, Value}
+
+\begin{abstract}
+Each position asks which earlier events are useful for interpreting the current one.
+\end{abstract}
+
+\subsection{Concept}
+Linear projections turn every token into a Query, Key and Value. A query compares with all permitted keys, softmax converts those scores into weights, and the weighted values form a context-aware representation. In a recommendation session, the current position can emphasize a recent genre switch, a repeated creator or a complementary item. Attention weights describe computation, not guaranteed causal explanation.
+
+\begin{equation*}
+Attention(Q,K,V) = softmax(QK^{\mathsf T} / √dₖ + mask) \cdot V
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Query.} The representation of what a position is looking for.
+\item \textbf{Key.} The representation used to decide whether another position is relevant.
+\item \textbf{Value.} The information aggregated after attention weights are computed.
+\end{itemize}

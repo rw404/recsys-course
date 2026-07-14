@@ -1,0 +1,5 @@
+{
+  "title": "Position and exposure bias",
+  "summary": "Higher positions receive more attention even when item quality is unchanged.",
+  "icon": "debias"
+}

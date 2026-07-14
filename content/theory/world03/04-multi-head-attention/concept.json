@@ -1,0 +1,5 @@
+{
+  "title": "Multi-head attention",
+  "summary": "Several attention subspaces can represent different transition patterns at once.",
+  "icon": "multihead"
+}

@@ -1,0 +1,5 @@
+{
+  "title": "Regret measures the learning cost",
+  "summary": "Every suboptimal action has an opportunity cost relative to the unknown best action.",
+  "icon": "bandit"
+}

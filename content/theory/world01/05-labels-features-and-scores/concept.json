@@ -1,0 +1,5 @@
+{
+  "title": "Labels, features and scores",
+  "summary": "The model learns a target from the past; its score is an estimate, not a fact.",
+  "icon": "scores"
+}

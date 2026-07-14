@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{The retrieval contract}
+
+\begin{abstract}
+Retrieval must be fast and generous: shortlist plausible options without trying to finish the ranking.
+\end{abstract}
+
+\subsection{Concept}
+A rich ranker cannot evaluate every item in a large catalogue for every request. Candidate retrieval performs a cheaper first pass and returns a bounded set for downstream scoring. Its primary failure is omission: once a relevant item is dropped, no later model can recover it. That is why retrieval is usually tuned for recall and latency rather than perfect ordering. Eligibility filters, freshness and source quotas also belong in the contract.
+
+\begin{equation*}
+catalogue |I| \gg 10⁶  \rightarrow  retrieve C(u, c), |C| \approx 10²–10³  \rightarrow  rank top-k
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Candidate set.} The bounded shortlist handed from retrieval to ranking.
+\item \textbf{Retrieval recall.} The fraction of relevant items that survive candidate generation.
+\item \textbf{Latency budget.} The maximum online time available to produce candidates.
+\end{itemize}

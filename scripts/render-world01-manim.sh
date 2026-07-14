@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIM_BIN="${MANIM_BIN:-manim}"
 FFMPEG_BIN="${FFMPEG_BIN:-ffmpeg}"
 MEDIA_DIR="${ROOT_DIR}/.manim-media"
-OUTPUT_DIR="${ROOT_DIR}/public/video/manim/world01"
+SOURCE_DIR="${MEDIA_DIR}/videos/world01_signals/888p30"
 
 "${MANIM_BIN}" \
   --resolution 1920,888 \
@@ -16,14 +16,28 @@ OUTPUT_DIR="${ROOT_DIR}/public/video/manim/world01"
   "${ROOT_DIR}/scripts/manim/world01_signals.py" \
   -a
 
-mkdir -p "${OUTPUT_DIR}"
-find "${MEDIA_DIR}/videos/world01_signals/888p30" -maxdepth 1 -name 'W01_*.mp4' -exec cp {} "${OUTPUT_DIR}/" \;
+shopt -s nullglob
+videos=("${SOURCE_DIR}"/W01_*.mp4)
+if (( ${#videos[@]} == 0 )); then
+  printf 'No rendered clips found in %s\n' "${SOURCE_DIR}" >&2
+  exit 1
+fi
 
-for video in "${OUTPUT_DIR}"/W01_*.mp4; do
+for source in "${videos[@]}"; do
+  filename="$(basename "${source}")"
+  concept_index="${filename#W01_}"
+  concept_index="${concept_index%%_*}"
+  concept_directories=("${ROOT_DIR}/content/theory/world01/${concept_index}-"*)
+  if (( ${#concept_directories[@]} != 1 )); then
+    printf 'Expected one concept folder for index %s, found %s\n' "${concept_index}" "${#concept_directories[@]}" >&2
+    exit 1
+  fi
+  target="${concept_directories[0]}"
+  cp "${source}" "${target}/screen.mp4"
   "${FFMPEG_BIN}" \
     -loglevel error \
     -y \
-    -i "${video}" \
+    -i "${target}/screen.mp4" \
     -an \
     -c:v libvpx-vp9 \
     -crf 27 \
@@ -31,7 +45,8 @@ for video in "${OUTPUT_DIR}"/W01_*.mp4; do
     -deadline good \
     -cpu-used 2 \
     -row-mt 1 \
-    "${video%.mp4}.webm"
+    "${target}/screen.webm"
 done
 
-printf 'Rendered World 01 Manim clips to %s\n' "${OUTPUT_DIR}"
+node "${ROOT_DIR}/scripts/build-theory-content.mjs"
+printf 'Rendered %s World 01 Manim clips into repository concept folders\n' "${#videos[@]}"

@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Retrieve for recall, rank for precision}
+
+\begin{abstract}
+Use different models for different scales instead of forcing one stage to do every job.
+\end{abstract}
+
+\subsection{Concept}
+Blend fast candidate sources to preserve relevant and fresh items, then apply richer ranking features to the merged shortlist. Re-ranking handles diversity, constraints and slate interactions. Measure each boundary independently: candidate recall before ranking, ranking quality before selectors, and final outcomes after serving. Stage traces make it possible to explain where a valuable item was lost.
+
+\begin{equation*}
+catalogue \rightarrow multi-source retrieval \rightarrow ranker \rightarrow re-ranker/selectors \rightarrow response
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Stage contract.} The input, output, metric and latency responsibility of one pipeline stage.
+\item \textbf{Candidate recall.} How many relevant items survive retrieval into the ranker.
+\item \textbf{Stage trace.} A record of items entering, leaving and being dropped at every stage.
+\end{itemize}

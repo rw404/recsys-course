@@ -1,0 +1,5 @@
+{
+  "title": "Contextual bandits personalize actions",
+  "summary": "The best action depends on the user and moment, not only on a global arm average.",
+  "icon": "policy"
+}

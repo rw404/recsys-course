@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Delayed reward leads toward RL}
+
+\begin{abstract}
+A click is immediate; trust, retention and habit unfold across many decisions.
+\end{abstract}
+
+\subsection{Concept}
+When one recommendation changes future states and rewards arrive later, independent bandit rounds are no longer enough. A Markov Decision Process models states, actions, transitions and rewards. Reinforcement learning seeks a policy with high discounted return, balancing immediate response against future value. Reward design is critical: an easy proxy such as watch time can create behavior the product never intended.
+
+\begin{equation*}
+Gₜ = rₜ + γrₜ₊₁ + γ²rₜ₊₂ + …
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{State.} The information used to summarize the decision situation.
+\item \textbf{Return.} The discounted sum of present and future rewards.
+\item \textbf{Reward shaping.} Designing reward signals to guide desired policy behavior.
+\end{itemize}

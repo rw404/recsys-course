@@ -1,0 +1,5 @@
+{
+  "title": "Explore by uncertainty",
+  "summary": "UCB and Thompson Sampling focus exploration where the answer is still uncertain.",
+  "icon": "bandit"
+}

@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Estimate counterfactual value}
+
+\begin{abstract}
+Propensity weighting asks how outcomes would look under a different exposure policy.
+\end{abstract}
+
+\subsection{Concept}
+Inverse Propensity Scoring weights an observed reward by the inverse probability that the logging policy chose that action. Rarely shown actions then carry more information. Self-normalized and clipped variants control variance; doubly robust estimators add a reward model. None can repair missing overlap: if the old policy never exposed an action, the log contains no evidence about its outcome.
+
+\begin{equation*}
+r̂_IPS = [π_target(a|x) / π_log(a|x)] \cdot r
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Propensity.} The logging policy’s probability of selecting an observed action.
+\item \textbf{Counterfactual.} The unobserved outcome under another possible action or policy.
+\item \textbf{Weight clipping.} Limiting extreme propensity weights to reduce estimator variance.
+\end{itemize}

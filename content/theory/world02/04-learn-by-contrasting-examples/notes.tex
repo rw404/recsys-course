@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Learn by contrasting examples}
+
+\begin{abstract}
+Positive events say what should be close; negatives give the space its shape.
+\end{abstract}
+
+\subsection{Concept}
+Training examples pair a user state with an engaged item. The loss raises that positive score relative to sampled negatives. With positives alone, the model can assign high scores everywhere and learn no useful boundary. Random negatives teach broad separation, while difficult negatives expose fine distinctions. A missing interaction is not automatically a dislike, so negative sampling is a modelling assumption that must respect exposure.
+
+\begin{equation*}
+L_u = -log [ exp(s^{+}/τ) / (exp(s^{+}/τ) + \sum_j exp(s^{-}_j/τ)) ]
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Positive pair.} A user state and item connected by the target interaction.
+\item \textbf{Negative sample.} An item treated as a contrasting non-target during training.
+\item \textbf{False negative.} A sampled negative the user might actually value.
+\end{itemize}

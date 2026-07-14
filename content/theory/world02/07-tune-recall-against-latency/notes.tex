@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Tune recall against latency}
+
+\begin{abstract}
+Faster search visits less of the index; deeper search recovers more relevant items.
+\end{abstract}
+
+\subsection{Concept}
+ANN is approximate, so serving parameters determine how much work each query performs. Increasing HNSW efSearch or the number of IVF probes usually improves recall but costs CPU and latency. Increasing candidate count gives the ranker more opportunities but also raises feature and scoring cost. Teams evaluate retrieval recall on held-out positives, measure tail latency under realistic load and choose an operating point that protects both.
+
+\begin{equation*}
+operating point = arg max recall@C   subject to p95 latency \le budget
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{efSearch.} The HNSW search breadth used for one query.
+\item \textbf{nprobe.} The number of IVF clusters searched for one query.
+\item \textbf{Tail latency.} Slow-request latency such as p95 or p99, not only the average.
+\end{itemize}

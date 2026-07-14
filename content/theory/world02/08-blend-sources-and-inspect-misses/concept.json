@@ -1,0 +1,5 @@
+{
+  "title": "Blend sources and inspect misses",
+  "summary": "One retriever rarely covers every intent, item age and failure mode.",
+  "icon": "pipeline"
+}

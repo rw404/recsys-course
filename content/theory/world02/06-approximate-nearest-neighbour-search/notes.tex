@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Approximate nearest-neighbour search}
+
+\begin{abstract}
+The index avoids scanning every vector by organizing the space for fast search.
+\end{abstract}
+
+\subsection{Concept}
+Exact search computes a score against every item and becomes too expensive at catalogue scale. ANN indexes visit only a promising fraction of the space. HNSW navigates a layered proximity graph; IVF first chooses nearby coarse clusters and searches inside them. Both expose accuracy–speed controls. The index is an additional system component with build time, memory cost, refresh cadence and possible staleness.
+
+\begin{equation*}
+top-k \approx ANN.query(q_u, k)      search cost ≪ O(|I|\cdotd)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{HNSW.} A graph index that navigates layered nearest-neighbour links.
+\item \textbf{IVF.} An index that searches selected coarse vector clusters.
+\item \textbf{Index freshness.} How quickly new or changed item vectors become searchable.
+\end{itemize}

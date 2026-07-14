@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Explore by uncertainty}
+
+\begin{abstract}
+UCB and Thompson Sampling focus exploration where the answer is still uncertain.
+\end{abstract}
+
+\subsection{Concept}
+Upper Confidence Bound adds an optimism bonus that is largest for rarely selected arms. As evidence accumulates, the bonus shrinks and the policy concentrates on strong actions. Thompson Sampling maintains a posterior for each action, samples a plausible reward from each and chooses the winner. Both direct exploration using uncertainty instead of spending a fixed random fraction everywhere.
+
+\begin{equation*}
+UCBₜ(a) = Q̂ₜ(a) + c √(ln t / Nₜ(a))
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Confidence bound.} A range expressing uncertainty around an estimated reward.
+\item \textbf{Posterior.} A probability distribution over an unknown quantity after observing data.
+\item \textbf{Thompson Sampling.} Choosing actions by sampling from their reward posteriors.
+\end{itemize}

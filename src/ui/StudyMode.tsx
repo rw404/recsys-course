@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpen, Check, Compass, Lightbulb, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Check, Code2, Compass, ExternalLink, FileText, Lightbulb, X } from 'lucide-react'
 import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON, type LessonSection } from '../data/course'
-import { useProgress, type NodeId } from '../state/progress'
+import { NODES, useProgress, type NodeId } from '../state/progress'
+import { useTheorySource, useTheoryWorld, type TheoryConceptContent } from '../content/theoryContent'
+import { RepositoryTheoryNotes } from './TexNotes'
 
-type Card = LessonSection & { intro?: boolean }
+type Card = LessonSection & { intro?: boolean; content?: TheoryConceptContent }
 
 /** Per-lesson content, keyed by the lesson node the player interacted with. */
 const LESSONS: Record<
@@ -146,12 +148,33 @@ export function StudyMode() {
     () => LESSONS[activeNodeId ?? 'week01-station'] ?? LESSONS['week01-station'],
     [activeNodeId],
   )
-  const cards = lesson.cards
+  const worldId = NODES[lesson.nodeId].worldId
+  const { manifest, world: contentWorld } = useTheoryWorld(worldId)
+  const cards = useMemo<Card[]>(() => {
+    const contentByIndex = new Map(contentWorld?.concepts.map((concept) => [concept.index, concept]) ?? [])
+    const cardCount = Math.max(lesson.cards.length, contentWorld?.concepts.length ?? 0)
+    return Array.from({ length: cardCount }, (_, cardIndex) => {
+      const fallback = lesson.cards[cardIndex]
+      const content = contentByIndex.get(cardIndex) ?? contentWorld?.concepts[cardIndex]
+      if (!content) return fallback
+      return {
+        ...fallback,
+        heading: content.title || fallback?.heading || `Concept ${cardIndex + 1}`,
+        body: fallback?.body || content.summary,
+        narration: content.summary || fallback?.narration || fallback?.body,
+        icon: (content.icon as LessonSection['icon']) ?? fallback?.icon,
+        intro: fallback?.intro ?? cardIndex === 0,
+        content,
+      }
+    }).filter((card): card is Card => Boolean(card))
+  }, [contentWorld, lesson.cards])
   const done = useProgress((s) => s.completed[lesson.nodeId])
   const preview = useProgress((s) => s.getNodeState(lesson.nodeId) === 'locked_for_credit')
 
   const [index, setIndex] = useState(() => Math.min(useProgress.getState().lessonPage, cards.length - 1))
   const card = cards[index]
+  const concept = card?.content ?? contentWorld?.concepts.find((item) => item.index === index) ?? null
+  const notes = useTheorySource(concept?.notes)
   const last = index === cards.length - 1
   const progress = ((index + 1) / cards.length) * 100
 
@@ -193,6 +216,9 @@ export function StudyMode() {
         progress={progress}
         done={done}
         preview={preview}
+        concept={concept}
+        notes={notes}
+        repository={manifest?.repository ?? null}
         onSelect={setIndex}
         onClose={closeNode}
         onFinish={finish}
@@ -313,6 +339,9 @@ function ImaxLesson({
   progress,
   done,
   preview,
+  concept,
+  notes,
+  repository,
   onSelect,
   onClose,
   onFinish,
@@ -324,16 +353,27 @@ function ImaxLesson({
   progress: number
   done: boolean
   preview: boolean
+  concept: TheoryConceptContent | null
+  notes: { source: string | null; loading: boolean; error: string | null }
+  repository: string | null
   onSelect: (index: number) => void
   onClose: () => void
   onFinish: () => void
 }) {
-  const [notesOpen, setNotesOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(() => (
+    typeof window !== 'undefined'
+      && window.matchMedia('(min-width: 1100px)').matches
+  ))
+  const [sourceView, setSourceView] = useState(false)
   const last = index === cards.length - 1
+  const notesFilename = concept?.notesFormat === 'markdown' ? 'notes.md' : 'notes.tex'
+  const repositoryNotesUrl = repository && concept
+    ? `${repository}/blob/main/${concept.repositoryPath}/${notesFilename}`
+    : null
 
   useEffect(() => {
-    setNotesOpen(false)
-  }, [index])
+    setSourceView(false)
+  }, [concept?.repositoryPath, index])
 
   return (
     <div
@@ -380,27 +420,80 @@ function ImaxLesson({
 
       <aside className="imax-notes" id="imax-theory-notes" aria-hidden={!notesOpen}>
         <header>
-          <span>DETAILED THEORY</span>
+          <div className="imax-notes-heading">
+            <span>REPOSITORY LECTURE</span>
+            <small>{concept ? `${concept.repositoryPath}/${notesFilename}` : 'Embedded course note'}</small>
+          </div>
           <button type="button" className="imax-icon-button" onClick={() => setNotesOpen(false)} aria-label="Close theory notes">
             <X size={18} aria-hidden />
           </button>
         </header>
+        <div className="imax-notes-toolbar" aria-label="Theory note view">
+          <div className="imax-notes-tabs">
+            <button
+              type="button"
+              className={!sourceView ? 'is-active' : ''}
+              onClick={() => setSourceView(false)}
+              aria-pressed={!sourceView}
+            >
+              <FileText size={15} aria-hidden />
+              Rendered
+            </button>
+            <button
+              type="button"
+              className={sourceView ? 'is-active' : ''}
+              onClick={() => setSourceView(true)}
+              aria-pressed={sourceView}
+              disabled={!notes.source}
+            >
+              <Code2 size={15} aria-hidden />
+              TeX source
+            </button>
+          </div>
+          {repositoryNotesUrl && (
+            <a href={repositoryNotesUrl} target="_blank" rel="noreferrer" aria-label="Open note in repository" title="Open in repository">
+              <ExternalLink size={16} aria-hidden />
+            </a>
+          )}
+        </div>
         <div className="imax-notes-scroll">
-          <h2>{card.heading}</h2>
-          <p>{card.body}</p>
-          {card.formula && <div className="imax-notes-formula">{card.formula}</div>}
-          {card.terms && card.terms.length > 0 && (
-            <div className="imax-notes-terms">
-              <h3>Key terms</h3>
-              <dl>
-                {card.terms.map(({ term, definition }) => (
-                  <div key={term}>
-                    <dt>{term}</dt>
-                    <dd>{definition}</dd>
-                  </div>
-                ))}
-              </dl>
+          {notes.loading && <div className="repo-tex-status">Loading <code>{notesFilename}</code>...</div>}
+          {notes.error && (
+            <div className="repo-tex-status is-error">
+              <strong>Repository note is unavailable</strong>
+              <span>{notes.error}</span>
             </div>
+          )}
+          {notes.source && concept && concept.notesFormat === 'tex' && (
+            <RepositoryTheoryNotes
+              source={notes.source}
+              concept={concept}
+              repository={repository}
+              sourceView={sourceView}
+            />
+          )}
+          {notes.source && concept?.notesFormat === 'markdown' && (
+            <pre className="repo-tex-source"><code>{notes.source}</code></pre>
+          )}
+          {!notes.loading && !notes.source && !notes.error && (
+            <>
+              <h2>{card.heading}</h2>
+              <p>{card.body}</p>
+              {card.formula && <div className="imax-notes-formula">{card.formula}</div>}
+              {card.terms && card.terms.length > 0 && (
+                <div className="imax-notes-terms">
+                  <h3>Key terms</h3>
+                  <dl>
+                    {card.terms.map(({ term, definition }) => (
+                      <div key={term}>
+                        <dt>{term}</dt>
+                        <dd>{definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+            </>
           )}
         </div>
       </aside>

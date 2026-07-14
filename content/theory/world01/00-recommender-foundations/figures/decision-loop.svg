@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 420" role="img" aria-labelledby="title desc">
+  <title id="title">Recommendation decision loop</title>
+  <desc id="desc">Evidence flows through models into an ordered slate. Exposure and response return as future evidence.</desc>
+  <defs>
+    <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#3ebc83"/></marker>
+    <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#35afc0"/></marker>
+    <marker id="arrow-violet" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#6a5ae0"/></marker>
+    <marker id="arrow-amber" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#e7ae43"/></marker>
+  </defs>
+  <rect width="840" height="420" fill="#f5faf9"/>
+  <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M216 119H318" stroke="#3ebc83" marker-end="url(#arrow-green)"/>
+    <path d="M518 119H620" stroke="#35afc0" marker-end="url(#arrow-teal)"/>
+    <path d="M720 160V244" stroke="#6a5ae0" marker-end="url(#arrow-violet)"/>
+    <path d="M620 304H518" stroke="#e7ae43" marker-end="url(#arrow-amber)"/>
+    <path d="M318 304H119Q82 304 82 267V162" stroke="#3ebc83" marker-end="url(#arrow-green)"/>
+  </g>
+  <g font-family="Inter, system-ui, sans-serif" text-anchor="middle">
+    <g>
+      <rect x="36" y="78" width="180" height="84" rx="12" fill="#edf9f3" stroke="#3ebc83" stroke-width="4"/>
+      <text x="126" y="114" fill="#17383d" font-size="21" font-weight="750">Evidence</text>
+      <text x="126" y="140" fill="#6b8185" font-size="14">logs and context</text>
+    </g>
+    <g>
+      <rect x="318" y="78" width="200" height="84" rx="12" fill="#edf9fa" stroke="#35afc0" stroke-width="4"/>
+      <text x="418" y="114" fill="#17383d" font-size="21" font-weight="750">Models</text>
+      <text x="418" y="140" fill="#6b8185" font-size="14">retrieve and rank</text>
+    </g>
+    <g>
+      <rect x="620" y="78" width="180" height="84" rx="12" fill="#f1effc" stroke="#6a5ae0" stroke-width="4"/>
+      <text x="710" y="114" fill="#17383d" font-size="21" font-weight="750">Slate</text>
+      <text x="710" y="140" fill="#6b8185" font-size="14">ordered action</text>
+    </g>
+    <g>
+      <rect x="620" y="262" width="180" height="84" rx="12" fill="#fff8e8" stroke="#e7ae43" stroke-width="4"/>
+      <text x="710" y="298" fill="#17383d" font-size="21" font-weight="750">Response</text>
+      <text x="710" y="324" fill="#6b8185" font-size="14">click, watch, skip</text>
+    </g>
+    <g>
+      <rect x="318" y="262" width="200" height="84" rx="12" fill="#edf9f3" stroke="#3ebc83" stroke-width="4"/>
+      <text x="418" y="298" fill="#17383d" font-size="21" font-weight="750">Exposure</text>
+      <text x="418" y="324" fill="#6b8185" font-size="14">what was observable</text>
+    </g>
+    <text x="418" y="210" fill="#6b8185" font-size="15">the policy changes the data it will later learn from</text>
+  </g>
+</svg>

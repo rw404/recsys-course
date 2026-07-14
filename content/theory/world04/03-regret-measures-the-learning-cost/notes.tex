@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Regret measures the learning cost}
+
+\begin{abstract}
+Every suboptimal action has an opportunity cost relative to the unknown best action.
+\end{abstract}
+
+\subsection{Concept}
+A bandit observes only the reward of the chosen arm, not the outcomes of unshown alternatives. Cumulative regret adds the reward gap between each chosen action and the optimal action. Low regret means the policy learned efficiently over its horizon. The metric is useful in simulation and theory; production systems must also account for guardrails, non-stationarity and rewards that cannot be observed immediately.
+
+\begin{equation*}
+R_T = \sumₜ₌₁^{\mathsf T} [ μ(a*) - μ(aₜ) ]
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Bandit feedback.} Only the reward for the selected action is observed.
+\item \textbf{Regret.} Cumulative opportunity cost relative to the best action.
+\item \textbf{Horizon.} The number of decisions over which a policy is evaluated.
+\end{itemize}

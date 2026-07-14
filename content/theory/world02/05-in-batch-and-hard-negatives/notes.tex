@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{In-batch and hard negatives}
+
+\begin{abstract}
+Efficient negatives make training scalable; informative negatives make it discriminative.
+\end{abstract}
+
+\subsection{Concept}
+In-batch training reuses every other item in a mini-batch as a negative, producing many comparisons with no extra item encoding. Large batches make this powerful but over-represent popular items. Hard negatives come from a previous model or ANN index: they look plausible yet were not chosen, so they teach the boundary near the decision. They also increase false-negative risk, which is why exposure checks, popularity correction and a mixture of easy and hard samples matter.
+
+\begin{equation*}
+batch of B positives  \rightarrow  B × (B-1) in-batch comparisons
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{In-batch negative.} Another example’s positive item reused as a negative.
+\item \textbf{Hard negative.} A highly scored but non-target item that challenges the model.
+\item \textbf{Popularity correction.} Reweighting that reduces bias from frequently sampled items.
+\end{itemize}

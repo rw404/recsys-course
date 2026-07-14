@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Design evidence before features}
+
+\begin{abstract}
+Reliable impressions, outcomes and timestamps matter more than a long feature list.
+\end{abstract}
+
+\subsection{Concept}
+Specify impression logging, user responses, delayed outcomes and catalogue snapshots before training. Define labels with observation windows and avoid features that use future information. Join logic must reproduce the state that existed when the decision was made. Version datasets and transformations so an item can be traced from raw event to score and final slate.
+
+\begin{equation*}
+event time + point-in-time joins + label window  \rightarrow  reproducible training example
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Point-in-time join.} A feature join that uses only information available at decision time.
+\item \textbf{Label window.} The period after exposure in which an outcome is attributed.
+\item \textbf{Data lineage.} The trace from source events through transformations to model inputs.
+\end{itemize}

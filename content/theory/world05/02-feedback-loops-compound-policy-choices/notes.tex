@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Feedback loops compound policy choices}
+
+\begin{abstract}
+Today’s ranking becomes tomorrow’s evidence, so small advantages can grow automatically.
+\end{abstract}
+
+\subsection{Concept}
+The policy determines exposure, exposed items collect interactions, and those interactions train the next model. Popular items therefore receive more evidence and can appear better even when initial exposure caused the difference. New and niche items remain data-poor. Monitoring only aggregate CTR can hide this concentration because the policy gets better at harvesting its own familiar audience while the reachable catalogue shrinks.
+
+\begin{equation*}
+policyₜ \rightarrow exposureₜ \rightarrow behaviorₜ \rightarrow logsₜ \rightarrow modelₜ₊₁ \rightarrow policyₜ₊₁
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Feedback loop.} A cycle in which model decisions shape future training data.
+\item \textbf{Popularity bias.} Systematic advantage given to already popular items.
+\item \textbf{Concentration.} Attention accumulating on a small share of the catalogue.
+\end{itemize}

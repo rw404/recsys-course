@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Separate prediction from policy}
+
+\begin{abstract}
+Scores estimate outcomes; the policy decides exposure, exploration and constraints.
+\end{abstract}
+
+\subsection{Concept}
+The serving policy combines predicted utility with uncertainty, exploration, business rules and slate goals. Log action propensities whenever policy learning or counterfactual evaluation is planned. Keep exploration bounded by safety and user experience. For delayed outcomes, state the reward horizon and inspect whether optimizing the proxy produces the intended behavior.
+
+\begin{equation*}
+model scores + uncertainty + constraints \rightarrow π(slate | state) \rightarrow logged propensity
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Scoring model.} A predictor estimating an outcome for a user–item pair.
+\item \textbf{Serving policy.} The decision rule that converts evidence into an exposed slate.
+\item \textbf{Reward horizon.} How far into the future policy value is measured.
+\end{itemize}

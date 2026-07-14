@@ -256,7 +256,12 @@ export function CloudCourseWorld() {
       )}
       <CloudReveal key={`reveal-${atlasOpen ? 'journey' : 'world'}-${currentWorld}`} worldId={currentWorld} />
       <IsometricCamera />
-      {theoryImax && <TheoryImaxCamera worldPosition={COURSE_WORLD_BY_ID[currentWorld].position} />}
+      {theoryImax && (
+        <TheoryImaxCamera
+          worldId={currentWorld}
+          worldPosition={COURSE_WORLD_BY_ID[currentWorld].position}
+        />
+      )}
     </>
   )
 }

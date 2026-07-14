@@ -1,0 +1,21 @@
+% RecSys Odyssey repository-backed lecture note.
+% Add figures with: \coursefigure{figures/name.svg}{Caption}
+\section{Turn events into tokens}
+
+\begin{abstract}
+Identity, action, position and time become the input sequence.
+\end{abstract}
+
+\subsection{Concept}
+Each interaction is encoded as an item embedding plus information about event type, position, time gap and context. Positional encodings distinguish “A then B” from “B then A”. Padding makes variable-length sessions batchable, while an attention mask prevents padded or future positions from leaking information. Long histories are usually truncated, sampled or summarized to fit a serving window.
+
+\begin{equation*}
+xₜ = item(iₜ) + event(eₜ) + position(t) + time-gap(Δt)
+\end{equation*}
+
+\subsection{Key terms}
+\begin{itemize}
+\item \textbf{Token.} One encoded event or item position in the model input.
+\item \textbf{Positional encoding.} Information that lets attention distinguish sequence order.
+\item \textbf{Causal mask.} A mask that prevents a position from reading future events.
+\end{itemize}
