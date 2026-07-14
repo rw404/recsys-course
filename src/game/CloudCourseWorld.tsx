@@ -37,6 +37,9 @@ import {
 } from './theoryStageLayout'
 
 const PLAYER_Y = 0.76
+// The IMAX cylinder tops out 0.25 units above the regular island surface.
+const THEORY_STAGE_SURFACE_LIFT = 0.25
+const THEORY_PLAYER_Y = PLAYER_Y + THEORY_STAGE_SURFACE_LIFT
 const ISLAND_RADIUS = 4.75
 const WALK_RADIUS = 4.44
 const PORTAL_OFFSET_Z = 2.92
@@ -44,6 +47,7 @@ const CAMERA_OFFSET = new THREE.Vector3(24, 27, 34)
 const FORWARD = new THREE.Vector3(-0.58, 0, -0.82)
 const RIGHT = new THREE.Vector3(0.82, 0, -0.58)
 const WALK_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -PLAYER_Y)
+const THEORY_WALK_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -THEORY_PLAYER_Y)
 const NODE_APPROACH_MARGIN = 0.26
 const NODE_INTERACTION_DISTANCE = 1.25
 
@@ -211,6 +215,7 @@ export function CloudCourseWorld() {
   const mode = useProgress((state) => state.mode)
   const activeNodeId = useProgress((state) => state.activeNodeId)
   const theoryImax = mode === 'study' && isTheoryLesson(activeNodeId)
+  const theoryStageVisible = currentWorld === 'foundations-camp' || theoryImax
   return (
     <>
       <SkyDome />
@@ -243,7 +248,12 @@ export function CloudCourseWorld() {
       {atlasOpen
         ? <JourneyTraveler key={`journey-traveler-${currentWorld}`} worldId={currentWorld} />
         : <CourseTraveler key={`traveler-${currentWorld}`} worldId={currentWorld} />}
-      {!atlasOpen && <MoveDestinationMarker accent={COURSE_WORLD_BY_ID[currentWorld].accent} />}
+      {!atlasOpen && (
+        <MoveDestinationMarker
+          accent={COURSE_WORLD_BY_ID[currentWorld].accent}
+          y={0.21 + (theoryStageVisible ? THEORY_STAGE_SURFACE_LIFT : 0)}
+        />
+      )}
       <CloudReveal key={`reveal-${atlasOpen ? 'journey' : 'world'}-${currentWorld}`} worldId={currentWorld} />
       <IsometricCamera />
       {theoryImax && <TheoryImaxCamera worldPosition={COURSE_WORLD_BY_ID[currentWorld].position} />}
@@ -325,6 +335,7 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
     && mode === 'study'
     && activeNodeId === THEORY_LESSON_BY_WORLD[world.id]
   const movementEnabled = mode === 'explore' || theoryExperience
+  const raisedWalkSurface = signalExperience || theoryExperience
   const nodes = WORLD_NODE_IDS[world.id]
   const visibleSignalNodes = nodes
     .map((id, index) => ({ id, index }))
@@ -363,8 +374,8 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
     runtime.pendingOpen = null
     runtime.pendingSceneAction = null
     const target = new THREE.Vector3()
-    if (!event.ray.intersectPlane(WALK_PLANE, target)) return
-    target.y = PLAYER_Y
+    if (!event.ray.intersectPlane(raisedWalkSurface ? THEORY_WALK_PLANE : WALK_PLANE, target)) return
+    target.y = raisedWalkSurface ? THEORY_PLAYER_Y : PLAYER_Y
     setCourseMoveTarget(world.id, target)
   }
 
@@ -1336,10 +1347,12 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
   const setNearby = useProgress((state) => state.setNearby)
   const openNode = useProgress((state) => state.openNode)
   const theoryImax = mode === 'study' && isTheoryLesson(activeNodeId)
+  const theoryStageVisible = worldId === 'foundations-camp' || theoryImax
+  const playerY = theoryStageVisible ? THEORY_PLAYER_Y : PLAYER_Y
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08
   const world = COURSE_WORLD_BY_ID[worldId]
-  const center = useMemo(() => new THREE.Vector3(world.position[0], PLAYER_Y, world.position[2]), [world])
+  const center = useMemo(() => new THREE.Vector3(world.position[0], playerY, world.position[2]), [playerY, world])
   const obstacles = useMemo(
     () => worldNavigationObstacles(worldId, !theoryImax, theoryImax),
     [theoryImax, worldId],
@@ -1351,6 +1364,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
 
   useEffect(() => {
     projectOutsideObstacles(position.current, obstacles)
+    position.current.y = playerY
     runtime.playerPosition.copy(position.current)
     clearCourseMoveTarget()
     runtime.requestMove = (target, targetMargin) => setCourseMoveTarget(worldId, target, targetMargin)
@@ -1361,7 +1375,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       runtime.requestMove = null
       setNearby(null)
     }
-  }, [obstacles, setNearby, worldId])
+  }, [obstacles, playerY, setNearby, worldId])
 
   useEffect(() => {
     if (theoryImax && !theoryImaxWasActive.current) {
@@ -1371,7 +1385,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
           : new THREE.Vector3(-1.75, 0, 2.75),
       )
       projectOutsideObstacles(theaterApron, obstacles, 0.16)
-      position.current.copy(theaterApron).setY(PLAYER_Y)
+      position.current.copy(theaterApron).setY(playerY)
       velocity.current.set(0, 0, 0)
       desired.current.set(0, 0, 0)
       runtime.playerPosition.copy(position.current)
@@ -1380,7 +1394,7 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       runtime.pendingSceneAction = null
     }
     theoryImaxWasActive.current = theoryImax
-  }, [center, obstacles, portrait, theoryImax])
+  }, [center, obstacles, playerY, portrait, theoryImax])
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
@@ -1437,14 +1451,14 @@ function CourseTraveler({ worldId }: { worldId: WorldId }) {
       delta.current.multiplyScalar(1 / boundaryDistance)
       position.current.set(
         center.x + delta.current.x * WALK_RADIUS,
-        PLAYER_Y,
+        playerY,
         center.z + delta.current.z * WALK_RADIUS,
       )
       const outwardVelocity = velocity.current.dot(delta.current)
       if (outwardVelocity > 0) velocity.current.addScaledVector(delta.current, -outwardVelocity)
     }
     resolveObstacleCollisions(position.current, velocity.current, obstacles)
-    position.current.y = PLAYER_Y
+    position.current.y = playerY
 
     group.current.position.copy(position.current)
     runtime.playerPosition.copy(position.current)
@@ -1553,7 +1567,7 @@ function RoutePacket({ curve, offset }: { curve: THREE.CatmullRomCurve3; offset:
   )
 }
 
-function MoveDestinationMarker({ accent }: { accent: string }) {
+function MoveDestinationMarker({ accent, y }: { accent: string; y: number }) {
   const group = useRef<THREE.Group>(null)
 
   useFrame(({ clock }) => {
@@ -1561,7 +1575,7 @@ function MoveDestinationMarker({ accent }: { accent: string }) {
     const destination = runtime.moveDestination
     group.current.visible = Boolean(destination)
     if (!destination) return
-    group.current.position.set(destination.x, 0.21, destination.z)
+    group.current.position.set(destination.x, y, destination.z)
     const pulse = 0.94 + Math.sin(clock.elapsedTime * 5.2) * 0.08
     group.current.scale.setScalar(pulse)
     group.current.rotation.y = clock.elapsedTime * 0.5
