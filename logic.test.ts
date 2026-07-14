@@ -369,6 +369,24 @@ console.log('course navigation:')
     },
   )
 
+  const signalScreenObstacles = SIGNAL_STAGE_OBSTACLES.filter((item) => item.id.startsWith('signal-screen-'))
+  const signalScreenX = signalScreenObstacles.map((item) => item.x)
+  const signalScreenZ = signalScreenObstacles.map((item) => item.z)
+  const signalScreenSpanX = Math.max(...signalScreenX) - Math.min(...signalScreenX)
+  const signalScreenSpanZ = Math.max(...signalScreenZ) - Math.min(...signalScreenZ)
+  assert(
+    'foundations IMAX stays centered across the x axis',
+    signalScreenObstacles.length === 7 && signalScreenSpanX > 8.5 && signalScreenSpanZ < 0.9,
+    { signalScreenSpanX, signalScreenSpanZ, signalScreenObstacles },
+  )
+  const signalScreenStaysSolid = signalScreenObstacles.every((obstacle) => {
+    const target = new THREE.Vector3(obstacle.x, 0, obstacle.z)
+    projectOutsideObstacles(target, [obstacle])
+    return Math.hypot(target.x - obstacle.x, target.z - obstacle.z)
+      >= obstacle.radius + PLAYER_COLLISION_RADIUS - 1e-6
+  })
+  assert('foundations IMAX keeps the character outside its curved surface', signalScreenStaysSolid)
+
   const contentObstacles = SIGNAL_STAGE_OBSTACLES.filter((item) => item.id.startsWith('signal-content-'))
   assert('every content pedestal has its own collider', contentObstacles.length === 3, {
     contentObstacles,

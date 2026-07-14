@@ -37,7 +37,7 @@ for (const world of worlds) {
 
 const foundations = manifest.worlds['foundations-camp']
 assert.ok(foundations)
-assert.equal(foundations.screenPlacement, 'left')
+assert.equal(foundations.screenPlacement, 'center')
 assert.ok(foundations.concepts.every((concept) => concept.video?.mp4 && concept.video?.webm))
 assert.ok(foundations.concepts[0].figures.some((figure) => figure.id === 'decision-loop'))
 

@@ -32,12 +32,12 @@ directory becomes the next chapter automatically. Every world currently has a co
   "lessonNodeId": "week01-station",
   "title": "Recommender Foundations",
   "kicker": "World 01 · Recommender Foundations",
-  "screenPlacement": "left"
+  "screenPlacement": "center"
 }
 ```
 
-`screenPlacement` can be `left` or `center`. World 01 uses the side-mounted Meta Horizon
-composition; other worlds keep the screen centered.
+`screenPlacement` is kept in the manifest so individual worlds can evolve independently.
+The current course uses a centered, front-facing IMAX screen in every theory world.
 
 ### `concept.json`
 

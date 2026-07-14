@@ -9,9 +9,9 @@ export const SIGNAL_CONTENT_PEDESTALS = [
 ] as const
 
 export const SIGNAL_REPLAY_CONSOLE_POSITION = [-1.2, -0.95] as const
-export const SIGNAL_SCREEN_POSITION = [-1.75, -2.15] as const
-export const SIGNAL_SCREEN_ROTATION_Y = 0.28
-export const SIGNAL_SCREEN_SCALE = 0.8
+
+const SIGNAL_SCREEN_HALF_WIDTH = 4.6
+const SIGNAL_SCREEN_CURVE_DEPTH = 0.86
 
 function contentStagePosition(localX: number, localZ: number): { x: number; z: number } {
   const cosine = Math.cos(SIGNAL_CONTENT_GROUP_ROTATION_Y)
@@ -30,13 +30,13 @@ const contentPedestalObstacles: NavigationObstacle[] = SIGNAL_CONTENT_PEDESTALS.
   }),
 )
 
-const screenObstacles: NavigationObstacle[] = [-3.6, -1.8, 0, 1.8, 3.6].map((localX, index) => {
-  const scaledX = localX * SIGNAL_SCREEN_SCALE
+const screenObstacles: NavigationObstacle[] = [-4.5, -3, -1.5, 0, 1.5, 3, 4.5].map((sampleX, index) => {
+  const normalizedX = sampleX / SIGNAL_SCREEN_HALF_WIDTH
   return {
     id: `signal-screen-${index + 1}`,
-    x: SIGNAL_SCREEN_POSITION[0] + scaledX * Math.cos(SIGNAL_SCREEN_ROTATION_Y),
-    z: SIGNAL_SCREEN_POSITION[1] - scaledX * Math.sin(SIGNAL_SCREEN_ROTATION_Y),
-    radius: 0.58,
+    x: sampleX,
+    z: -2.9 + SIGNAL_SCREEN_CURVE_DEPTH * normalizedX * normalizedX,
+    radius: 0.62,
   }
 })
 

@@ -32,7 +32,7 @@ const WORLDS: WorldSeed[] = [
     lessonNodeId: 'week01-station',
     title: 'Recommender Foundations',
     kicker: 'World 01 · Recommender Foundations',
-    screenPlacement: 'left',
+    screenPlacement: 'center',
     introNarration: 'Start with the decision, the evidence and the stages. Every later model fits into this map.',
     lesson: WEEK01_LESSON,
   },

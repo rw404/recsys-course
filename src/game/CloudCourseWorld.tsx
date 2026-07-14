@@ -258,7 +258,6 @@ export function CloudCourseWorld() {
       <IsometricCamera />
       {theoryImax && (
         <TheoryImaxCamera
-          worldId={currentWorld}
           worldPosition={COURSE_WORLD_BY_ID[currentWorld].position}
         />
       )}

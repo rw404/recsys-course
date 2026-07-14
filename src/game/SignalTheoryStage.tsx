@@ -3,15 +3,12 @@ import { Html, PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useProgress, type WorldId } from '../state/progress'
-import { useTheoryConcept, useTheoryWorld } from '../content/theoryContent'
+import { useTheoryConcept } from '../content/theoryContent'
 import {
   SIGNAL_CONTENT_GROUP_POSITION,
   SIGNAL_CONTENT_GROUP_ROTATION_Y,
   SIGNAL_CONTENT_PEDESTALS,
   SIGNAL_REPLAY_CONSOLE_POSITION,
-  SIGNAL_SCREEN_POSITION,
-  SIGNAL_SCREEN_ROTATION_Y,
-  SIGNAL_SCREEN_SCALE,
 } from './signalStageLayout'
 import { THEORY_EXHIBIT_OBSTACLES } from './theoryStageLayout'
 
@@ -698,16 +695,7 @@ export function TheoryWorldStage({ worldId, accent, accentDark }: TheoryWorldSta
   const { size } = useThree()
   const portrait = size.height > size.width * 1.08
   const screenY = portrait ? 4.5 : 3.05
-  const { world: contentWorld } = useTheoryWorld(worldId)
-  const screenAtSide = contentWorld?.screenPlacement === 'left'
-    || (!contentWorld && worldId === 'foundations-camp')
-  const screenScale = portrait ? 0.47 : screenAtSide ? SIGNAL_SCREEN_SCALE : 1
-  const screenPosition: [number, number, number] = screenAtSide
-    ? [SIGNAL_SCREEN_POSITION[0], screenY, SIGNAL_SCREEN_POSITION[1]]
-    : [0, screenY, -2.9]
-  const screenRotation: [number, number, number] = screenAtSide
-    ? [0, SIGNAL_SCREEN_ROTATION_Y, 0]
-    : [0, 0, 0]
+  const screenScale = portrait ? 0.47 : 1
   const page = useProgress((state) => state.lessonPage)
   const mode = useProgress((state) => state.mode)
   const screenGeometry = useMemo(curvedScreenGeometry, [])
@@ -764,7 +752,7 @@ export function TheoryWorldStage({ worldId, accent, accentDark }: TheoryWorldSta
         <meshBasicMaterial color={accent} transparent opacity={0.13} side={THREE.DoubleSide} />
       </mesh>
 
-      <group ref={screen} position={screenPosition} rotation={screenRotation} scale={screenScale}>
+      <group ref={screen} position={[0, screenY, -2.9]} scale={screenScale}>
         {showingTheory ? (
           <CurvedTheoryScreen
             key={`${worldId}-${page}-${replayVersion}`}
@@ -1198,26 +1186,19 @@ function ReplayConsole({
   )
 }
 
-export function TheoryImaxCamera({ worldId, worldPosition }: { worldId: WorldId; worldPosition: [number, number, number] }) {
+export function TheoryImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
   const camera = useRef<THREE.PerspectiveCamera>(null)
-  const { size } = useThree()
-  const portrait = size.height > size.width * 1.08
-  const screenAtSide = worldId === 'foundations-camp'
   const target = useMemo(
-    () => new THREE.Vector3(
-      worldPosition[0] + (screenAtSide && !portrait ? -0.72 : 0),
-      screenAtSide && !portrait ? 2.08 : 2.28,
-      worldPosition[2] + (screenAtSide && !portrait ? -0.2 : -0.9),
-    ),
-    [portrait, screenAtSide, worldPosition],
+    () => new THREE.Vector3(worldPosition[0], 2.28, worldPosition[2] - 0.9),
+    [worldPosition],
   )
   const position = useMemo<[number, number, number]>(
     () => [
-      worldPosition[0] + (portrait ? 0 : screenAtSide ? 2.2 : 0.8),
-      screenAtSide && !portrait ? 4.45 : 4.65,
-      worldPosition[2] + (screenAtSide && !portrait ? 10.8 : 10.2),
+      worldPosition[0],
+      4.65,
+      worldPosition[2] + 10.2,
     ],
-    [portrait, screenAtSide, worldPosition],
+    [worldPosition],
   )
 
   useFrame(() => {
