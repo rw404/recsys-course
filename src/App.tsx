@@ -1,27 +1,28 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { World } from './game/World'
 import { HUD } from './ui/HUD'
-import { StudyMode } from './ui/StudyMode'
-import { FoundationsLab } from './ui/FoundationsLab'
-import { RetrievalLab } from './ui/RetrievalLab'
-import { AttentionLab } from './ui/AttentionLab'
-import { BanditLab } from './ui/BanditLab'
-import { DiversityLab } from './ui/DiversityLab'
-import { CapstoneArena } from './ui/CapstoneArena'
-import { QuizMode } from './ui/QuizMode'
-import { InteractDialog } from './ui/InteractDialog'
-import { Catalog } from './ui/Catalog'
 import { MobileControls } from './ui/MobileControls'
 import { JourneyScroll } from './ui/JourneyScroll'
 import { useProgress } from './state/progress'
 import { OPEN_FOUNDRY_EVENT, isFoundryLaunchEvent } from './state/foundryLaunch'
 import type { SystemTemplateId } from './data/systemTemplates'
 import { runtime } from './game/shared'
-import { CharacterViewer } from './game/CharacterViewer'
-import { GlbViewer } from './game/GlbViewer'
-import { VSmithViewer } from './game/VSmithViewer'
 
 const SystemBuilder = lazy(() => import('./ui/SystemBuilder').then((module) => ({ default: module.SystemBuilder })))
+const StudyMode = lazy(() => import('./ui/StudyMode').then((module) => ({ default: module.StudyMode })))
+const FoundationsLab = lazy(() => import('./ui/FoundationsLab').then((module) => ({ default: module.FoundationsLab })))
+const RetrievalLab = lazy(() => import('./ui/RetrievalLab').then((module) => ({ default: module.RetrievalLab })))
+const AttentionLab = lazy(() => import('./ui/AttentionLab').then((module) => ({ default: module.AttentionLab })))
+const BanditLab = lazy(() => import('./ui/BanditLab').then((module) => ({ default: module.BanditLab })))
+const DiversityLab = lazy(() => import('./ui/DiversityLab').then((module) => ({ default: module.DiversityLab })))
+const CapstoneArena = lazy(() => import('./ui/CapstoneArena').then((module) => ({ default: module.CapstoneArena })))
+const QuizMode = lazy(() => import('./ui/QuizMode').then((module) => ({ default: module.QuizMode })))
+const InteractDialog = lazy(() => import('./ui/InteractDialog').then((module) => ({ default: module.InteractDialog })))
+const Catalog = lazy(() => import('./ui/Catalog').then((module) => ({ default: module.Catalog })))
+const CharacterViewer = lazy(() => import('./game/CharacterViewer').then((module) => ({ default: module.CharacterViewer })))
+const GlbViewer = lazy(() => import('./game/GlbViewer').then((module) => ({ default: module.GlbViewer })))
+const VSmithViewer = lazy(() => import('./game/VSmithViewer').then((module) => ({ default: module.VSmithViewer })))
+
 const FoundryAssetViewer = lazy(() => import('./game/FoundryAssetViewer'))
 
 const VIEW = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
@@ -46,6 +47,14 @@ const GATE_TOAST: Record<string, string> = {
 const CHAMPION_TOAST = 'Course complete — production readiness review passed'
 
 export function App() {
+  return (
+    <Suspense fallback={<div className="foundry-loading" aria-label="Loading experience"><span /></div>}>
+      <AppRoute />
+    </Suspense>
+  )
+}
+
+function AppRoute() {
   if (VIEW === 'character') {
     return (
       <div className="canvas-wrap">
@@ -171,19 +180,20 @@ function Game() {
 
       {toast && <div className="toast panel">{toast}</div>}
 
-      {activeNodeId && mode === 'study' && <StudyMode />}
-      {activeNodeId && mode === 'lab' && (
-        activeNodeId === 'retrieval-sandbox' ? <RetrievalLab />
-        : activeNodeId === 'attention-lab' ? <AttentionLab />
-        : activeNodeId === 'bandit-lab' ? <BanditLab />
-        : activeNodeId === 'diversity-lab' ? <DiversityLab />
-        : activeNodeId === 'capstone-arena' ? <CapstoneArena />
-        : <FoundationsLab />
-      )}
-      {activeNodeId && mode === 'quiz' && <QuizMode />}
-      {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
-
-      {catalogOpen && <Catalog onClose={() => setCatalogOpen(false)} />}
+      <Suspense fallback={<div className="foundry-loading" aria-label="Loading learning activity"><span /></div>}>
+        {activeNodeId && mode === 'study' && <StudyMode />}
+        {activeNodeId && mode === 'lab' && (
+          activeNodeId === 'retrieval-sandbox' ? <RetrievalLab />
+          : activeNodeId === 'attention-lab' ? <AttentionLab />
+          : activeNodeId === 'bandit-lab' ? <BanditLab />
+          : activeNodeId === 'diversity-lab' ? <DiversityLab />
+          : activeNodeId === 'capstone-arena' ? <CapstoneArena />
+          : <FoundationsLab />
+        )}
+        {activeNodeId && mode === 'quiz' && <QuizMode />}
+        {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
+        {catalogOpen && <Catalog onClose={() => setCatalogOpen(false)} />}
+      </Suspense>
       {builderOpen && (
         <Suspense fallback={<div className="foundry-loading" aria-label="Loading system Foundry"><span /></div>}>
           <SystemBuilder initialTemplateId={builderTemplateId} onClose={() => setBuilderOpen(false)} />

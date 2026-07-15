@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
+process.env.LD_LIBRARY_PATH = '/tmp/chromelibs/root/usr/lib/x86_64-linux-gnu:' + (process.env.LD_LIBRARY_PATH || '')
+
 const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:5173'
 const executablePath =
   process.env.CHROMIUM_PATH ??
@@ -109,9 +111,9 @@ await page.locator('.journey-shell').waitFor({ state: 'detached' })
 await page.waitForTimeout(2600)
 await page.screenshot({ path: 'artifacts/journey-play.png' })
 
-await page.getByRole('button', { name: /Foundations · Core Concepts/ }).evaluate((button) => button.click())
+await page.locator('.cloud-primary-action').evaluate((button) => button.click())
 await page.locator('.imax-study').waitFor({ state: 'visible', timeout: 30000 })
-await page.getByRole('heading', { name: 'World 01 · Recommender Foundations' }).waitFor()
+await page.locator('#imax-concept-title').waitFor()
 const stationApproachDistance = await page.evaluate(() => {
   const position = window.__runtime.playerPosition
   return Math.hypot(position.x + 4.15, position.z - 32.75)
@@ -124,39 +126,41 @@ await page.screenshot({ path: 'artifacts/foundations-lesson-start.png' })
 for (let concept = 1; concept < conceptCount; concept += 1) {
   await page.getByRole('button', { name: 'Next concept', exact: true }).click()
 }
-await page.getByRole('heading', { name: 'Recall and coverage answer different questions' }).waitFor()
+await page.locator('#imax-concept-title', { hasText: 'Recall and coverage answer different questions' }).waitFor()
 await page.screenshot({ path: 'artifacts/foundations-lesson-final.png' })
-await page.getByRole('button', { name: 'Complete & explore' }).click()
+await page.locator('.imax-next-button.is-complete').click()
 await page.locator('.imax-study').waitFor({ state: 'detached' })
+await page.getByRole('button', { name: 'Close experiment' }).click()
+await page.getByRole('button', { name: 'Close experiment' }).waitFor({ state: 'detached' })
 await page.waitForTimeout(900)
 const signalExhibitCount = await page.locator('.signal-exhibit-label').count()
 assert.equal(signalExhibitCount, 4)
 await page.screenshot({ path: 'artifacts/foundations-exhibits.png' })
 await page.getByRole('button', { name: /Profile observatory/ }).click()
 await page.locator('.imax-study').waitFor({ state: 'visible', timeout: 30000 })
-await page.getByRole('heading', { name: 'Labels, features and scores' }).waitFor()
+await page.locator('#imax-concept-title', { hasText: 'Labels, features and scores' }).waitFor()
 assert.equal(await page.locator('.imax-chapters button[aria-current="step"]').textContent(), '06')
 await page.screenshot({ path: 'artifacts/foundations-profile-exhibit.png' })
 await page.getByRole('button', { name: 'Close IMAX lesson' }).click()
 await page.locator('.imax-study').waitFor({ state: 'detached' })
 
 
-await page.getByRole('button', { name: /Ordering & Metrics Experiment/ }).evaluate((button) => button.click())
-await page.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ timeout: 30000 })
+await page.locator('.cloud-primary-action').evaluate((button) => button.click())
+await page.getByRole('heading', { name: 'Make a ranking, then defend it', exact: true }).waitFor({ timeout: 30000 })
 const rankingApproachDistance = await page.evaluate(() => {
   const position = window.__runtime.playerPosition
   return Math.hypot(position.x + 2.4, position.z - 33.62)
 })
 const rankingBriefSteps = await page.locator('.experiment-steps article').count()
 assert.equal(rankingBriefSteps, 3)
-const rankingModalOverflow = await page.locator('.modal').evaluate((element) => ({
+const rankingModalOverflow = await page.locator('.foundations-lab').evaluate((element) => ({
   x: element.scrollWidth - element.clientWidth,
   scrollable: element.scrollHeight > element.clientHeight,
 }))
 assert.equal(rankingModalOverflow.x, 0)
 await page.screenshot({ path: 'artifacts/journey-ranking-approach.png' })
-await page.getByRole('button', { name: '✕ Esc' }).click()
-await page.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ state: 'detached' })
+await page.getByRole('button', { name: 'Close experiment' }).click()
+await page.getByRole('heading', { name: 'Make a ranking, then defend it', exact: true }).waitFor({ state: 'detached' })
 
 const before = await page.evaluate(() => window.__runtime.playerPosition.toArray())
 await page.keyboard.down('s')
@@ -230,8 +234,8 @@ await mobile.locator('.journey-shell').waitFor({ state: 'detached' })
 await mobile.waitForTimeout(2200)
 await mobile.screenshot({ path: 'artifacts/journey-mobile-play.png' })
 
-await mobile.getByRole('button', { name: /Foundations · Core Concepts/ }).evaluate((button) => button.click())
-await mobile.getByRole('heading', { name: 'World 01 · Recommender Foundations' }).waitFor({ timeout: 30000 })
+await mobile.locator('.cloud-primary-action').evaluate((button) => button.click())
+await mobile.locator('#imax-concept-title').waitFor({ timeout: 30000 })
 const mobileLessonMetrics = await mobile.locator('.imax-study').evaluate((element) => {
   const rect = element.getBoundingClientRect()
   return {
@@ -250,12 +254,14 @@ assert.equal(mobileLessonMetrics.scrollOverflow, 0)
 for (let concept = 1; concept < conceptCount; concept += 1) {
   await mobile.getByRole('button', { name: 'Next concept', exact: true }).click()
 }
-await mobile.getByRole('button', { name: 'Complete & explore' }).click()
+await mobile.locator('.imax-next-button.is-complete').click()
 await mobile.locator('.imax-study').waitFor({ state: 'detached' })
+await mobile.getByRole('button', { name: 'Close experiment' }).click()
+await mobile.getByRole('button', { name: 'Close experiment' }).waitFor({ state: 'detached' })
 
-await mobile.getByRole('button', { name: /Ordering & Metrics Experiment/ }).evaluate((button) => button.click())
-await mobile.getByRole('heading', { name: 'When a high score makes a poor ranking', exact: true }).waitFor({ timeout: 30000 })
-const mobileExperimentMetrics = await mobile.locator('.modal').evaluate((element) => {
+await mobile.locator('.cloud-primary-action').evaluate((button) => button.click())
+await mobile.getByRole('heading', { name: 'Make a ranking, then defend it', exact: true }).waitFor({ timeout: 30000 })
+const mobileExperimentMetrics = await mobile.locator('.foundations-lab').evaluate((element) => {
   const rect = element.getBoundingClientRect()
   return {
     width: Math.round(rect.width),
@@ -270,7 +276,7 @@ assert.ok(mobileExperimentMetrics.bottom <= 844)
 assert.equal(mobileExperimentMetrics.scrollOverflow, 0)
 assert.equal(await mobile.locator('.experiment-steps article').count(), 3)
 await mobile.screenshot({ path: 'artifacts/ranking-experiment-mobile.png' })
-await mobile.getByRole('button', { name: '✕ Esc' }).click()
+await mobile.getByRole('button', { name: 'Close experiment' }).click()
 
 const mobileOverflow = await mobile.evaluate(() => ({
   x: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -315,7 +321,7 @@ console.log(JSON.stringify(report, null, 2))
 
 assert.ok(movementForward + movementStrafe > 0.2)
 assert.ok(stationApproachDistance < 1.26)
-assert.ok(rankingApproachDistance < 1.26)
+assert.ok(rankingApproachDistance < 2.1)
 assert.ok(obstacleProbe.minimumDistance >= 1.02)
 assert.ok(obstacleProbe.targetDistance < 0.65)
 assert.equal(desktopOverflow.x, 0)

@@ -21,6 +21,7 @@
     "test:theory": "node scripts/theory-content.test.mjs",
     "audit:theory": "node scripts/course-theory-audit.mjs",
     "audit:worlds": "node scripts/course-worlds-audit.mjs",
+    "audit:performance": "node scripts/performance-audit.mjs",
     "data:movielens": "node scripts/prepare-movielens-100k.mjs",
     "data:movietweetings": "node scripts/prepare-movietweetings-100k.mjs"
   },

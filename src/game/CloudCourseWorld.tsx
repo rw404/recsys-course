@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Html, Line, RoundedBox, Sparkles } from '@react-three/drei'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -18,6 +18,7 @@ import {
 } from '../state/progress'
 import { runtime } from './shared'
 import { useInput } from './useInput'
+import { WORLD_RENDER_CONFIG } from './quality'
 import { touchControls } from './controls'
 import { ExplorerGLB } from './ExplorerGLB'
 import { TheoryImaxCamera, TheoryWorldStage } from './SignalTheoryStage'
@@ -216,6 +217,10 @@ export function CloudCourseWorld() {
   const activeNodeId = useProgress((state) => state.activeNodeId)
   const theoryImax = mode === 'study' && isTheoryLesson(activeNodeId)
   const theoryStageVisible = currentWorld === 'foundations-camp' || theoryImax
+  const visibleWorlds = atlasOpen ? COURSE_WORLDS : [COURSE_WORLD_BY_ID[currentWorld]]
+  const visibleCloudBanks = WORLD_RENDER_CONFIG.cloudBankStride === 1
+    ? CLOUD_BANKS
+    : CLOUD_BANKS.filter((_, index) => index % WORLD_RENDER_CONFIG.cloudBankStride === 0)
   return (
     <>
       <SkyDome />
@@ -223,27 +228,27 @@ export function CloudCourseWorld() {
       <ambientLight intensity={0.94} color="#dff5ff" />
       <hemisphereLight args={['#ffffff', '#315f78', 1.18]} />
       <directionalLight
-        castShadow
+        castShadow={WORLD_RENDER_CONFIG.shadows && !atlasOpen}
         color="#fff6e8"
         intensity={2.4}
         position={[-14, 25, 18]}
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[WORLD_RENDER_CONFIG.shadowMapSize, WORLD_RENDER_CONFIG.shadowMapSize]}
         shadow-camera-left={-35}
         shadow-camera-right={35}
         shadow-camera-top={35}
         shadow-camera-bottom={-35}
       />
 
-      <IslandBridges />
-      <CourseRoute />
-      {COURSE_WORLDS.map((world) => (
+      <IslandBridges currentWorld={atlasOpen ? null : currentWorld} />
+      {atlasOpen && <CourseRoute />}
+      {visibleWorlds.map((world) => (
         <ChapterIsland key={world.id} world={world} />
       ))}
 
-      {CLOUD_BANKS.map(([x, y, z, scale], index) => (
+      {visibleCloudBanks.map(([x, y, z, scale], index) => (
         <CloudCluster key={index} position={[x, y, z]} scale={scale} opacity={0.88} />
       ))}
-      <Sparkles count={110} scale={[42, 10, 78]} position={[0, 2, 0]} size={1.8} speed={0.18} color="#ffffff" opacity={0.58} />
+      <Sparkles count={WORLD_RENDER_CONFIG.sparkles} scale={[42, 10, 78]} position={[0, 2, 0]} size={1.8} speed={0.18} color="#ffffff" opacity={0.58} />
 
       {atlasOpen
         ? <JourneyTraveler key={`journey-traveler-${currentWorld}`} worldId={currentWorld} />
@@ -424,7 +429,7 @@ function ChapterIsland({ world }: { world: CourseWorldDefinition }) {
           </>
         ) : (
           <>
-            <IslandDetails world={world} focused={playable} />
+            <InstancedIslandDetails world={world} focused={playable} />
             <WorldLandmark world={world} focused={focused} />
             {focused && <ArrivalPortal accent={world.accent} phase={atlasOpen ? 'journey' : 'play'} />}
             {playable && nodes.map((id, index) => (
@@ -486,8 +491,8 @@ function IslandTerraces({ world }: { world: CourseWorldDefinition }) {
 }
 
 function CloudRim({ world }: { world: CourseWorldDefinition }) {
-  const rocks = useMemo(() => Array.from({ length: 18 }, (_, index) => {
-    const angle = (index / 18) * Math.PI * 2
+  const rocks = useMemo(() => Array.from({ length: WORLD_RENDER_CONFIG.islandRocks }, (_, index) => {
+    const angle = (index / WORLD_RENDER_CONFIG.islandRocks) * Math.PI * 2
     const radius = 4.42 + (index % 3) * 0.16
     return {
       position: [Math.cos(angle) * radius, -0.42 - (index % 2) * 0.09, Math.sin(angle) * radius] as [number, number, number],
@@ -498,17 +503,8 @@ function CloudRim({ world }: { world: CourseWorldDefinition }) {
 
   return (
     <group>
-      {rocks.map((rock, index) => (
-        <mesh key={index} position={rock.position} rotation={rock.rotation} scale={rock.scale} castShadow receiveShadow>
-          <dodecahedronGeometry args={[0.72, 0]} />
-          <meshStandardMaterial
-            color={index % 3 === 0 ? '#788982' : index % 3 === 1 ? '#60777b' : world.accentDark}
-            roughness={0.9}
-            flatShading
-          />
-        </mesh>
-      ))}
-      {[0, 1, 2, 3].map((index) => {
+      <InstancedRocks rocks={rocks} accentDark={world.accentDark} />
+      {Array.from({ length: WORLD_RENDER_CONFIG.underClouds }, (_, index) => {
         const angle = index * Math.PI * 0.5 + 0.4
         return (
           <CloudCluster
@@ -524,9 +520,52 @@ function CloudRim({ world }: { world: CourseWorldDefinition }) {
   )
 }
 
+type IslandRockLayout = {
+  position: [number, number, number]
+  rotation: [number, number, number]
+  scale: [number, number, number]
+}
+
+function InstancedRocks({
+  rocks,
+  accentDark,
+}: {
+  rocks: IslandRockLayout[]
+  accentDark: string
+}) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    rocks.forEach((rock, index) => {
+      dummy.position.set(...rock.position)
+      dummy.rotation.set(...rock.rotation)
+      dummy.scale.set(...rock.scale)
+      dummy.updateMatrix()
+      mesh.current!.setMatrixAt(index, dummy.matrix)
+      mesh.current!.setColorAt(
+        index,
+        new THREE.Color(index % 3 === 0 ? '#788982' : index % 3 === 1 ? '#60777b' : accentDark),
+      )
+    })
+    mesh.current.instanceMatrix.needsUpdate = true
+    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
+    ;(mesh.current.material as THREE.Material).needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [accentDark, rocks])
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, rocks.length]} castShadow receiveShadow>
+      <dodecahedronGeometry args={[0.72, 0]} />
+      <meshStandardMaterial roughness={0.9} flatShading />
+    </instancedMesh>
+  )
+}
+
 function OceanSurface() {
   const material = useRef<THREE.MeshPhysicalMaterial>(null)
-  const currents = useMemo(() => Array.from({ length: 13 }, (_, row) => {
+  const currents = useMemo(() => Array.from({ length: WORLD_RENDER_CONFIG.oceanCurrents }, (_, row) => {
     const z = -42 + row * 7
     return Array.from({ length: 18 }, (_, index) => {
       const x = -40 + index * 4.8
@@ -572,10 +611,84 @@ function OceanSurface() {
   )
 }
 
-function IslandBridges() {
+function IslandBridges({ currentWorld }: { currentWorld: WorldId | null }) {
+  const bridges = currentWorld
+    ? BRIDGE_CONNECTIONS.filter(([from, to]) => from === currentWorld || to === currentWorld)
+    : BRIDGE_CONNECTIONS
   return (
     <group>
-      {BRIDGE_CONNECTIONS.map(([from, to]) => <IslandBridge key={`${from}-${to}`} from={from} to={to} />)}
+      {bridges.map(([from, to]) => <InstancedIslandBridge key={from + '-' + to} from={from} to={to} />)}
+    </group>
+  )
+}
+
+function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
+  const planks = useRef<THREE.InstancedMesh>(null)
+  const posts = useRef<THREE.InstancedMesh>(null)
+  const geometry = useMemo(() => {
+    const fromWorld = COURSE_WORLD_BY_ID[from]
+    const toWorld = COURSE_WORLD_BY_ID[to]
+    const fromCenter = new THREE.Vector3(fromWorld.position[0], 0.15, fromWorld.position[2])
+    const toCenter = new THREE.Vector3(toWorld.position[0], 0.15, toWorld.position[2])
+    const direction = toCenter.clone().sub(fromCenter).setY(0).normalize()
+    const start = fromCenter.clone().addScaledVector(direction, 4.35)
+    const end = toCenter.clone().addScaledVector(direction, -4.35)
+    const length = start.distanceTo(end)
+    const count = Math.max(3, Math.ceil(length / 0.72))
+    return {
+      angle: Math.atan2(direction.x, direction.z),
+      segments: Array.from({ length: count }, (_, index) => ({
+        position: start.clone().lerp(end, count === 1 ? 0.5 : index / (count - 1)),
+        lift: Math.sin((index / Math.max(1, count - 1)) * Math.PI) * 0.08,
+      })),
+    }
+  }, [from, to])
+
+  useLayoutEffect(() => {
+    if (!planks.current || !posts.current) return
+    const dummy = new THREE.Object3D()
+    const localPost = new THREE.Vector3()
+    const up = new THREE.Vector3(0, 1, 0)
+
+    geometry.segments.forEach((segment, index) => {
+      dummy.position.set(segment.position.x, segment.position.y + segment.lift, segment.position.z)
+      dummy.rotation.set(0, geometry.angle, 0)
+      dummy.scale.set(1, 1, 1)
+      dummy.updateMatrix()
+      planks.current!.setMatrixAt(index, dummy.matrix)
+      planks.current!.setColorAt(index, new THREE.Color(index % 2 ? '#d8c59d' : '#ede0bd'))
+
+      for (const [sideIndex, side] of [-1, 1].entries()) {
+        localPost.set(side * 0.43, 0.18, 0).applyAxisAngle(up, geometry.angle)
+        dummy.position.set(
+          segment.position.x + localPost.x,
+          segment.position.y + segment.lift + localPost.y,
+          segment.position.z + localPost.z,
+        )
+        dummy.rotation.set(0, geometry.angle, 0)
+        dummy.updateMatrix()
+        posts.current!.setMatrixAt(index * 2 + sideIndex, dummy.matrix)
+      }
+    })
+
+    planks.current.instanceMatrix.needsUpdate = true
+    if (planks.current.instanceColor) planks.current.instanceColor.needsUpdate = true
+    ;(planks.current.material as THREE.Material).needsUpdate = true
+    posts.current.instanceMatrix.needsUpdate = true
+    planks.current.computeBoundingSphere()
+    posts.current.computeBoundingSphere()
+  }, [geometry])
+
+  return (
+    <group>
+      <instancedMesh ref={planks} args={[undefined, undefined, geometry.segments.length]} castShadow receiveShadow>
+        <boxGeometry args={[0.86, 0.16, 0.62]} />
+        <meshStandardMaterial roughness={0.82} />
+      </instancedMesh>
+      <instancedMesh ref={posts} args={[undefined, undefined, geometry.segments.length * 2]} castShadow>
+        <cylinderGeometry args={[0.055, 0.07, 0.34, 8]} />
+        <meshStandardMaterial color="#6d7a78" roughness={0.72} />
+      </instancedMesh>
     </group>
   )
 }
@@ -616,6 +729,115 @@ function IslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
           ))}
         </group>
       ))}
+    </group>
+  )
+}
+
+function InstancedIslandDetails({ world, focused }: { world: CourseWorldDefinition; focused: boolean }) {
+  const trees = useMemo(
+    () => islandTreeLayout(world).slice(0, WORLD_RENDER_CONFIG.islandTrees),
+    [world],
+  )
+  const district = useMemo(
+    () => DISTRICT_LAYOUT.slice(0, WORLD_RENDER_CONFIG.districts),
+    [],
+  )
+  const trunks = useRef<THREE.InstancedMesh>(null)
+  const lowerCanopies = useRef<THREE.InstancedMesh>(null)
+  const upperCanopies = useRef<THREE.InstancedMesh>(null)
+  const buildings = useRef<THREE.InstancedMesh>(null)
+  const roofs = useRef<THREE.InstancedMesh>(null)
+  const windows = useRef<THREE.InstancedMesh>(null)
+
+  useLayoutEffect(() => {
+    const treeMeshes = [trunks.current, lowerCanopies.current, upperCanopies.current]
+    const districtMeshes = [buildings.current, roofs.current, windows.current]
+    if ([...treeMeshes, ...districtMeshes].some((mesh) => !mesh)) return
+
+    const dummy = new THREE.Object3D()
+    const setMatrix = (
+      mesh: THREE.InstancedMesh,
+      index: number,
+      position: [number, number, number],
+      scale: [number, number, number],
+    ) => {
+      dummy.position.set(...position)
+      dummy.rotation.set(0, 0, 0)
+      dummy.scale.set(...scale)
+      dummy.updateMatrix()
+      mesh.setMatrixAt(index, dummy.matrix)
+    }
+
+    trees.forEach((tree, index) => {
+      const [x, y, z] = tree.position
+      const scale = tree.scale
+      setMatrix(trunks.current!, index, [x, y + 0.27 * scale, z], [scale, scale, scale])
+      setMatrix(lowerCanopies.current!, index, [x, y + 0.72 * scale, z], [scale, scale, scale])
+      setMatrix(upperCanopies.current!, index, [x, y + 1.02 * scale, z], [scale, scale, scale])
+      lowerCanopies.current!.setColorAt(
+        index,
+        new THREE.Color(index % 3 === 0 ? '#2e8c57' : index % 3 === 1 ? '#3da464' : '#276f50'),
+      )
+      upperCanopies.current!.setColorAt(index, new THREE.Color(index % 2 ? '#4bb675' : '#359760'))
+    })
+
+    const districtScale = focused ? 0.76 : 1
+    district.forEach(([x, y, z, height], index) => {
+      setMatrix(
+        buildings.current!,
+        index,
+        [x, y + (height * districtScale) / 2, z],
+        [0.52 * districtScale, height * districtScale, 0.52 * districtScale],
+      )
+      setMatrix(
+        roofs.current!,
+        index,
+        [x, y + (height + 0.18) * districtScale, z],
+        [districtScale, districtScale, districtScale],
+      )
+      setMatrix(
+        windows.current!,
+        index,
+        [x, y + height * 0.62 * districtScale, z + 0.28 * districtScale],
+        [districtScale, districtScale, districtScale],
+      )
+      buildings.current!.setColorAt(index, new THREE.Color(index % 2 ? world.accent : '#edf4e7'))
+    })
+
+    for (const mesh of [...treeMeshes, ...districtMeshes] as THREE.InstancedMesh[]) {
+      mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      ;(mesh.material as THREE.Material).needsUpdate = true
+      mesh.computeBoundingSphere()
+    }
+  }, [district, focused, trees, world])
+
+  return (
+    <group>
+      <instancedMesh ref={trunks} args={[undefined, undefined, trees.length]} castShadow>
+        <cylinderGeometry args={[0.08, 0.11, 0.55, 7]} />
+        <meshStandardMaterial color="#765541" roughness={0.92} />
+      </instancedMesh>
+      <instancedMesh ref={lowerCanopies} args={[undefined, undefined, trees.length]} castShadow>
+        <coneGeometry args={[0.36, 0.9, 8]} />
+        <meshStandardMaterial roughness={0.82} />
+      </instancedMesh>
+      <instancedMesh ref={upperCanopies} args={[undefined, undefined, trees.length]} castShadow>
+        <coneGeometry args={[0.27, 0.64, 8]} />
+        <meshStandardMaterial roughness={0.8} />
+      </instancedMesh>
+      <instancedMesh ref={buildings} args={[undefined, undefined, district.length]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.48} />
+      </instancedMesh>
+      <instancedMesh ref={roofs} args={[undefined, undefined, district.length]} castShadow>
+        <coneGeometry args={[0.38, 0.42, 8]} />
+        <meshStandardMaterial color={world.accentDark} roughness={0.44} />
+      </instancedMesh>
+      <instancedMesh ref={windows} args={[undefined, undefined, district.length]}>
+        <boxGeometry args={[0.19, 0.12, 0.03]} />
+        <meshStandardMaterial color="#d9fbff" emissive={world.accent} emissiveIntensity={0.55} />
+      </instancedMesh>
     </group>
   )
 }
@@ -1666,15 +1888,31 @@ function CloudCluster({
   opacity: number
   tint?: string
 }) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    const puffs: [number, number, number][] = [
+      [-0.58, 0, 0],
+      [0.42, 0.05, 0.02],
+      [-0.02, 0.24, -0.12],
+      [0.08, -0.06, 0.4],
+    ]
+    puffs.forEach((puff, index) => {
+      dummy.position.set(...puff)
+      dummy.scale.setScalar((0.72 - index * 0.06) / 0.72)
+      dummy.updateMatrix()
+      mesh.current!.setMatrixAt(index, dummy.matrix)
+    })
+    mesh.current.instanceMatrix.needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [])
+
   return (
-    <group position={position} scale={scale}>
-      {[[-0.58, 0, 0], [0.42, 0.05, 0.02], [-0.02, 0.24, -0.12], [0.08, -0.06, 0.4]].map((puff, index) => (
-        <mesh key={index} position={puff as [number, number, number]} renderOrder={-1}>
-          <sphereGeometry args={[0.72 - index * 0.06, 16, 12]} />
-          <meshStandardMaterial color={tint} transparent opacity={opacity} roughness={1} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
+    <instancedMesh ref={mesh} args={[undefined, undefined, 4]} position={position} scale={scale} renderOrder={-1}>
+      <sphereGeometry args={[0.72, 16, 12]} />
+      <meshStandardMaterial color={tint} transparent opacity={opacity} roughness={1} depthWrite={false} />
+    </instancedMesh>
   )
 }
 
