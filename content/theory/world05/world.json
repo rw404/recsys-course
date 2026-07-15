@@ -3,5 +3,43 @@
   "lessonNodeId": "ecosystem-lesson",
   "title": "Feedback Ecosystems",
   "kicker": "World 05 · Feedback Ecosystems",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": [
+      "Explain how exposure changes the data collected next.",
+      "Balance relevance, diversity, novelty and catalogue coverage.",
+      "Recognize when a short-term objective harms the long-term ecosystem."
+    ],
+    "activities": [
+      {
+        "kind": "theory",
+        "nodeId": "ecosystem-lesson",
+        "title": "Observe the feedback loop",
+        "summary": "Connect recommendation exposure to future behavior and training data.",
+        "id": "ecosystem-theory"
+      },
+      {
+        "kind": "experiment",
+        "nodeId": "diversity-lab",
+        "title": "Re-rank for a healthier slate",
+        "summary": "Adjust MMR and observe relevance, diversity and coverage together.",
+        "id": "diversity-slate-lab"
+      },
+      {
+        "kind": "foundry",
+        "templateId": "hybrid",
+        "title": "Inspect a diversified production slate",
+        "summary": "Trace retrieval, ranking, selectors and MMR through one observed run.",
+        "id": "hybrid-foundry"
+      },
+      {
+        "kind": "checkpoint",
+        "nodeId": "ecosystem-quiz",
+        "title": "Diagnose an unhealthy loop",
+        "summary": "Check which intervention protects users and catalogue health.",
+        "id": "ecosystem-checkpoint"
+      }
+    ]
+  }
 }

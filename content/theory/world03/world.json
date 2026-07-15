@@ -3,5 +3,43 @@
   "lessonNodeId": "transformer-lesson",
   "title": "Sequential Models",
   "kicker": "World 03 · Sequential Models",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": [
+      "Represent ordered behavior and short-term intent.",
+      "Explain causal masking and self-attention in a recommender.",
+      "Compare standard and memory-efficient attention without changing the result."
+    ],
+    "activities": [
+      {
+        "kind": "theory",
+        "nodeId": "transformer-lesson",
+        "title": "Read behavior as a sequence",
+        "summary": "See how order, recency and causal context change the next-item task.",
+        "id": "sequence-theory"
+      },
+      {
+        "kind": "experiment",
+        "nodeId": "attention-lab",
+        "title": "Fit long context into a memory budget",
+        "summary": "Compare standard and Flash-style attention across sequence lengths.",
+        "id": "attention-memory-lab"
+      },
+      {
+        "kind": "foundry",
+        "templateId": "deep",
+        "title": "Inspect a deep sequential stack",
+        "summary": "Trace sequence features, the transformer and downstream ranking stages.",
+        "id": "deep-sequence-foundry"
+      },
+      {
+        "kind": "checkpoint",
+        "nodeId": "attention-quiz",
+        "title": "Check the attention contract",
+        "summary": "Verify what changes memory use and what must preserve model semantics.",
+        "id": "attention-checkpoint"
+      }
+    ]
+  }
 }

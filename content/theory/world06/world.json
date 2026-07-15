@@ -3,5 +3,43 @@
   "lessonNodeId": "capstone-lesson",
   "title": "System Synthesis",
   "kicker": "World 06 · System Synthesis",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 60,
+    "outcomes": [
+      "Compose an end-to-end recommender from explicit stage contracts.",
+      "Diagnose failures across data, retrieval, ranking, policy and serving.",
+      "Defend a production architecture with measurable guardrails."
+    ],
+    "activities": [
+      {
+        "kind": "theory",
+        "nodeId": "capstone-lesson",
+        "title": "Assemble the system map",
+        "summary": "Connect every course concept through inputs, outputs and failure modes.",
+        "id": "synthesis-theory"
+      },
+      {
+        "kind": "experiment",
+        "nodeId": "capstone-arena",
+        "title": "Review production decisions",
+        "summary": "Resolve five architecture scenarios and explain each trade-off.",
+        "id": "production-review"
+      },
+      {
+        "kind": "foundry",
+        "templateId": "deep",
+        "title": "Audit the complete production stack",
+        "summary": "Run a deep hybrid pipeline and inspect every captured stage.",
+        "id": "deep-stack-foundry"
+      },
+      {
+        "kind": "checkpoint",
+        "nodeId": "champion",
+        "title": "Claim production readiness",
+        "summary": "Complete the synthesis route and return to the world as system architect.",
+        "id": "champion-checkpoint"
+      }
+    ]
+  }
 }

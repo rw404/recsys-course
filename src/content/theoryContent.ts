@@ -23,6 +23,22 @@ export type TheoryConceptContent = {
   figures: TheoryFigure[]
 }
 
+export type TheoryJourneyActivity = {
+  id: string
+  kind: 'theory' | 'experiment' | 'foundry' | 'checkpoint'
+  title: string
+  summary: string
+  nodeId: string | null
+  templateId: string | null
+  required: boolean
+}
+
+export type TheoryJourney = {
+  estimatedMinutes: number | null
+  outcomes: string[]
+  activities: TheoryJourneyActivity[]
+}
+
 export type TheoryWorldContent = {
   worldId: WorldId
   folder: string
@@ -30,6 +46,7 @@ export type TheoryWorldContent = {
   kicker: string
   lessonNodeId: string | null
   screenPlacement: 'left' | 'center'
+  journey: TheoryJourney | null
   concepts: TheoryConceptContent[]
 }
 

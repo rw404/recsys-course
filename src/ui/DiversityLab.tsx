@@ -1,3 +1,4 @@
+import { RefreshCw, Sparkles, Sprout } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   DIVERSITY_ITEMS,
@@ -11,8 +12,10 @@ import {
   diversityPass,
   type DiversityItem,
 } from '../data/course'
+import { launchFoundry } from '../state/foundryLaunch'
 import { useProgress } from '../state/progress'
 import { ExperimentBrief } from './ExperimentBrief'
+import { LearningLabFooter, LearningLabShell } from './LearningLabShell'
 
 const CAT_COLOR: Record<string, string> = {
   News: '#ff6bd0',
@@ -32,6 +35,7 @@ const CAT_COLOR: Record<string, string> = {
 export function DiversityLab() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const alreadyDone = useProgress((s) => s.completed['diversity-lab'])
 
   const [chosenIds, setChosenIds] = useState<string[]>([])
@@ -55,22 +59,41 @@ export function DiversityLab() {
   const takeTopRel = () => setChosenIds(pool.slice(0, DIVERSITY_K).map((i) => i.id))
   const autoBalance = () => setChosenIds(mmrSelect(0.6).map((i) => i.id))
 
-  const submit = () => {
+  const openCheckpoint = () => {
+    completeNode('diversity-lab')
+    openNode('ecosystem-quiz')
+  }
+  const openFoundry = () => {
     completeNode('diversity-lab')
     closeNode()
+    launchFoundry('hybrid')
   }
 
   return (
-    <div className="overlay" onClick={closeNode}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Practice · Guided experiment</div>
-        <h1>When relevance collapses into repetition</h1>
-        <p className="lead">
-          The candidate pool is intentionally concentrated: the strongest individual scores belong
-          to one category. Build a slate-level decision rather than sorting items independently.
-        </p>
-
+    <LearningLabShell
+      dialogId="diversity-lab-title"
+      world="World 05"
+      kicker="Ecosystem experiment"
+      title="When relevance collapses into repetition"
+      lead="The candidate pool is intentionally concentrated: the strongest individual scores belong to one category. Build a slate-level decision rather than sorting items independently."
+      badge="Controlled candidate pool"
+      badgeNote={`${DIVERSITY_ITEMS.length} items · ${DIVERSITY_K}-item slate`}
+      badgeIcon={<Sprout size={18} aria-hidden />}
+      onClose={closeNode}
+      footer={(
+        <LearningLabFooter
+          ready={passed}
+          alreadyDone={alreadyDone}
+          pendingLabel="Clear both relevance and diversity quality floors"
+          readyLabel="Slate health and interpretation complete"
+          foundryLabel="Open diversified stack in Foundry"
+          checkpointLabel="Continue to checkpoint"
+          onFoundry={openFoundry}
+          onCheckpoint={openCheckpoint}
+        />
+      )}
+      className="diversity-learning-lab"
+    >
         <ExperimentBrief
           question="Can the most relevant individual items form an unhealthy feed?"
           hypothesis="Pure relevance will create a News-heavy bubble. A balanced slate should give up a little average relevance while crossing both quality floors."
@@ -137,20 +160,18 @@ export function DiversityLab() {
             : `Observed: Relevance is ${rel.toFixed(2)}, below ${REL_FLOOR}. Novelty without user value becomes filler; restore a few strong anchors.`}
         </p>
 
-        <div className="modal-actions">
+        <div className="learning-lab-controls">
           <button className="btn ghost" onClick={takeTopRel} title="What a pure-relevance ranker returns — a filter bubble">
-            Run relevance baseline
+            <RefreshCw size={16} aria-hidden />Run relevance baseline
           </button>
           <button className="btn ghost" onClick={autoBalance} title="What MMR (λ=0.6) picks — a balanced slate">
-            Run MMR · λ 0.6
+            <Sparkles size={16} aria-hidden />Run MMR · λ 0.6
           </button>
-          <button className="btn ghost" onClick={() => setChosenIds([])}>Reset</button>
-          <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
+          <button className="btn ghost" onClick={() => setChosenIds([])}>
+            <RefreshCw size={16} aria-hidden />Reset selection
           </button>
         </div>
-      </div>
-    </div>
+    </LearningLabShell>
   )
 }
 

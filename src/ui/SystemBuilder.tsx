@@ -136,22 +136,48 @@ const MODULE_ICONS: Record<PipelineModuleType, LucideIcon> = {
 }
 
 const INITIAL_LAYOUT_MODE: LayoutMode = 'isometric'
-const initialTemplate = SYSTEM_TEMPLATES.hybrid
-const initialDiagramNodes = nodesFromTemplate(initialTemplate)
-const initialEdges = edgesFromTemplate(initialTemplate, INITIAL_LAYOUT_MODE)
-const initialIsoPositions = createIsometricLayout(initialDiagramNodes, initialEdges)
-const initialNodes = applyNodePositions(initialDiagramNodes, initialIsoPositions)
-const initialResult = simulatePipeline('u104', specsFromNodes(initialNodes), specsFromEdges(initialEdges), SANDBOX_DATASET)
 
-export function SystemBuilder({ onClose }: { onClose: () => void }) {
+function createFoundryBootstrap(templateId: SystemTemplateId) {
+  const template = SYSTEM_TEMPLATES[templateId] ?? SYSTEM_TEMPLATES.hybrid
+  const diagramNodes = nodesFromTemplate(template)
+  const edges = edgesFromTemplate(template, INITIAL_LAYOUT_MODE)
+  const isometricPositions = createIsometricLayout(diagramNodes, edges)
+  const nodes = applyNodePositions(diagramNodes, isometricPositions)
+  const result = simulatePipeline('u104', specsFromNodes(nodes), specsFromEdges(edges), SANDBOX_DATASET)
+  const selectedNodeId = nodes.find((node) => node.data.moduleType === 'blend')?.id
+    ?? nodes.find((node) => node.data.moduleType === 'ranker')?.id
+    ?? nodes[0]?.id
+    ?? null
+  return { diagramNodes, edges, isometricPositions, nodes, result, selectedNodeId }
+}
+
+export function SystemBuilder({
+  onClose,
+  initialTemplateId = 'hybrid',
+}: {
+  onClose: () => void
+  initialTemplateId?: SystemTemplateId
+}) {
   return (
     <ReactFlowProvider>
-      <SystemBuilderSurface onClose={onClose} />
+      <SystemBuilderSurface onClose={onClose} initialTemplateId={initialTemplateId} />
     </ReactFlowProvider>
   )
 }
 
-function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
+function SystemBuilderSurface({
+  onClose,
+  initialTemplateId,
+}: {
+  onClose: () => void
+  initialTemplateId: SystemTemplateId
+}) {
+  const bootstrap = useMemo(() => createFoundryBootstrap(initialTemplateId), [initialTemplateId])
+  const initialDiagramNodes = bootstrap.diagramNodes
+  const initialEdges = bootstrap.edges
+  const initialIsoPositions = bootstrap.isometricPositions
+  const initialNodes = bootstrap.nodes
+  const initialResult = bootstrap.result
   const canvasRef = useRef<HTMLDivElement>(null)
   const timers = useRef<number[]>([])
   const nodeCounter = useRef(0)
@@ -166,8 +192,8 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   const [viewerId, setViewerId] = useState('u104')
   const [dataset, setDataset] = useState<RuntimeDataset>(SANDBOX_DATASET)
   const [datasetReady, setDatasetReady] = useState(false)
-  const [templateId, setTemplateId] = useState<SystemTemplateId>('hybrid')
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>('blend')
+  const [templateId, setTemplateId] = useState<SystemTemplateId>(initialTemplateId)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(bootstrap.selectedNodeId)
   const [selectedMovieId, setSelectedMovieId] = useState<string | null>(initialResult.recommendations[0]?.movieId ?? null)
   const [result, setResult] = useState<SimulationResult>(initialResult)
   const [resultViewerId, setResultViewerId] = useState('u104')
@@ -301,7 +327,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!datasetReady || !dataset.meta.isOfficial || hasAnimatedInitial.current) return
     hasAnimatedInitial.current = true
-    const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, 'u104', false), 260)
+    const timer = window.setTimeout(() => animateRun(initialNodes, initialEdges, viewerId, false), 260)
     timers.current.push(timer)
   }, [animateRun, dataset.meta.isOfficial, datasetReady])
 

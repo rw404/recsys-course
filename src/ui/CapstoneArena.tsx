@@ -1,3 +1,4 @@
+import { ClipboardCheck, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   CAPSTONE_QUESTIONS,
@@ -6,7 +7,9 @@ import {
   HALL_OF_MASTERY,
   capstoneRank,
 } from '../data/course'
+import { launchFoundry } from '../state/foundryLaunch'
 import { useProgress } from '../state/progress'
+import { LearningLabFooter, LearningLabShell } from './LearningLabShell'
 
 /**
  * Production Readiness Review — the World-06 capstone. One integrated scenario from each system
@@ -16,8 +19,10 @@ import { useProgress } from '../state/progress'
 export function CapstoneArena() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const setCapstoneScore = useProgress((s) => s.setCapstoneScore)
   const best = useProgress((s) => s.capstoneScore)
+  const alreadyDone = useProgress((s) => s.completed['capstone-arena'])
 
   const QS = CAPSTONE_QUESTIONS
   const [answers, setAnswers] = useState<Record<string, number>>({})
@@ -42,7 +47,12 @@ export function CapstoneArena() {
     setAnswers({})
     setSubmitted(false)
   }
-  const finish = () => closeNode()
+  const finish = () => openNode('champion')
+  const openFoundry = () => {
+    completeNode('capstone-arena')
+    closeNode()
+    launchFoundry('deep')
+  }
 
   // the board and the hint both rank the SAME value (the player's best-so-far), so they never disagree
   const shownBest = Math.max(best, submitted ? score : 0)
@@ -55,17 +65,49 @@ export function CapstoneArena() {
   const rank = shownBest > 0 ? capstoneRank(shownBest) : null
 
   return (
-    <div className="overlay" onClick={closeNode}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Capstone · Production review</div>
-        <h1>Production Readiness Review</h1>
-        <p className="lead">
-          Review five connected production decisions: measurement, retrieval, sequence modelling,
-          policy and ecosystem health. Each correct diagnosis is worth {CAPSTONE_PER_Q.toLocaleString()}.
-          Score {CAPSTONE_PASS.toLocaleString()}+ to complete the course; explanations remain visible after evaluation.
-        </p>
-
+    <LearningLabShell
+      dialogId="capstone-lab-title"
+      world="World 06"
+      kicker="Production review"
+      title="Production Readiness Review"
+      lead={`Review five connected production decisions across measurement, retrieval, sequence modelling, policy and ecosystem health. Score ${CAPSTONE_PASS.toLocaleString()} or more; every explanation remains visible after evaluation.`}
+      badge="Five production decisions"
+      badgeNote={`${CAPSTONE_PER_Q.toLocaleString()} points each · best score persists`}
+      badgeIcon={<ClipboardCheck size={18} aria-hidden />}
+      onClose={closeNode}
+      footer={(
+        submitted && passed ? (
+          <LearningLabFooter
+            ready
+            alreadyDone={alreadyDone}
+            pendingLabel=""
+            readyLabel="Production review passed"
+            foundryLabel="Audit full stack in Foundry"
+            checkpointLabel="Complete the course"
+            onFoundry={openFoundry}
+            onCheckpoint={finish}
+          />
+        ) : (
+          <>
+            <span>
+              {submitted
+                ? `${correct}/5 correct · read the diagnoses before retrying`
+                : `${Object.keys(answers).length}/5 decisions resolved`}
+            </span>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!submitted && !answeredAll}
+              onClick={submitted ? retry : submit}
+            >
+              {submitted ? <RefreshCw size={16} aria-hidden /> : <ClipboardCheck size={16} aria-hidden />}
+              {submitted ? 'Run review again' : answeredAll ? 'Evaluate design' : 'Resolve all five scenarios'}
+            </button>
+          </>
+        )
+      )}
+      className="capstone-learning-lab"
+    >
         <div className="arena-grid">
           <div className="arena-questions">
             {QS.map((q, qi) => {
@@ -116,18 +158,6 @@ export function CapstoneArena() {
           </p>
         )}
 
-        <div className="modal-actions">
-          {!submitted ? (
-            <button className="btn primary" disabled={!answeredAll} onClick={submit} style={{ opacity: answeredAll ? 1 : 0.5 }}>
-              {answeredAll ? 'Evaluate design →' : 'Resolve all five scenarios'}
-            </button>
-          ) : passed ? (
-            <button className="btn primary" onClick={finish}>Complete course →</button>
-          ) : (
-            <button className="btn primary" onClick={retry}>Run review again ↻</button>
-          )}
-        </div>
-      </div>
-    </div>
+    </LearningLabShell>
   )
 }

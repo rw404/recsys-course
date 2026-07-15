@@ -1,3 +1,4 @@
+import { Activity, Play } from 'lucide-react'
 import { useState } from 'react'
 import {
   BANDIT_ARMS,
@@ -8,8 +9,10 @@ import {
   type BanditStrategy,
   type BanditResult,
 } from '../data/course'
+import { launchFoundry } from '../state/foundryLaunch'
 import { useProgress } from '../state/progress'
 import { ExperimentBrief } from './ExperimentBrief'
+import { LearningLabFooter, LearningLabShell } from './LearningLabShell'
 
 /**
  * Bandit Lab — the World-04 lab. Pick an exploration STRATEGY and run 300 impressions against four
@@ -20,6 +23,7 @@ import { ExperimentBrief } from './ExperimentBrief'
 export function BanditLab() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const alreadyDone = useProgress((s) => s.completed['bandit-lab'])
 
   const [strategy, setStrategy] = useState<BanditStrategy>('greedy')
@@ -38,22 +42,41 @@ export function BanditLab() {
 
   const maxPulls = result ? Math.max(...result.pulls) : 1
   const passed = cleared
-  const submit = () => {
+  const openCheckpoint = () => {
+    completeNode('bandit-lab')
+    openNode('policy-quiz')
+  }
+  const openFoundry = () => {
     completeNode('bandit-lab')
     closeNode()
+    launchFoundry('adaptive')
   }
 
   return (
-    <div className="overlay" onClick={closeNode}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Practice · Guided experiment</div>
-        <h1>What pure exploitation fails to discover</h1>
-        <p className="lead">
-          Four content sources have hidden click rates. Each strategy sees the same deterministic
-          {BANDIT_PULLS}-impression environment, so differences come from the decision rule.
-        </p>
-
+    <LearningLabShell
+      dialogId="bandit-lab-title"
+      world="World 04"
+      kicker="Policy experiment"
+      title="What pure exploitation fails to discover"
+      lead={`Four content sources have hidden click rates. Each strategy sees the same deterministic ${BANDIT_PULLS}-impression environment, so differences come from the decision rule.`}
+      badge="Deterministic policy horizon"
+      badgeNote={`${BANDIT_PULLS} impressions · identical response stream`}
+      badgeIcon={<Activity size={18} aria-hidden />}
+      onClose={closeNode}
+      footer={(
+        <LearningLabFooter
+          ready={passed}
+          alreadyDone={alreadyDone}
+          pendingLabel={`Find a policy with cumulative regret below ${REGRET_BUDGET}`}
+          readyLabel="Exploration policy and diagnosis complete"
+          foundryLabel="Open adaptive stack in Foundry"
+          checkpointLabel="Continue to checkpoint"
+          onFoundry={openFoundry}
+          onCheckpoint={openCheckpoint}
+        />
+      )}
+      className="bandit-learning-lab"
+    >
         <ExperimentBrief
           question="Can a policy that always chooses its current winner reliably find the best source?"
           hypothesis="Greedy will over-trust an early lucky arm. Uncertainty-aware exploration should spend some traffic learning, then concentrate on the true winner with lower regret."
@@ -74,8 +97,10 @@ export function BanditLab() {
           ))}
         </div>
 
-        <div className="modal-actions" style={{ justifyContent: 'flex-start', margin: '4px 0 2px' }}>
-          <button className="btn primary" onClick={run}>Run controlled horizon ▶</button>
+        <div className="learning-lab-controls">
+          <button className="btn primary" onClick={run}>
+            <Play size={16} fill="currentColor" aria-hidden />Run controlled horizon
+          </button>
         </div>
 
         {result && (
@@ -83,7 +108,7 @@ export function BanditLab() {
             <div className="bandit-arms">
               {BANDIT_ARMS.map((arm, i) => (
                 <div key={arm.id} className={`bandit-arm ${i === result.best ? 'best' : ''}`}>
-                  <span className="ba-name">{arm.label}{i === result.best ? ' ★' : ''}</span>
+                  <span className="ba-name">{arm.label}{i === result.best ? ' · best' : ''}</span>
                   <div className="ba-bar">
                     <i style={{ width: `${(result.pulls[i] / maxPulls) * 100}%` }} />
                   </div>
@@ -120,12 +145,6 @@ export function BanditLab() {
             : 'Begin with Greedy, record its regret, then repeat with an exploring policy.'}
         </p>
 
-        <div className="modal-actions">
-          <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </LearningLabShell>
   )
 }

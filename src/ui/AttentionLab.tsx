@@ -1,7 +1,10 @@
+import { Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { ATTN_RUNS, ATTN_BUDGET_MB, attnMemoryMB, type AttnRun } from '../data/course'
+import { launchFoundry } from '../state/foundryLaunch'
 import { useProgress } from '../state/progress'
 import { ExperimentBrief } from './ExperimentBrief'
+import { LearningLabFooter, LearningLabShell } from './LearningLabShell'
 
 /**
  * Flash Attention Lab — the World-03 lab. Run attention over growing sequence lengths with either
@@ -13,6 +16,7 @@ import { ExperimentBrief } from './ExperimentBrief'
 export function AttentionLab() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const alreadyDone = useProgress((s) => s.completed['attention-lab'])
 
   const [flash, setFlash] = useState(false)
@@ -29,22 +33,41 @@ export function AttentionLab() {
   }
 
   const passed = clearedLong
-  const submit = () => {
+  const openCheckpoint = () => {
+    completeNode('attention-lab')
+    openNode('attention-quiz')
+  }
+  const openFoundry = () => {
     completeNode('attention-lab')
     closeNode()
+    launchFoundry('deep')
   }
 
   return (
-    <div className="overlay" onClick={closeNode}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Practice · Guided experiment</div>
-        <h1>Why long context runs out of memory</h1>
-        <p className="lead">
-          Keep the attention rule fixed and change only its memory implementation. The simulated
-          budget is {ATTN_BUDGET_MB} MB, so the growth pattern becomes visible before the browser is put at risk.
-        </p>
-
+    <LearningLabShell
+      dialogId="attention-lab-title"
+      world="World 03"
+      kicker="Sequence experiment"
+      title="Why long context runs out of memory"
+      lead={`Keep the attention rule fixed and change only its memory implementation. The simulated budget is ${ATTN_BUDGET_MB} MB, so the growth pattern becomes visible before the browser is put at risk.`}
+      badge="Deterministic memory model"
+      badgeNote="Same attention rule · controlled execution"
+      badgeIcon={<Cpu size={18} aria-hidden />}
+      onClose={closeNode}
+      footer={(
+        <LearningLabFooter
+          ready={passed}
+          alreadyDone={alreadyDone}
+          pendingLabel="Make the 32K sequence fit without changing attention semantics"
+          readyLabel="Long-context execution contract verified"
+          foundryLabel="Open deep stack in Foundry"
+          checkpointLabel="Continue to checkpoint"
+          onFoundry={openFoundry}
+          onCheckpoint={openCheckpoint}
+        />
+      )}
+      className="attention-learning-lab"
+    >
         <ExperimentBrief
           question="Can the same attention computation fit a 32K sequence without storing an N×N matrix?"
           hypothesis="Standard attention will cross the budget quadratically. Flash Attention should keep auxiliary memory near-linear while preserving the mathematical result."
@@ -97,12 +120,6 @@ export function AttentionLab() {
             : 'Next step: run increasing lengths with both methods, then make the 32K case fit.'}
         </p>
 
-        <div className="modal-actions">
-          <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </LearningLabShell>
   )
 }

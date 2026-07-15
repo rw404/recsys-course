@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { World } from './game/World'
 import { HUD } from './ui/HUD'
 import { StudyMode } from './ui/StudyMode'
-import { LabMode } from './ui/LabMode'
+import { FoundationsLab } from './ui/FoundationsLab'
 import { RetrievalLab } from './ui/RetrievalLab'
 import { AttentionLab } from './ui/AttentionLab'
 import { BanditLab } from './ui/BanditLab'
@@ -14,6 +14,8 @@ import { Catalog } from './ui/Catalog'
 import { MobileControls } from './ui/MobileControls'
 import { JourneyScroll } from './ui/JourneyScroll'
 import { useProgress } from './state/progress'
+import { OPEN_FOUNDRY_EVENT, isFoundryLaunchEvent } from './state/foundryLaunch'
+import type { SystemTemplateId } from './data/systemTemplates'
 import { runtime } from './game/shared'
 import { CharacterViewer } from './game/CharacterViewer'
 import { GlbViewer } from './game/GlbViewer'
@@ -85,6 +87,11 @@ function Game() {
 
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [builderOpen, setBuilderOpen] = useState(false)
+  const [builderTemplateId, setBuilderTemplateId] = useState<SystemTemplateId>('hybrid')
+  const openBuilder = useCallback((templateId: SystemTemplateId = 'hybrid') => {
+    setBuilderTemplateId(templateId)
+    setBuilderOpen(true)
+  }, [])
   const [toast, setToast] = useState<string | null>(null)
 
   // Toast when a new experiment record is saved or the next region becomes available.
@@ -114,6 +121,15 @@ function Game() {
     toastTimer.current = window.setTimeout(() => setToast(null), 3800)
   }
 
+  useEffect(() => {
+    const handleFoundryLaunch = (event: Event) => {
+      if (!isFoundryLaunchEvent(event)) return
+      openBuilder(event.detail.templateId)
+    }
+    window.addEventListener(OPEN_FOUNDRY_EVENT, handleFoundryLaunch)
+    return () => window.removeEventListener(OPEN_FOUNDRY_EVENT, handleFoundryLaunch)
+  }, [openBuilder])
+
   // global keys: Esc closes overlays, C toggles catalog (skips cinematic on close)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -127,11 +143,14 @@ function Game() {
         } else if (catalogOpen) setCatalogOpen(false)
       }
       if (e.key.toLowerCase() === 'c' && !activeNodeId) setCatalogOpen((v) => !v)
-      if (e.key.toLowerCase() === 'b' && !activeNodeId && !catalogOpen) setBuilderOpen((v) => !v)
+      if (e.key.toLowerCase() === 'b' && !activeNodeId && !catalogOpen) {
+        if (builderOpen) setBuilderOpen(false)
+        else openBuilder()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [activeNodeId, builderOpen, catalogOpen, closeNode])
+  }, [activeNodeId, builderOpen, catalogOpen, closeNode, openBuilder])
 
   return (
     <div className={`course-app mode-${mode}`}>
@@ -142,11 +161,11 @@ function Game() {
       )}
 
       {atlasOpen && !catalogOpen && !builderOpen && (
-        <JourneyScroll onOpenBuilder={() => setBuilderOpen(true)} />
+        <JourneyScroll onOpenBuilder={() => openBuilder()} />
       )}
 
       {!catalogOpen && !builderOpen && (
-        <HUD onOpenCatalog={() => setCatalogOpen(true)} onOpenBuilder={() => setBuilderOpen(true)} />
+        <HUD onOpenCatalog={() => setCatalogOpen(true)} onOpenBuilder={() => openBuilder()} />
       )}
       {!atlasOpen && !catalogOpen && !builderOpen && <MobileControls />}
 
@@ -159,7 +178,7 @@ function Game() {
         : activeNodeId === 'bandit-lab' ? <BanditLab />
         : activeNodeId === 'diversity-lab' ? <DiversityLab />
         : activeNodeId === 'capstone-arena' ? <CapstoneArena />
-        : <LabMode />
+        : <FoundationsLab />
       )}
       {activeNodeId && mode === 'quiz' && <QuizMode />}
       {activeNodeId && mode === 'interact' && <InteractDialog nodeId={activeNodeId} />}
@@ -167,7 +186,7 @@ function Game() {
       {catalogOpen && <Catalog onClose={() => setCatalogOpen(false)} />}
       {builderOpen && (
         <Suspense fallback={<div className="foundry-loading" aria-label="Loading system Foundry"><span /></div>}>
-          <SystemBuilder onClose={() => setBuilderOpen(false)} />
+          <SystemBuilder initialTemplateId={builderTemplateId} onClose={() => setBuilderOpen(false)} />
         </Suspense>
       )}
     </div>

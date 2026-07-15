@@ -3,5 +3,43 @@
   "lessonNodeId": "policy-lesson",
   "title": "Decisions and Policies",
   "kicker": "World 04 · Decisions and Policies",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": [
+      "Separate value estimation from the policy that acts on it.",
+      "Explain exploration, exploitation and cumulative regret.",
+      "Compare adaptive policies over the same deterministic horizon."
+    ],
+    "activities": [
+      {
+        "kind": "theory",
+        "nodeId": "policy-lesson",
+        "title": "Turn scores into decisions",
+        "summary": "Follow the policy loop from an estimate to an action and new evidence.",
+        "id": "policy-theory"
+      },
+      {
+        "kind": "experiment",
+        "nodeId": "bandit-lab",
+        "title": "Compare exploration policies",
+        "summary": "Run greedy, epsilon-greedy and UCB on the same response stream.",
+        "id": "bandit-policy-lab"
+      },
+      {
+        "kind": "foundry",
+        "templateId": "adaptive",
+        "title": "Trace an adaptive serving policy",
+        "summary": "Inspect exploration, feedback and policy updates in a complete pipeline.",
+        "id": "adaptive-foundry"
+      },
+      {
+        "kind": "checkpoint",
+        "nodeId": "policy-quiz",
+        "title": "Choose a defensible policy",
+        "summary": "Check how uncertainty and product risk should affect exploration.",
+        "id": "policy-checkpoint"
+      }
+    ]
+  }
 }

@@ -1,3 +1,4 @@
+import { Radar, RotateCcw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   RETRIEVAL_ITEMS,
@@ -6,8 +7,10 @@ import {
   retrievalRecall,
   type RetrievalItem,
 } from '../data/course'
+import { launchFoundry } from '../state/foundryLaunch'
 import { useProgress } from '../state/progress'
 import { ExperimentBrief } from './ExperimentBrief'
+import { LearningLabFooter, LearningLabShell } from './LearningLabShell'
 
 const PASS_RECALL = 0.75 // retrieve 3 of the 4 truly-relevant items
 
@@ -21,6 +24,7 @@ const PASS_RECALL = 0.75 // retrieve 3 of the 4 truly-relevant items
 export function RetrievalLab() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const alreadyDone = useProgress((s) => s.completed['retrieval-sandbox'])
 
   const [chosenIds, setChosenIds] = useState<string[]>([])
@@ -50,22 +54,41 @@ export function RetrievalLab() {
   const takeTopSim = () =>
     setChosenIds(candidates.slice(0, RETRIEVAL_K).map((i) => i.id))
 
-  const submit = () => {
+  const openCheckpoint = () => {
+    completeNode('retrieval-sandbox')
+    openNode('negatives-quiz')
+  }
+  const openFoundry = () => {
     completeNode('retrieval-sandbox')
     closeNode()
+    launchFoundry('personalized')
   }
 
   return (
-    <div className="overlay" onClick={closeNode}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="btn ghost close-x" onClick={closeNode}>✕ Esc</button>
-        <div className="kicker">Practice · Guided experiment</div>
-        <h1>Similarity is a retrieval signal, not the answer</h1>
-        <p className="lead">
-          These candidates came from one query vector. Similarity is observable at serving time;
-          relevance is held-out evidence shown here so you can diagnose the retriever.
-        </p>
-
+    <LearningLabShell
+      dialogId="retrieval-lab-title"
+      world="World 02"
+      kicker="Retrieval experiment"
+      title="Similarity is a retrieval signal, not the answer"
+      lead="These candidates came from one query vector. Similarity is observable at serving time; relevance is held-out evidence shown here so you can diagnose the retriever."
+      badge="Controlled ANN fixture"
+      badgeNote={`${RETRIEVAL_ITEMS.length} candidates · top-${RETRIEVAL_K} contract`}
+      badgeIcon={<Radar size={18} aria-hidden />}
+      onClose={closeNode}
+      footer={(
+        <LearningLabFooter
+          ready={passed}
+          alreadyDone={alreadyDone}
+          pendingLabel={`Preserve at least 3 of 4 relevant items in top-${RETRIEVAL_K}`}
+          readyLabel="Retrieval contract and diagnosis complete"
+          foundryLabel="Open retriever in Foundry"
+          checkpointLabel="Continue to checkpoint"
+          onFoundry={openFoundry}
+          onCheckpoint={openCheckpoint}
+        />
+      )}
+      className="retrieval-learning-lab"
+    >
         <ExperimentBrief
           question="Will the nearest vectors also preserve the most relevant items?"
           hypothesis="Popular decoys sit close to many users. Replacing them with slightly more distant true positives should raise Recall even if Mean similarity falls."
@@ -123,17 +146,15 @@ export function RetrievalLab() {
             : `Observed: Recall@${RETRIEVAL_K} is ${recall.toFixed(2)}, below ${PASS_RECALL}. The nearest set contains popular hard negatives; replace decoys with relevant candidates before ranking.`}
         </p>
 
-        <div className="modal-actions">
+        <div className="learning-lab-controls">
           <button className="btn ghost" onClick={takeTopSim} title="What a naive ANN-by-similarity policy would return">
-            Run similarity baseline
+            <Radar size={16} aria-hidden />Run similarity baseline
           </button>
-          <button className="btn ghost" onClick={() => setChosenIds([])}>Reset</button>
-          <button className="btn primary" disabled={!passed} onClick={submit} style={{ opacity: passed ? 1 : 0.5 }}>
-            {alreadyDone ? 'Save result and close' : 'Complete experiment →'}
+          <button className="btn ghost" onClick={() => setChosenIds([])}>
+            <RotateCcw size={16} aria-hidden />Reset selection
           </button>
         </div>
-      </div>
-    </div>
+    </LearningLabShell>
   )
 }
 

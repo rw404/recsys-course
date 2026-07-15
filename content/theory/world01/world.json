@@ -3,5 +3,47 @@
   "lessonNodeId": "week01-station",
   "title": "Recommender Foundations",
   "kicker": "World 01 · Recommender Foundations",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": [
+      "Frame recommendation as a constrained decision over an ordered slate.",
+      "Separate observations, labels, features, scores and policy choices.",
+      "Explain why NDCG, recall and coverage answer different questions."
+    ],
+    "activities": [
+      {
+        "id": "foundations-theory",
+        "kind": "theory",
+        "nodeId": "week01-station",
+        "title": "Build the decision map",
+        "summary": "Follow eleven visual concepts from evidence to evaluation.",
+        "required": true
+      },
+      {
+        "id": "ranking-evidence-lab",
+        "kind": "experiment",
+        "nodeId": "ranking-sandbox",
+        "title": "Test a ranking on real ratings",
+        "summary": "Reorder an observed film slate and explain what changed in NDCG.",
+        "required": true
+      },
+      {
+        "id": "fast-baseline-foundry",
+        "kind": "foundry",
+        "templateId": "fast",
+        "title": "Trace a fast baseline",
+        "summary": "Run a popularity-to-ranking pipeline and inspect every item boundary.",
+        "required": false
+      },
+      {
+        "id": "foundations-checkpoint",
+        "kind": "checkpoint",
+        "nodeId": "quiz-gate",
+        "title": "Defend the decision",
+        "summary": "Resolve the core terminology and metric scenarios before Retrieval Valley.",
+        "required": true
+      }
+    ]
+  }
 }

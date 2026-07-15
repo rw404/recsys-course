@@ -66,10 +66,7 @@ interface CompactRatingsPayload {
 
 const MOVIELENS_DATA_URL = '/data/generated/ml-100k.compact.json'
 const MOVIETWEETINGS_DATA_URL = '/data/generated/movietweetings-100k.compact.json'
-const IS_PRODUCTION_BUILD = typeof import.meta.env !== 'undefined' && import.meta.env.PROD
-const DATASET_URLS = IS_PRODUCTION_BUILD
-  ? [MOVIETWEETINGS_DATA_URL]
-  : [MOVIELENS_DATA_URL, MOVIETWEETINGS_DATA_URL]
+const DATASET_URLS = [MOVIETWEETINGS_DATA_URL, MOVIELENS_DATA_URL]
 
 export const SANDBOX_DATASET = createRuntimeDataset({
   meta: {

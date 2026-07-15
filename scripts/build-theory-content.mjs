@@ -136,6 +136,23 @@ export function buildTheoryContent({ log = true } = {}) {
       kicker: metadata.kicker ?? metadata.title ?? metadata.worldId,
       lessonNodeId: metadata.lessonNodeId ?? null,
       screenPlacement: metadata.screenPlacement === 'left' ? 'left' : 'center',
+      journey: metadata.journey
+        ? {
+            estimatedMinutes: metadata.journey.estimatedMinutes ?? null,
+            outcomes: Array.isArray(metadata.journey.outcomes) ? metadata.journey.outcomes : [],
+            activities: Array.isArray(metadata.journey.activities)
+              ? metadata.journey.activities.map((activity) => ({
+                  id: activity.id,
+                  kind: activity.kind,
+                  title: activity.title,
+                  summary: activity.summary ?? '',
+                  nodeId: activity.nodeId ?? null,
+                  templateId: activity.templateId ?? null,
+                  required: activity.required !== false,
+                }))
+              : [],
+          }
+        : null,
       concepts: concepts.map((result) => result.concept).sort((a, b) => a.index - b.index),
     }
   }

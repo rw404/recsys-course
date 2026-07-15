@@ -39,6 +39,30 @@ directory becomes the next chapter automatically. Every world currently has a co
 `screenPlacement` is kept in the manifest so individual worlds can evolve independently.
 The current course uses a centered, front-facing IMAX screen in every theory world.
 
+`journey` describes the learning contract around the theory rather than React routing. It can
+declare learning outcomes and an ordered mix of `theory`, `experiment`, `foundry`, and
+`checkpoint` activities. Activities may point to a course `nodeId` or a Foundry `templateId`.
+The browser uses this metadata for the handoff between IMAX, practice, and assessment.
+
+```json
+{
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": ["Explain why NDCG and recall answer different questions."],
+    "activities": [
+      {
+        "id": "ranking-evidence-lab",
+        "kind": "experiment",
+        "nodeId": "ranking-sandbox",
+        "title": "Test a ranking on real ratings",
+        "summary": "Reorder a slate and explain the metric change.",
+        "required": true
+      }
+    ]
+  }
+}
+```
+
 ### `concept.json`
 
 ```json

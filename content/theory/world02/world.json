@@ -3,5 +3,43 @@
   "lessonNodeId": "two-tower-lesson",
   "title": "Retrieval Systems",
   "kicker": "World 02 · Retrieval Systems",
-  "screenPlacement": "center"
+  "screenPlacement": "center",
+  "journey": {
+    "estimatedMinutes": 45,
+    "outcomes": [
+      "Distinguish retrieval recall from ranking quality.",
+      "Explain two-tower retrieval, ANN search and hard negatives.",
+      "Reason about the recall and latency trade-off."
+    ],
+    "activities": [
+      {
+        "kind": "theory",
+        "nodeId": "two-tower-lesson",
+        "title": "Build the retrieval mental model",
+        "summary": "Follow the route from a user embedding to a bounded candidate set.",
+        "id": "retrieval-theory"
+      },
+      {
+        "kind": "experiment",
+        "nodeId": "retrieval-sandbox",
+        "title": "Measure recall under a candidate budget",
+        "summary": "Change K, inspect misses and observe why similarity alone is not enough.",
+        "id": "retrieval-recall-lab"
+      },
+      {
+        "kind": "foundry",
+        "templateId": "personalized",
+        "title": "Trace personalized retrieval in Foundry",
+        "summary": "Open a reproducible MovieTweetings pipeline and inspect candidate lineage.",
+        "id": "personalized-foundry"
+      },
+      {
+        "kind": "checkpoint",
+        "nodeId": "negatives-quiz",
+        "title": "Defend the negative-sampling choice",
+        "summary": "Check whether the retrieval design matches the learning objective.",
+        "id": "negatives-checkpoint"
+      }
+    ]
+  }
 }

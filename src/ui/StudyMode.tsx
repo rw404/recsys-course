@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Check, Code2, Compass, ExternalLink, F
 import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON, type LessonSection } from '../data/course'
 import { NODES, useProgress, type NodeId } from '../state/progress'
 import { setImaxNotesLayoutOpen } from '../state/imaxLayout'
-import { useTheorySource, useTheoryWorld, type TheoryConceptContent } from '../content/theoryContent'
+import { useTheorySource, useTheoryWorld, type TheoryConceptContent, type TheoryJourney } from '../content/theoryContent'
 import { RepositoryTheoryNotes } from './TexNotes'
 
 type Card = LessonSection & { intro?: boolean; content?: TheoryConceptContent }
@@ -142,6 +142,7 @@ const LESSONS: Record<
 export function StudyMode() {
   const completeNode = useProgress((s) => s.completeNode)
   const closeNode = useProgress((s) => s.closeNode)
+  const openNode = useProgress((s) => s.openNode)
   const activeNodeId = useProgress((s) => s.activeNodeId)
   const setLessonPage = useProgress((s) => s.setLessonPage)
 
@@ -178,7 +179,12 @@ export function StudyMode() {
   const notes = useTheorySource(concept?.notes)
   const last = index === cards.length - 1
   const progress = ((index + 1) / cards.length) * 100
-
+  const practiceActivity = contentWorld?.journey?.activities.find((activity) => (
+    activity.kind === 'experiment' && Boolean(activity.nodeId)
+  )) ?? null
+  const practiceDone = useProgress((state) => practiceActivity?.nodeId
+    ? Boolean(state.completed[practiceActivity.nodeId as NodeId])
+    : false)
 
   useEffect(() => {
     setIndex(Math.min(useProgress.getState().lessonPage, cards.length - 1))
@@ -203,7 +209,16 @@ export function StudyMode() {
   }, [cards.length])
 
   const finish = () => {
-    if (!preview) completeNode(lesson.nodeId)
+    if (preview) {
+      closeNode()
+      return
+    }
+    if (!done) completeNode(lesson.nodeId)
+    const nextNodeId = practiceActivity?.nodeId as NodeId | null | undefined
+    if (nextNodeId && NODES[nextNodeId] && !practiceDone) {
+      openNode(nextNodeId)
+      return
+    }
     closeNode()
   }
 
@@ -220,6 +235,8 @@ export function StudyMode() {
         concept={concept}
         notes={notes}
         repository={manifest?.repository ?? null}
+        journey={contentWorld?.journey ?? null}
+        nextActivityDone={practiceDone}
         onSelect={setIndex}
         onClose={closeNode}
         onFinish={finish}
@@ -343,6 +360,8 @@ function ImaxLesson({
   concept,
   notes,
   repository,
+  journey,
+  nextActivityDone,
   onSelect,
   onClose,
   onFinish,
@@ -357,6 +376,8 @@ function ImaxLesson({
   concept: TheoryConceptContent | null
   notes: { source: string | null; loading: boolean; error: string | null }
   repository: string | null
+  journey: TheoryJourney | null
+  nextActivityDone: boolean
   onSelect: (index: number) => void
   onClose: () => void
   onFinish: () => void
@@ -367,6 +388,11 @@ function ImaxLesson({
   ))
   const [sourceView, setSourceView] = useState(false)
   const last = index === cards.length - 1
+  const nextActivity = nextActivityDone ? null : journey?.activities.find((activity) => activity.kind === 'experiment') ?? null
+  const completionLabel = preview
+    ? 'Close preview'
+    : nextActivity?.title
+    ?? (done ? 'Return to world' : 'Complete & explore')
   const notesFilename = concept?.notesFormat === 'markdown' ? 'notes.md' : 'notes.tex'
   const repositoryNotesUrl = repository && concept
     ? `${repository}/blob/main/${concept.repositoryPath}/${notesFilename}`
@@ -410,6 +436,13 @@ function ImaxLesson({
         <span>CONCEPT {String(index + 1).padStart(2, '0')}</span>
         <h1 id="imax-concept-title">{card.heading}</h1>
         <p>{card.narration ?? card.body}</p>
+        {last && nextActivity && (
+          <div className="imax-next-activity">
+            <span>Next learning move</span>
+            <strong>{nextActivity.title}</strong>
+            <small>{nextActivity.summary}</small>
+          </div>
+        )}
         <button type="button" className="imax-explore-button" onClick={onClose} aria-label="Explore exhibits">
           <Compass size={17} aria-hidden />
           <span>Explore exhibits</span>
@@ -466,6 +499,21 @@ function ImaxLesson({
           )}
         </div>
         <div className="imax-notes-scroll">
+          {index === 0 && !sourceView && journey && (
+            <section className="imax-learning-contract">
+              <header><span>Learning contract</span><small>{journey.estimatedMinutes ? String(journey.estimatedMinutes) + ' min' : 'Self-paced'}</small></header>
+              <ol>
+                {journey.outcomes.map((outcome) => <li key={outcome}>{outcome}</li>)}
+              </ol>
+              <div>
+                {journey.activities.map((activity, activityIndex) => (
+                  <span key={activity.id} className={activity.kind === 'theory' ? 'is-current' : ''}>
+                    <b>{String(activityIndex + 1).padStart(2, '0')}</b>{activity.title}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
           {notes.loading && <div className="repo-tex-status">Loading <code>{notesFilename}</code>...</div>}
           {notes.error && (
             <div className="repo-tex-status is-error">
@@ -537,12 +585,12 @@ function ImaxLesson({
           type="button"
           className={'imax-next-button ' + (last ? 'is-complete' : '')}
           onClick={last ? onFinish : () => onSelect(index + 1)}
-          aria-label={last ? (preview ? 'Close preview' : done ? 'Return to world' : 'Complete & explore') : 'Next concept'}
+          aria-label={last ? completionLabel : 'Next concept'}
         >
           {last ? (
             <>
               <Check size={18} aria-hidden />
-              <span>{preview ? 'Close preview' : done ? 'Return to world' : 'Complete & explore'}</span>
+              <span>{completionLabel}</span>
             </>
           ) : (
             <>

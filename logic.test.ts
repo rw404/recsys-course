@@ -28,6 +28,8 @@ import {
   theoryStageObstacles,
 } from './src/game/theoryStageLayout'
 import type { WorldId } from './src/state/progress'
+import { createRuntimeDataset } from './src/data/recommenderDataset'
+import { buildFoundationsExperiment } from './src/logic/foundationsExperiment'
 
 let failed = 0
 function assert(name: string, cond: boolean, extra?: unknown) {
@@ -62,6 +64,76 @@ const ndScore = ndcg(byScore.map((i) => i.rel), allRels)
 const ndRel = ndcg(byRel.map((i) => i.rel), allRels)
 assert('relevance-sorted beats score-sorted (teaching point)', ndRel > ndScore, { ndRel, ndScore })
 assert('a passing slate (ndcg>=0.85) exists', ndRel >= 0.85, { ndRel })
+
+console.log('foundations experiment:')
+{
+  const ratings = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1]
+  const movies = ratings.map((_, index) => ({
+    id: `fx-${index + 1}`,
+    title: `Observed film ${index + 1}`,
+    year: 2000 + index,
+    genres: [index % 2 === 0 ? 'Sci-Fi' : 'Drama'],
+    tone: index % 2 === 0 ? '#4dbb98' : '#6b5ce3',
+    mark: `F${index + 1}`,
+  }))
+  const viewers = [
+    {
+      id: 'u104',
+      name: 'Maya',
+      cohort: 'Held-out viewer',
+      favoriteGenres: ['Sci-Fi'],
+      note: 'The learner must recover this observed preference order.',
+    },
+    ...['u201', 'u202', 'u203'].map((id) => ({
+      id,
+      name: id,
+      cohort: 'Catalogue population',
+      favoriteGenres: ['Drama'],
+      note: 'Contributes only to the global baseline.',
+    })),
+  ]
+  const observedRatings = ratings.map((rating, index) => ({
+    viewerId: 'u104',
+    movieId: movies[index].id,
+    rating,
+  }))
+  const populationRatings = viewers.slice(1).flatMap((viewer) => ratings.map((_, index) => ({
+    viewerId: viewer.id,
+    movieId: movies[index].id,
+    rating: index < 4 ? 2 : 5,
+  })))
+  const fixture = createRuntimeDataset({
+    meta: {
+      id: 'movielens-100k',
+      label: 'Observed ratings fixture',
+      source: 'Test fixture',
+      ratingsCount: observedRatings.length + populationRatings.length,
+      moviesCount: movies.length,
+      viewersCount: viewers.length,
+      isOfficial: true,
+      notice: 'Deterministic held-out experiment.',
+    },
+    movies,
+    viewers,
+    ratings: [...observedRatings, ...populationRatings],
+  })
+  const experiment = buildFoundationsExperiment(fixture)
+  assert('experiment selects a complete real-rating candidate set', experiment?.candidates.length === 9)
+  if (experiment) {
+    const byId = new Map(experiment.candidates.map((candidate) => [candidate.id, candidate]))
+    const baselineRels = experiment.baselineIds.map((id) => byId.get(id)?.rel ?? 0)
+    const idealRels = [...experiment.candidates]
+      .sort((left, right) => right.rel - left.rel)
+      .slice(0, 4)
+      .map((candidate) => candidate.rel)
+    const poolRels = experiment.candidates.map((candidate) => candidate.rel)
+    const baselineQuality = ndcg(baselineRels, poolRels)
+    const idealQuality = ndcg(idealRels, poolRels)
+    assert('global baseline disagrees with held-out user value', baselineQuality < idealQuality, { baselineQuality, idealQuality })
+    assert('learner can construct a passing personal slate', idealQuality >= 0.85, { idealQuality })
+    assert('candidate set contains both positive and negative evidence', experiment.candidates.some((candidate) => candidate.rel >= 2) && experiment.candidates.some((candidate) => candidate.rel === 0))
+  }
+}
 
 console.log('course content:')
 const lessons = [WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON]
