@@ -3,6 +3,11 @@ import { Html, PerspectiveCamera, RoundedBox, Sparkles } from '@react-three/drei
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useProgress, type WorldId } from '../state/progress'
+import {
+  IMAX_NOTES_DESKTOP_QUERY,
+  IMAX_NOTES_LAYOUT_EVENT,
+  isImaxNotesLayoutOpen,
+} from '../state/imaxLayout'
 import { useTheoryConcept } from '../content/theoryContent'
 import {
   SIGNAL_CONTENT_GROUP_POSITION,
@@ -1188,21 +1193,50 @@ function ReplayConsole({
 
 export function TheoryImaxCamera({ worldPosition }: { worldPosition: [number, number, number] }) {
   const camera = useRef<THREE.PerspectiveCamera>(null)
-  const target = useMemo(
-    () => new THREE.Vector3(worldPosition[0], 2.28, worldPosition[2] - 0.9),
-    [worldPosition],
+  const [notesOpen, setNotesOpen] = useState(isImaxNotesLayoutOpen)
+  const currentTarget = useRef(new THREE.Vector3(
+    worldPosition[0],
+    2.28,
+    worldPosition[2] - 0.9,
+  ))
+  const desiredTarget = useMemo(
+    () => new THREE.Vector3(
+      worldPosition[0] + (notesOpen ? 1.45 : 0),
+      notesOpen ? 2.34 : 2.28,
+      worldPosition[2] - 0.9,
+    ),
+    [notesOpen, worldPosition],
   )
-  const position = useMemo<[number, number, number]>(
-    () => [
-      worldPosition[0],
-      4.65,
-      worldPosition[2] + 10.2,
-    ],
-    [worldPosition],
+  const desiredPosition = useMemo(
+    () => new THREE.Vector3(
+      worldPosition[0] + (notesOpen ? 1.72 : 0),
+      notesOpen ? 4.9 : 4.65,
+      worldPosition[2] + (notesOpen ? 11.35 : 10.2),
+    ),
+    [notesOpen, worldPosition],
   )
 
-  useFrame(() => {
-    camera.current?.lookAt(target)
+  useEffect(() => {
+    const media = window.matchMedia(IMAX_NOTES_DESKTOP_QUERY)
+    const syncLayout = () => setNotesOpen(isImaxNotesLayoutOpen())
+
+    syncLayout()
+    window.addEventListener(IMAX_NOTES_LAYOUT_EVENT, syncLayout)
+    media.addEventListener('change', syncLayout)
+
+    return () => {
+      window.removeEventListener(IMAX_NOTES_LAYOUT_EVENT, syncLayout)
+      media.removeEventListener('change', syncLayout)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    if (!camera.current) return
+
+    const alpha = 1 - Math.exp(-delta * 7)
+    camera.current.position.lerp(desiredPosition, alpha)
+    currentTarget.current.lerp(desiredTarget, alpha)
+    camera.current.lookAt(currentTarget.current)
   })
 
   return (
@@ -1212,7 +1246,11 @@ export function TheoryImaxCamera({ worldPosition }: { worldPosition: [number, nu
       near={0.1}
       far={180}
       fov={42}
-      position={position}
+      position={[
+        worldPosition[0],
+        4.65,
+        worldPosition[2] + 10.2,
+      ]}
     />
   )
 }

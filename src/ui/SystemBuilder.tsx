@@ -585,6 +585,7 @@ function SystemBuilderSurface({ onClose }: { onClose: () => void }) {
 
           <NodeInspector
             node={selectedNode}
+            dataset={dataset}
             onConfigChange={updateConfig}
             onDelete={removeSelectedNode}
             onOpenTrace={() => openResults('trace')}
@@ -733,11 +734,13 @@ function ModulePalette({ onAdd }: { onAdd: (type: PipelineModuleType) => void })
 
 function NodeInspector({
   node,
+  dataset,
   onConfigChange,
   onDelete,
   onOpenTrace,
 }: {
   node: BuilderNode | null
+  dataset: RuntimeDataset
   onConfigChange: (nodeId: string, key: string, value: number | boolean) => void
   onDelete: () => void
   onOpenTrace: () => void
@@ -824,15 +827,35 @@ function NodeInspector({
           <span><small>Output</small><strong>{trace?.outputCount ?? '—'}</strong></span>
           <span><small>Node</small><strong>{trace ? `${trace.latencyMs} ms` : '—'}</strong></span>
         </div>
-        {trace && <button type="button" className="inspector-open-trace" onClick={onOpenTrace}><Maximize2 size={13} />Open stage details</button>}
+        {trace && (
+          <button type="button" className="inspector-open-trace" onClick={onOpenTrace}>
+            <Maximize2 size={13} />Open full stage details
+          </button>
+        )}
       </section>
+      {trace && (
+        <div className="inspector-lineage">
+          <StageLineage trace={trace} dataset={dataset} limit={36} />
+        </div>
+      )}
       {trace?.message && <div className="inspector-error">{trace.message}</div>}
     </aside>
   )
 }
 
-function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace; dataset: RuntimeDataset; expanded?: boolean }) {
+function StageLineage({
+  trace,
+  dataset,
+  expanded = false,
+  limit,
+}: {
+  trace?: NodeTrace
+  dataset: RuntimeDataset
+  expanded?: boolean
+  limit?: number
+}) {
   const [view, setView] = useState<'input' | 'output' | 'removed'>('output')
+  useEffect(() => setView('output'), [trace?.nodeId])
   if (!trace) {
     return (
       <section className="stage-lineage is-empty">
@@ -843,6 +866,7 @@ function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace;
   }
 
   const items = view === 'input' ? trace.inputItems : view === 'removed' ? trace.removedItems : trace.outputItems
+  const visibleLimit = limit ?? (expanded ? 36 : 12)
   return (
     <section className={`stage-lineage${expanded ? ' is-expanded' : ''}`}>
       <header>
@@ -856,7 +880,7 @@ function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace;
       </div>
       <div className="stage-lineage-items">
         {items.length === 0 && <p>No item snapshots in this set.</p>}
-        {items.slice(0, expanded ? 36 : 12).map((item) => {
+        {items.slice(0, visibleLimit).map((item) => {
           const movie = dataset.movieById[item.movieId]
           if (!movie) return null
           const removalReason = 'removalReason' in item ? String(item.removalReason) : null
@@ -873,7 +897,7 @@ function StageLineage({ trace, dataset, expanded = false }: { trace?: NodeTrace;
           )
         })}
       </div>
-      {items.length > (expanded ? 36 : 12) && <footer>Showing {expanded ? 36 : 12} of {items.length} captured items · counts above reflect the full stage.</footer>}
+      {items.length > visibleLimit && <footer>Showing {visibleLimit} of {items.length} captured items · counts above reflect the full stage.</footer>}
     </section>
   )
 }

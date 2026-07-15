@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, BookOpen, Check, Code2, Compass, ExternalLink, FileText, Lightbulb, X } from 'lucide-react'
 import { WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON, type LessonSection } from '../data/course'
 import { NODES, useProgress, type NodeId } from '../state/progress'
+import { setImaxNotesLayoutOpen } from '../state/imaxLayout'
 import { useTheorySource, useTheoryWorld, type TheoryConceptContent } from '../content/theoryContent'
 import { RepositoryTheoryNotes } from './TexNotes'
 
@@ -374,6 +375,14 @@ function ImaxLesson({
   useEffect(() => {
     setSourceView(false)
   }, [concept?.repositoryPath, index])
+
+  useEffect(() => {
+    setImaxNotesLayoutOpen(notesOpen)
+  }, [notesOpen])
+
+  useEffect(() => () => {
+    setImaxNotesLayoutOpen(false)
+  }, [])
 
   return (
     <div

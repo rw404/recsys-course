@@ -9679,6 +9679,88 @@ body {
   font-size: 9px;
 }
 
+.inspector-lineage {
+  padding-bottom: 16px;
+  border-top: 1px solid var(--foundry-line);
+  background: linear-gradient(180deg, #f5f9f8 0%, #fbfdfc 100%);
+}
+
+.inspector-lineage .stage-lineage {
+  padding: 15px 16px 8px;
+  border-bottom: 0;
+}
+
+.inspector-lineage .stage-lineage > header {
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.inspector-lineage .stage-lineage > header span {
+  font-size: 9px;
+}
+
+.inspector-lineage .stage-lineage > header small,
+.inspector-lineage .stage-lineage > footer {
+  font-size: 7px;
+}
+
+.inspector-lineage .stage-lineage-tabs {
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 4px;
+}
+
+.inspector-lineage .stage-lineage-tabs button {
+  height: 32px;
+  font-size: 8px;
+}
+
+.inspector-lineage .stage-lineage-items {
+  gap: 6px;
+  max-height: clamp(230px, 38vh, 470px);
+  padding-right: 4px;
+  scrollbar-color: rgba(82, 112, 119, 0.32) transparent;
+}
+
+.inspector-lineage .stage-lineage-items article {
+  grid-template-columns: 40px minmax(0, 1fr) 38px;
+  gap: 9px;
+  min-height: 64px;
+  padding: 6px;
+  border-radius: 6px;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.inspector-lineage .stage-lineage-items article:hover {
+  border-color: color-mix(in srgb, var(--family-color) 45%, #c7d8d6);
+  background: color-mix(in srgb, var(--family-color) 4%, #fff);
+  transform: translateY(-1px);
+}
+
+.inspector-lineage .stage-item-poster {
+  width: 40px;
+  height: 54px;
+  border-radius: 4px;
+}
+
+.inspector-lineage .stage-item-copy {
+  gap: 3px;
+}
+
+.inspector-lineage .stage-item-copy strong {
+  font-size: 9px;
+}
+
+.inspector-lineage .stage-item-copy small,
+.inspector-lineage .stage-item-copy em {
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.inspector-lineage .stage-lineage-items article > b {
+  font-size: 8px;
+}
+
 .why-poster {
   width: 68px;
   height: 92px;
@@ -11464,6 +11546,7 @@ body {
   --imax-green: #319f74;
   --imax-teal: #2f9fb3;
   --imax-violet: #6757e6;
+  --imax-notes-width: min(470px, 38vw);
   position: absolute;
   inset: 0;
   z-index: 72;
@@ -11749,7 +11832,7 @@ body {
   right: 18px;
   bottom: 82px;
   z-index: 10;
-  width: min(470px, 38vw);
+  width: var(--imax-notes-width);
   display: grid;
   grid-template-rows: 58px 46px minmax(0, 1fr);
   color: #17383d;
@@ -12161,6 +12244,22 @@ body {
 .imax-next-button.is-complete {
   border-color: #25805d;
   background: #319f74;
+}
+
+@media (min-width: 1100px) and (pointer: fine) {
+  .imax-study.notes-open .imax-controls {
+    right: calc(var(--imax-notes-width) + 36px);
+    left: 18px;
+    width: max-content;
+    max-width: calc(100vw - var(--imax-notes-width) - 72px);
+    margin-inline: auto;
+    transform: none;
+  }
+
+  .imax-study.notes-open .imax-notes-toggle {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* Physical concept labels in the explorable version of Signal City. */
