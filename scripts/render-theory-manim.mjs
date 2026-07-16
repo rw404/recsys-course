@@ -15,8 +15,8 @@ const force = process.argv.includes('--force')
 const manim = process.env.MANIM_BIN ?? 'manim'
 const ffmpeg = process.env.FFMPEG_BIN ?? 'ffmpeg'
 
-function available(command) {
-  return spawnSync(command, ['--version'], { stdio: 'ignore' }).status === 0
+function available(command, versionFlag = '--version') {
+  return spawnSync(command, [versionFlag], { stdio: 'ignore' }).status === 0
 }
 
 function run(command, args, options = {}) {
@@ -41,7 +41,7 @@ if (!available(manim)) {
   console.error('Manim is not installed. Install Manim Community, then run: npm run content:manim -- world02')
   process.exit(1)
 }
-if (!available(ffmpeg)) {
+if (!available(ffmpeg, '-version')) {
   console.error('ffmpeg is required to create the WebM browser fallback.')
   process.exit(1)
 }

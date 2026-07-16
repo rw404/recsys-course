@@ -23,6 +23,15 @@ for (const world of worlds) {
     assert.ok(concept.notes)
     const notePath = path.join(REPO_ROOT, 'public', decodeURIComponent(concept.notes.slice(1)))
     assert.ok(fs.existsSync(notePath), `missing generated note: ${notePath}`)
+    assert.ok(
+      concept.video?.mp4 && concept.video?.webm,
+      `${world.folder}/${concept.slug} must ship both MP4 and WebM theory video`,
+    )
+    for (const videoUrl of [concept.video.mp4, concept.video.webm]) {
+      const videoPath = path.join(REPO_ROOT, 'public', decodeURIComponent(videoUrl.slice(1)))
+      assert.ok(fs.existsSync(videoPath), `missing generated video: ${videoPath}`)
+      assert.ok(fs.statSync(videoPath).size > 12_000, `theory video is unexpectedly small: ${videoPath}`)
+    }
     for (const figure of concept.figures) {
       const figurePath = path.join(REPO_ROOT, 'public', decodeURIComponent(figure.src.slice(1)))
       assert.ok(fs.existsSync(figurePath), `missing generated figure: ${figurePath}`)
@@ -75,7 +84,6 @@ assert.deepEqual(
   ['theory', 'experiment', 'foundry', 'checkpoint'],
 )
 assert.equal(foundations.journey.activities[2].templateId, 'fast')
-assert.ok(foundations.concepts.every((concept) => concept.video?.mp4 && concept.video?.webm))
 assert.ok(foundations.concepts[0].figures.some((figure) => figure.id === 'decision-loop'))
 
 console.log('Theory content manifest tests passed')

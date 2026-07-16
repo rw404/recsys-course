@@ -617,32 +617,58 @@ function IslandBridges({ currentWorld }: { currentWorld: WorldId | null }) {
     : BRIDGE_CONNECTIONS
   return (
     <group>
-      {bridges.map(([from, to]) => <InstancedIslandBridge key={from + '-' + to} from={from} to={to} />)}
+      {bridges.map(([from, to]) => (
+        <InstancedIslandBridge
+          key={from + '-' + to}
+          from={from}
+          to={to}
+          currentWorld={currentWorld}
+        />
+      ))}
     </group>
   )
 }
 
-function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
+function InstancedIslandBridge({
+  from,
+  to,
+  currentWorld,
+}: {
+  from: WorldId
+  to: WorldId
+  currentWorld: WorldId | null
+}) {
   const planks = useRef<THREE.InstancedMesh>(null)
   const posts = useRef<THREE.InstancedMesh>(null)
   const geometry = useMemo(() => {
-    const fromWorld = COURSE_WORLD_BY_ID[from]
-    const toWorld = COURSE_WORLD_BY_ID[to]
+    const focused = currentWorld !== null
+    const originId = focused && currentWorld === to ? to : from
+    const destinationId = originId === from ? to : from
+    const fromWorld = COURSE_WORLD_BY_ID[originId]
+    const toWorld = COURSE_WORLD_BY_ID[destinationId]
     const fromCenter = new THREE.Vector3(fromWorld.position[0], 0.15, fromWorld.position[2])
     const toCenter = new THREE.Vector3(toWorld.position[0], 0.15, toWorld.position[2])
     const direction = toCenter.clone().sub(fromCenter).setY(0).normalize()
     const start = fromCenter.clone().addScaledVector(direction, 4.35)
-    const end = toCenter.clone().addScaledVector(direction, -4.35)
+    const islandEnd = toCenter.clone().addScaledVector(direction, -4.35)
+    const fullLength = start.distanceTo(islandEnd)
+    const end = focused
+      ? start.clone().addScaledVector(direction, Math.min(fullLength * 0.82, 3.35))
+      : islandEnd
     const length = start.distanceTo(end)
     const count = Math.max(3, Math.ceil(length / 0.72))
     return {
       angle: Math.atan2(direction.x, direction.z),
+      focused,
+      fogPosition: end.clone().addScaledVector(direction, 0.38),
+      destinationAccent: toWorld.accent,
       segments: Array.from({ length: count }, (_, index) => ({
         position: start.clone().lerp(end, count === 1 ? 0.5 : index / (count - 1)),
         lift: Math.sin((index / Math.max(1, count - 1)) * Math.PI) * 0.08,
+        fade: focused ? index / Math.max(1, count - 1) : 0,
       })),
     }
-  }, [from, to])
+  }, [currentWorld, from, to])
 
   useLayoutEffect(() => {
     if (!planks.current || !posts.current) return
@@ -653,10 +679,17 @@ function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
     geometry.segments.forEach((segment, index) => {
       dummy.position.set(segment.position.x, segment.position.y + segment.lift, segment.position.z)
       dummy.rotation.set(0, geometry.angle, 0)
-      dummy.scale.set(1, 1, 1)
+      dummy.scale.set(
+        THREE.MathUtils.lerp(1, 0.54, segment.fade),
+        THREE.MathUtils.lerp(1, 0.42, segment.fade),
+        THREE.MathUtils.lerp(1, 0.76, segment.fade),
+      )
       dummy.updateMatrix()
       planks.current!.setMatrixAt(index, dummy.matrix)
-      planks.current!.setColorAt(index, new THREE.Color(index % 2 ? '#d8c59d' : '#ede0bd'))
+      planks.current!.setColorAt(
+        index,
+        new THREE.Color(index % 2 ? '#d8c59d' : '#ede0bd').lerp(new THREE.Color('#eff7f6'), segment.fade * 0.94),
+      )
 
       for (const [sideIndex, side] of [-1, 1].entries()) {
         localPost.set(side * 0.43, 0.18, 0).applyAxisAngle(up, geometry.angle)
@@ -666,8 +699,17 @@ function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
           segment.position.z + localPost.z,
         )
         dummy.rotation.set(0, geometry.angle, 0)
+        dummy.scale.set(
+          THREE.MathUtils.lerp(1, 0.46, segment.fade),
+          THREE.MathUtils.lerp(1, 0.18, segment.fade),
+          THREE.MathUtils.lerp(1, 0.46, segment.fade),
+        )
         dummy.updateMatrix()
         posts.current!.setMatrixAt(index * 2 + sideIndex, dummy.matrix)
+        posts.current!.setColorAt(
+          index * 2 + sideIndex,
+          new THREE.Color('#6d7a78').lerp(new THREE.Color('#dceae8'), segment.fade * 0.9),
+        )
       }
     })
 
@@ -675,6 +717,7 @@ function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
     if (planks.current.instanceColor) planks.current.instanceColor.needsUpdate = true
     ;(planks.current.material as THREE.Material).needsUpdate = true
     posts.current.instanceMatrix.needsUpdate = true
+    if (posts.current.instanceColor) posts.current.instanceColor.needsUpdate = true
     planks.current.computeBoundingSphere()
     posts.current.computeBoundingSphere()
   }, [geometry])
@@ -687,9 +730,143 @@ function InstancedIslandBridge({ from, to }: { from: WorldId; to: WorldId }) {
       </instancedMesh>
       <instancedMesh ref={posts} args={[undefined, undefined, geometry.segments.length * 2]} castShadow>
         <cylinderGeometry args={[0.055, 0.07, 0.34, 8]} />
-        <meshStandardMaterial color="#6d7a78" roughness={0.72} />
+        <meshStandardMaterial color="#ffffff" roughness={0.72} />
       </instancedMesh>
+      {geometry.focused && (
+        <BridgeMist
+          position={[geometry.fogPosition.x, geometry.fogPosition.y, geometry.fogPosition.z]}
+          angle={geometry.angle}
+          accent={geometry.destinationAccent}
+        />
+      )}
     </group>
+  )
+}
+
+function BridgeMist({
+  position,
+  angle,
+  accent,
+}: {
+  position: [number, number, number]
+  angle: number
+  accent: string
+}) {
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      time: { value: 0 },
+      fogColor: { value: new THREE.Color('#f5fbfb') },
+      accentColor: { value: new THREE.Color(accent) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float time;
+      uniform vec3 fogColor;
+      uniform vec3 accentColor;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 centered = vUv - 0.5;
+        float oval = 1.0 - smoothstep(0.24, 0.66, length(centered * vec2(0.78, 1.24)));
+        float wisps = sin(vUv.x * 16.0 + time * 0.34 + sin(vUv.y * 8.0)) * 0.08;
+        float verticalFade = smoothstep(0.0, 0.18, vUv.y) * (1.0 - smoothstep(0.78, 1.0, vUv.y));
+        float horizontalFade = smoothstep(0.0, 0.14, vUv.x) * (1.0 - smoothstep(0.86, 1.0, vUv.x));
+        float alpha = clamp((oval + wisps) * verticalFade * horizontalFade, 0.0, 0.76);
+        float accentGlow = pow(max(0.0, 1.0 - length(centered * vec2(1.1, 1.7)) * 2.0), 3.0);
+        vec3 color = mix(fogColor, accentColor, accentGlow * 0.2);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  }), [accent])
+
+  useEffect(() => () => material.dispose(), [material])
+  useFrame((state) => {
+    material.uniforms.time.value = state.clock.elapsedTime
+  })
+
+  return (
+    <group>
+      <mesh position={[position[0], position[1] + 0.72, position[2]]} rotation={[0, angle, 0]} material={material} renderOrder={4}>
+        <planeGeometry args={[4.5, 3.05, 1, 1]} />
+      </mesh>
+      <BridgeFogClouds position={position} angle={angle} />
+      <mesh position={[position[0], position[1] - 0.04, position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.46, 0.59, 36]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.2} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function BridgeFogClouds({
+  position,
+  angle,
+}: {
+  position: [number, number, number]
+  angle: number
+}) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    const perpendicular = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle))
+    const direction = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle))
+    const clusters = [
+      { offset: perpendicular.clone().multiplyScalar(-0.76).addScaledVector(direction, 0.18).setY(0.2), scale: 0.9 },
+      { offset: perpendicular.clone().multiplyScalar(0.72).addScaledVector(direction, 0.08).setY(0.28), scale: 0.86 },
+      { offset: direction.clone().multiplyScalar(0.36).setY(0.76), scale: 0.96 },
+      { offset: direction.clone().multiplyScalar(0.62).setY(-0.04), scale: 0.98 },
+    ]
+    const puffs: [number, number, number][] = [
+      [-0.58, 0, 0],
+      [0.42, 0.05, 0.02],
+      [-0.02, 0.24, -0.12],
+      [0.08, -0.06, 0.4],
+    ]
+
+    let instance = 0
+    for (const cloud of clusters) {
+      for (const [puffIndex, puff] of puffs.entries()) {
+        dummy.position.copy(cloud.offset).addScaledVector(
+          new THREE.Vector3(...puff),
+          cloud.scale,
+        )
+        dummy.scale.setScalar(cloud.scale * (0.72 - puffIndex * 0.06) / 0.72)
+        dummy.updateMatrix()
+        mesh.current.setMatrixAt(instance, dummy.matrix)
+        instance += 1
+      }
+    }
+    mesh.current.instanceMatrix.needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [angle])
+
+  return (
+    <instancedMesh
+      ref={mesh}
+      args={[undefined, undefined, 16]}
+      position={position}
+      renderOrder={3}
+    >
+      <sphereGeometry args={[0.72, 16, 12]} />
+      <meshStandardMaterial
+        color="#f7fcfc"
+        transparent
+        opacity={0.5}
+        roughness={1}
+        depthWrite={false}
+      />
+    </instancedMesh>
   )
 }
 

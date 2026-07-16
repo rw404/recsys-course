@@ -38,7 +38,13 @@ const browser = await chromium.launch({
 })
 
 const errors = []
+const theoryVideoRequests = []
 function watch(page, label) {
+  page.on('request', (request) => {
+    if (/\/theory-content\/world\d{2}\/.*\/screen\.(webm|mp4)/.test(request.url())) {
+      theoryVideoRequests.push(request.url())
+    }
+  })
   page.on('pageerror', (error) => errors.push(label + ' page: ' + error.message))
   page.on('console', (message) => {
     if (message.type() === 'error' && !message.text().includes('favicon')) {
@@ -53,6 +59,7 @@ async function openLesson(page, lesson) {
     for (const requirement of progress.NODES[nodeId].requires) {
       progress.useProgress.getState().completeNode(requirement)
     }
+    progress.useProgress.getState().travelTo(progress.NODES[nodeId].worldId)
     progress.useProgress.getState().openNode(nodeId)
   }, lesson)
   await page.locator('.imax-learning-contract').waitFor({ state: 'visible', timeout: 30000 })
@@ -87,7 +94,12 @@ await desktop.locator('canvas').waitFor({ state: 'visible', timeout: 60000 })
 
 const desktopReport = []
 for (const world of worlds) {
+  const requestStart = theoryVideoRequests.length
   await openLesson(desktop, world.lesson)
+  assert.ok(
+    theoryVideoRequests.slice(requestStart).some((url) => url.includes(`/theory-content/${world.slug}/`)),
+    world.slug + ' did not request its repository Manim clip',
+  )
   assert.equal(await desktop.locator('.imax-learning-contract li').count(), 3)
   assert.equal(await desktop.locator('.imax-learning-contract > div span').count(), 4)
   const initial = await readLayout(desktop)

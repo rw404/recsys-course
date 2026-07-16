@@ -22,7 +22,8 @@ content/theory/
 
 Concept directories are ordered by their two-digit prefix. A newly committed `11-topic-name`
 directory becomes the next chapter automatically. Every world currently has a complete set of
-`concept.json` and `notes.tex` files; video is optional.
+`concept.json`, `notes.tex`, `screen.mp4`, and `screen.webm` files. The Three.js screen is an
+authoring and network fallback, while `npm run test:theory` requires both browser video formats before release.
 
 ### `world.json`
 
@@ -134,6 +135,7 @@ npm run content:manim -- --force world04
 Without a world argument the command renders every missing clip in Worlds 02-06. Retrieval,
 sequence/attention, policy/RL, ecosystem, and synthesis chapters each use their own visual
 grammar. `--force` replaces existing clips; otherwise author-provided videos are preserved.
+Run `npm run test:theory` after rendering to verify every concept has notes and both video formats.
 
 ## Development and deployment
 
