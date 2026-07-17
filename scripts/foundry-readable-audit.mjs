@@ -47,7 +47,7 @@ desktop.on('pageerror', (error) => errors.push(error.message))
 desktop.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
 await openFoundry(desktop)
 
-assert.equal(await desktop.locator('.foundry-results-tabs > button').count(), 4)
+assert.equal(await desktop.locator('.foundry-results-tabs > button').count(), 5)
 assert.match(await desktop.locator('.foundry-results-source').innerText(), /100,000 ratings/)
 assert.match(await desktop.locator('.foundry-results-source').innerText(), new RegExp(expectedDataset))
 await desktop.locator('.foundry-results.is-docked').waitFor()
@@ -152,6 +152,55 @@ assert.ok(serviceGeometry.eventsHeight >= 128, `Event log collapsed to ${service
 assert.ok(serviceGeometry.trendBottom <= serviceGeometry.policyTop, `Chart overlaps policy by ${serviceGeometry.trendBottom - serviceGeometry.policyTop}px`)
 await desktop.screenshot({ path: 'artifacts/foundry-readable-service.png' })
 
+await desktop.getByRole('tab', { name: /Lab notebook/ }).click()
+await desktop.locator('.experiment-journal').waitFor()
+await desktop.locator('.experiment-capture input').fill('Observed baseline')
+await desktop.locator('.experiment-capture textarea').fill('The current hybrid pipeline should establish a stable reference slate.')
+await desktop.getByRole('button', { name: 'Save completed run' }).click()
+assert.equal(await desktop.locator('.experiment-run-card').count(), 1)
+await desktop.screenshot({ path: 'artifacts/foundry-notebook-baseline.png' })
+
+await desktop.getByRole('button', { name: 'Back to pipeline' }).click()
+await desktop.locator('.foundry-results.is-docked').waitFor()
+await desktop.locator('.template-select select').selectOption('fast')
+await desktop.getByRole('button', { name: 'Run pipeline' }).click()
+await desktop.locator('.foundry-run.status-running').waitFor()
+await desktop.locator('.foundry-run.status-complete').waitFor({ timeout: 20000 })
+await desktop.locator('.foundry-results.is-expanded').waitFor()
+await desktop.getByRole('tab', { name: /Lab notebook/ }).click()
+await desktop.locator('.experiment-capture input').fill('Fast baseline')
+await desktop.locator('.experiment-capture textarea').fill('Removing personalized retrieval should reduce latency and change the slate.')
+await desktop.getByRole('button', { name: 'Save completed run' }).click()
+assert.equal(await desktop.locator('.experiment-run-card').count(), 2)
+assert.equal(await desktop.locator('.experiment-deltas > span').count(), 5)
+assert.match(await desktop.locator('.experiment-comparison').innerText(), /Slate overlap/i)
+await desktop.screenshot({ path: 'artifacts/foundry-notebook-comparison.png' })
+
+await desktop.evaluate(async () => {
+  const progress = await import('/src/state/progress.ts')
+  progress.useProgress.getState().completeNode('week01-station')
+  progress.useProgress.getState().travelTo('retrieval-valley')
+})
+await desktop.waitForFunction(() => Boolean(window.localStorage.getItem('recsys-odyssey-course-progress')))
+await desktop.reload({ waitUntil: 'domcontentloaded' })
+await desktop.locator('canvas').waitFor({ state: 'visible', timeout: 60000 })
+await desktop.waitForFunction(async () => {
+  const progress = await import('/src/state/progress.ts')
+  const state = progress.useProgress.getState()
+  return state.currentWorld === 'retrieval-valley' && state.completed['week01-station'] === true
+})
+const restoredProgress = await desktop.evaluate(async () => {
+  const progress = await import('/src/state/progress.ts')
+  const state = progress.useProgress.getState()
+  return { currentWorld: state.currentWorld, lessonComplete: state.completed['week01-station'] }
+})
+assert.deepEqual(restoredProgress, { currentWorld: 'retrieval-valley', lessonComplete: true })
+
+await openFoundry(desktop)
+await desktop.getByRole('tab', { name: /Lab notebook/ }).click()
+await desktop.locator('.experiment-journal').waitFor()
+assert.equal(await desktop.locator('.experiment-run-card').count(), 2)
+
 const desktopOverflow = await desktop.evaluate(() => ({
   x: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   y: document.documentElement.scrollHeight - document.documentElement.clientHeight,
@@ -172,6 +221,9 @@ await mobile.screenshot({ path: 'artifacts/foundry-readable-mobile-recommendatio
 await mobile.getByRole('tab', { name: /Dataset evidence/ }).click()
 await mobile.locator('.movielens-explorer').waitFor()
 await mobile.screenshot({ path: 'artifacts/foundry-readable-mobile.png' })
+await mobile.getByRole('tab', { name: /Lab notebook/ }).click()
+await mobile.locator('.experiment-journal').waitFor()
+await mobile.screenshot({ path: 'artifacts/foundry-notebook-mobile.png', fullPage: true })
 const mobileOverflow = await mobile.evaluate(() => ({
   x: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   y: document.documentElement.scrollHeight - document.documentElement.clientHeight,

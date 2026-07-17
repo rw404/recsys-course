@@ -1,13 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { World } from './game/World'
 import { HUD } from './ui/HUD'
 import { MobileControls } from './ui/MobileControls'
 import { JourneyScroll } from './ui/JourneyScroll'
 import { useProgress } from './state/progress'
 import { OPEN_FOUNDRY_EVENT, isFoundryLaunchEvent } from './state/foundryLaunch'
 import type { SystemTemplateId } from './data/systemTemplates'
-import { runtime } from './game/shared'
 
+const World = lazy(() => import('./game/World').then((module) => ({ default: module.World })))
 const SystemBuilder = lazy(() => import('./ui/SystemBuilder').then((module) => ({ default: module.SystemBuilder })))
 const StudyMode = lazy(() => import('./ui/StudyMode').then((module) => ({ default: module.StudyMode })))
 const FoundationsLab = lazy(() => import('./ui/FoundationsLab').then((module) => ({ default: module.FoundationsLab })))
@@ -147,8 +146,10 @@ function Game() {
       if (e.key === 'Escape') {
         if (builderOpen) setBuilderOpen(false)
         else if (activeNodeId) {
-          runtime.cameraSkip = true
-          closeNode()
+          void import('./game/shared').then(({ runtime }) => {
+            runtime.cameraSkip = true
+            closeNode()
+          }, closeNode)
         } else if (catalogOpen) setCatalogOpen(false)
       }
       if (e.key.toLowerCase() === 'c' && !activeNodeId) setCatalogOpen((v) => !v)
@@ -165,7 +166,9 @@ function Game() {
     <div className={`course-app mode-${mode}`}>
       {!builderOpen && (
         <div className="canvas-wrap">
-          <World />
+          <Suspense fallback={<div className="world-loading" aria-label="Loading 3D world"><span /></div>}>
+            <World />
+          </Suspense>
         </div>
       )}
 

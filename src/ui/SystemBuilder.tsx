@@ -23,6 +23,8 @@ import '@xyflow/react/dist/style.css'
 import {
   Activity,
   ArrowLeft,
+  ArrowRightLeft,
+  BookOpenText,
   Boxes,
   Check,
   CircleGauge,
@@ -38,6 +40,7 @@ import {
   Plus,
   RefreshCw,
   Rows3,
+  Save,
   Shuffle,
   SlidersHorizontal,
   Timer,
@@ -74,12 +77,17 @@ import {
   type PipelineModuleType,
   type SimulationResult,
 } from '../logic/systemSimulator'
+import {
+  compareExperimentRuns,
+  useExperimentJournal,
+  type ExperimentRun,
+} from '../state/experimentJournal'
 
 type RunState = 'idle' | 'queued' | 'active' | 'complete' | 'error'
 type RunStatus = 'ready' | 'dirty' | 'running' | 'complete' | 'error'
 type MobileTab = 'graph' | 'modules' | 'slate'
 type LayoutMode = 'diagram' | 'isometric'
-type ResultsView = 'recommendations' | 'trace' | 'service' | 'dataset'
+type ResultsView = 'recommendations' | 'trace' | 'service' | 'dataset' | 'journal'
 type NodePositionMap = Record<string, { x: number; y: number }>
 
 interface BuilderNodeData extends Record<string, unknown> {
@@ -623,6 +631,9 @@ function SystemBuilderSurface({
           datasetReady={datasetReady}
           viewerId={resultViewerId}
           result={result}
+          templateId={templateId}
+          nodes={nodes}
+          edges={edges}
           runStatus={runStatus}
           activeView={resultsView}
           selectedMovieId={selectedMovieId}
@@ -933,6 +944,9 @@ function FoundryResults({
   dataset,
   datasetReady,
   result,
+  templateId,
+  nodes,
+  edges,
   runStatus,
   activeView,
   expanded,
@@ -947,6 +961,9 @@ function FoundryResults({
   datasetReady: boolean
   viewerId: string
   result: SimulationResult
+  templateId: SystemTemplateId
+  nodes: BuilderNode[]
+  edges: BuilderEdge[]
   runStatus: RunStatus
   activeView: ResultsView
   expanded: boolean
@@ -957,6 +974,7 @@ function FoundryResults({
   onClose: () => void
   onRetryDataset: () => void
 }) {
+  const savedRunCount = useExperimentJournal((state) => state.runs.length)
   const viewer = dataset.viewerById[viewerId] ?? dataset.viewers[0]
   const selectedCandidate = result.recommendations.find((candidate) => candidate.movieId === selectedMovieId)
     ?? result.recommendations[0]
@@ -992,6 +1010,7 @@ function FoundryResults({
     { id: 'trace', label: 'Stage trace', detail: `${result.visitedNodeIds.length} processing stages`, Icon: Network },
     { id: 'service', label: 'Service simulation', detail: 'Counterfactual feedback', Icon: Activity },
     { id: 'dataset', label: 'Dataset evidence', detail: 'Ratings and provenance', Icon: Database },
+    { id: 'journal', label: 'Lab notebook', detail: `${savedRunCount} saved runs`, Icon: BookOpenText },
   ]
 
   return (
@@ -1109,8 +1128,273 @@ function FoundryResults({
       {expanded && activeView === 'trace' && <PipelineTraceExplorer dataset={dataset} result={result} runStatus={runStatus} />}
       {expanded && activeView === 'service' && <ServiceSimulator dataset={dataset} viewerId={viewerId} result={result} runStatus={runStatus} />}
       {expanded && activeView === 'dataset' && <MovieLensDataExplorer dataset={dataset} viewerId={viewerId} />}
+      {expanded && activeView === 'journal' && (
+        <ExperimentJournal
+          dataset={dataset}
+          viewerId={viewerId}
+          result={result}
+          runStatus={runStatus}
+          templateId={templateId}
+          nodes={nodes}
+          edges={edges}
+        />
+      )}
     </section>
   )
+}
+
+function ExperimentJournal({
+  dataset,
+  viewerId,
+  result,
+  runStatus,
+  templateId,
+  nodes,
+  edges,
+}: {
+  dataset: RuntimeDataset
+  viewerId: string
+  result: SimulationResult
+  runStatus: RunStatus
+  templateId: SystemTemplateId
+  nodes: BuilderNode[]
+  edges: BuilderEdge[]
+}) {
+  const runs = useExperimentJournal((state) => state.runs)
+  const saveRun = useExperimentJournal((state) => state.saveRun)
+  const removeRun = useExperimentJournal((state) => state.removeRun)
+  const [title, setTitle] = useState('')
+  const [hypothesis, setHypothesis] = useState('')
+  const [leftId, setLeftId] = useState<string | null>(runs[1]?.id ?? runs[0]?.id ?? null)
+  const [rightId, setRightId] = useState<string | null>(runs[0]?.id ?? null)
+  const left = runs.find((run) => run.id === leftId) ?? runs[1] ?? runs[0] ?? null
+  const right = runs.find((run) => run.id === rightId) ?? runs[0] ?? null
+  const comparison = useMemo(
+    () => left && right ? compareExperimentRuns(left, right) : null,
+    [left, right],
+  )
+  const canSave = dataset.meta.isOfficial
+    && !result.error
+    && result.recommendations.length > 0
+    && runStatus !== 'dirty'
+    && runStatus !== 'running'
+    && hypothesis.trim().length >= 8
+
+  useEffect(() => {
+    if (leftId && runs.some((run) => run.id === leftId) && rightId && runs.some((run) => run.id === rightId)) return
+    setLeftId(runs[1]?.id ?? runs[0]?.id ?? null)
+    setRightId(runs[0]?.id ?? null)
+  }, [leftId, rightId, runs])
+
+  const handleSave = () => {
+    if (!canSave) return
+    const fallbackTitle = `${SYSTEM_TEMPLATES[templateId].name} · ${viewerId.toUpperCase()}`
+    const previousNewestId = runs[0]?.id ?? null
+    const id = saveRun({
+      title: title.trim() || fallbackTitle,
+      hypothesis,
+      templateId,
+      viewerId,
+      dataset,
+      nodes: specsFromNodes(nodes),
+      edges: specsFromEdges(edges),
+      result,
+    })
+    setLeftId(previousNewestId ?? id)
+    setRightId(id)
+    setTitle('')
+    setHypothesis('')
+  }
+
+  return (
+    <div className="foundry-results-view experiment-journal" role="tabpanel">
+      <section className="experiment-capture">
+        <header>
+          <span><BookOpenText size={18} /></span>
+          <div><small>Experiment record</small><h2>Save the evidence, not just the score</h2></div>
+        </header>
+        <p>State what you expect to change. The notebook freezes the completed pipeline, metrics and recommendation slate so later edits cannot rewrite the evidence.</p>
+        <label>
+          <span>Run name</span>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={`${SYSTEM_TEMPLATES[templateId].name} · ${viewerId.toUpperCase()}`}
+            maxLength={80}
+          />
+        </label>
+        <label>
+          <span>Hypothesis</span>
+          <textarea
+            value={hypothesis}
+            onChange={(event) => setHypothesis(event.target.value)}
+            placeholder="Example: increasing ANN recall should improve quality but add latency."
+            maxLength={280}
+          />
+        </label>
+        <div className="experiment-capture-summary">
+          <span><b>{nodes.length}</b><small>modules</small></span>
+          <span><b>{result.recommendations.length}</b><small>films</small></span>
+          <span><b>{result.metrics.latencyMs} ms</b><small>path latency</small></span>
+        </div>
+        <button type="button" onClick={handleSave} disabled={!canSave}>
+          <Save size={15} />
+          {runStatus === 'dirty'
+            ? 'Run the draft before saving'
+            : hypothesis.trim().length < 8
+            ? 'Write a testable hypothesis'
+            : 'Save completed run'}
+        </button>
+      </section>
+
+      <section className="experiment-library">
+        <header>
+          <div><small>Saved locally</small><h2>Experiment history</h2></div>
+          <span>{runs.length} / 24</span>
+        </header>
+        {runs.length === 0 ? (
+          <div className="experiment-empty">
+            <BookOpenText size={28} />
+            <strong>No runs saved yet</strong>
+            <p>Save a baseline, change one decision, run the pipeline again and compare the evidence.</p>
+          </div>
+        ) : (
+          <div className="experiment-run-list">
+            {runs.map((run) => (
+              <ExperimentRunCard
+                key={run.id}
+                run={run}
+                dataset={dataset}
+                isLeft={left?.id === run.id}
+                isRight={right?.id === run.id}
+                onSetLeft={() => setLeftId(run.id)}
+                onSetRight={() => setRightId(run.id)}
+                onRemove={() => removeRun(run.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="experiment-comparison">
+        <header>
+          <span><ArrowRightLeft size={18} /></span>
+          <div><small>A/B evidence</small><h2>What changed after the decision?</h2></div>
+        </header>
+        {!left || !right || !comparison || left.id === right.id ? (
+          <div className="experiment-empty is-compact">
+            <strong>Choose two different runs</strong>
+            <p>Mark one saved run as A and another as B to compare metrics, modules and slate overlap.</p>
+          </div>
+        ) : (
+          <>
+            <div className="experiment-pair">
+              <span><i>A</i><b>{left.title}</b><small>{formatExperimentDate(left.createdAt)}</small></span>
+              <ArrowRightLeft size={16} />
+              <span><i>B</i><b>{right.title}</b><small>{formatExperimentDate(right.createdAt)}</small></span>
+            </div>
+            <div className="experiment-deltas">
+              <ExperimentDelta label="Quality" value={comparison.metricDeltas.quality} />
+              <ExperimentDelta label="Diversity" value={comparison.metricDeltas.diversity} />
+              <ExperimentDelta label="Coverage" value={comparison.metricDeltas.coverage} />
+              <ExperimentDelta label="Novelty" value={comparison.metricDeltas.novelty} />
+              <ExperimentDelta label="Latency" value={comparison.metricDeltas.latencyMs} latency />
+            </div>
+            <div className="experiment-change-grid">
+              <div>
+                <small>Slate overlap</small>
+                <strong>{Math.round(comparison.slateOverlap * 100)}%</strong>
+                <span>{comparison.sharedMovieIds.length} shared films</span>
+              </div>
+              <div>
+                <small>Pipeline changes</small>
+                <strong>{comparison.addedModules.length + comparison.removedModules.length + comparison.changedModules.length}</strong>
+                <span>{describePipelineChanges(comparison)}</span>
+              </div>
+            </div>
+            <div className="experiment-hypotheses">
+              <span><i>A</i>{left.hypothesis}</span>
+              <span><i>B</i>{right.hypothesis}</span>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function ExperimentRunCard({
+  run,
+  dataset,
+  isLeft,
+  isRight,
+  onSetLeft,
+  onSetRight,
+  onRemove,
+}: {
+  run: ExperimentRun
+  dataset: RuntimeDataset
+  isLeft: boolean
+  isRight: boolean
+  onSetLeft: () => void
+  onSetRight: () => void
+  onRemove: () => void
+}) {
+  return (
+    <article className={`experiment-run-card${isLeft ? ' is-left' : ''}${isRight ? ' is-right' : ''}`}>
+      <header>
+        <div><strong>{run.title}</strong><small>{formatExperimentDate(run.createdAt)} · {run.viewerId.toUpperCase()}</small></div>
+        <button type="button" onClick={onRemove} aria-label={`Delete ${run.title}`} title="Delete run"><Trash2 size={14} /></button>
+      </header>
+      <p>{run.hypothesis}</p>
+      <div className="experiment-run-posters">
+        {run.recommendations.slice(0, 4).map((item) => {
+          const movie = dataset.movieById[item.movieId]
+          return movie ? <MoviePoster key={movie.id} movie={movie} dataset={dataset} className="experiment-run-poster" /> : null
+        })}
+      </div>
+      <footer>
+        <span><b>{run.metrics.quality.toFixed(2)}</b> quality</span>
+        <span><b>{run.metrics.latencyMs}</b> ms</span>
+        <div>
+          <button type="button" className={isLeft ? 'is-active' : ''} onClick={onSetLeft} aria-pressed={isLeft}>A</button>
+          <button type="button" className={isRight ? 'is-active' : ''} onClick={onSetRight} aria-pressed={isRight}>B</button>
+        </div>
+      </footer>
+    </article>
+  )
+}
+
+function ExperimentDelta({ label, value, latency = false }: { label: string; value: number; latency?: boolean }) {
+  const rounded = latency ? Math.round(value) : Number(value.toFixed(3))
+  const improving = latency ? rounded < 0 : rounded > 0
+  const declining = latency ? rounded > 0 : rounded < 0
+  return (
+    <span className={improving ? 'is-positive' : declining ? 'is-negative' : ''}>
+      <small>{label}</small>
+      <strong>{rounded > 0 ? '+' : ''}{latency ? `${rounded} ms` : rounded.toFixed(3)}</strong>
+    </span>
+  )
+}
+
+function formatExperimentDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Saved run'
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function describePipelineChanges(comparison: ReturnType<typeof compareExperimentRuns>): string {
+  const labels = [
+    ...comparison.addedModules.map((type) => `+${PIPELINE_MODULES[type].shortLabel}`),
+    ...comparison.removedModules.map((type) => `−${PIPELINE_MODULES[type].shortLabel}`),
+    ...comparison.changedModules.map((type) => PIPELINE_MODULES[type].shortLabel),
+  ]
+  return labels.slice(0, 4).join(' · ') || 'Same modules and parameters'
 }
 
 function PipelineTraceExplorer({

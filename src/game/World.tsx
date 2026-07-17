@@ -9,6 +9,9 @@ const CAPTURE =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('capture')
 const PERF =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('perf')
+const QUALITY_FORCED =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('quality')
+const ADAPTIVE_QUALITY_STATE = { degraded: false }
 
 export interface WorldPerformanceSnapshot {
   fps: number
@@ -19,6 +22,9 @@ export interface WorldPerformanceSnapshot {
   geometries: number
   textures: number
   objects: number
+  dpr: number
+  shadows: boolean
+  degraded: boolean
 }
 
 export function World() {
@@ -51,6 +57,7 @@ export function World() {
     >
       <fog attach="fog" args={['#dceef3', 60, 126]} />
       <FrameLoopMode paused={pauseBehindOverlay} />
+      <AdaptiveSceneQuality enabled={!CAPTURE && !QUALITY_FORCED} />
       <Suspense fallback={null}>
         <CloudCourseWorld />
         {PERF && <PerformanceProbe />}
@@ -71,6 +78,38 @@ function FrameLoopMode({ paused }: { paused: boolean }) {
   return null
 }
 
+function AdaptiveSceneQuality({ enabled }: { enabled: boolean }) {
+  const gl = useThree((state) => state.gl)
+  const setDpr = useThree((state) => state.setDpr)
+  const sample = useRef({ elapsed: 0, frames: 0, degraded: false })
+
+  useEffect(() => {
+    ADAPTIVE_QUALITY_STATE.degraded = false
+    return () => { ADAPTIVE_QUALITY_STATE.degraded = false }
+  }, [])
+
+  useFrame((_, delta) => {
+    if (!enabled || sample.current.degraded) return
+    sample.current.elapsed += Math.min(delta, 0.25)
+    sample.current.frames += 1
+    if (sample.current.elapsed < 2.4) return
+
+    const fps = sample.current.frames / sample.current.elapsed
+    if (fps < 34) {
+      sample.current.degraded = true
+      ADAPTIVE_QUALITY_STATE.degraded = true
+      setDpr(1)
+      gl.shadowMap.enabled = false
+      return
+    }
+
+    sample.current.elapsed = 0
+    sample.current.frames = 0
+  })
+
+  return null
+}
+
 function PerformanceProbe() {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
@@ -84,6 +123,9 @@ function PerformanceProbe() {
     geometries: 0,
     textures: 0,
     objects: 0,
+    dpr: 0,
+    shadows: false,
+    degraded: false,
   })
 
   useEffect(() => {
@@ -109,6 +151,9 @@ function PerformanceProbe() {
     snapshot.current.points = gl.info.render.points
     snapshot.current.geometries = gl.info.memory.geometries
     snapshot.current.textures = gl.info.memory.textures
+    snapshot.current.dpr = gl.getPixelRatio()
+    snapshot.current.shadows = gl.shadowMap.enabled
+    snapshot.current.degraded = ADAPTIVE_QUALITY_STATE.degraded
   })
 
   return null

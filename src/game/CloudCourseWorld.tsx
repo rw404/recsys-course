@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Html, Line, RoundedBox, Sparkles } from '@react-three/drei'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -21,7 +21,6 @@ import { useInput } from './useInput'
 import { WORLD_RENDER_CONFIG } from './quality'
 import { touchControls } from './controls'
 import { ExplorerGLB } from './ExplorerGLB'
-import { TheoryImaxCamera, TheoryWorldStage } from './SignalTheoryStage'
 import {
   planObstaclePath,
   projectOutsideObstacles,
@@ -36,6 +35,9 @@ import {
   isTheoryLesson,
   theoryStageObstacles,
 } from './theoryStageLayout'
+
+const TheoryWorldStage = lazy(() => import('./SignalTheoryStage').then((module) => ({ default: module.TheoryWorldStage })))
+const TheoryImaxCamera = lazy(() => import('./SignalTheoryStage').then((module) => ({ default: module.TheoryImaxCamera })))
 
 const PLAYER_Y = 0.76
 // The IMAX cylinder tops out 0.25 units above the regular island surface.
@@ -245,9 +247,7 @@ export function CloudCourseWorld() {
         <ChapterIsland key={world.id} world={world} />
       ))}
 
-      {visibleCloudBanks.map(([x, y, z, scale], index) => (
-        <CloudCluster key={index} position={[x, y, z]} scale={scale} opacity={0.88} />
-      ))}
+      <InstancedCloudBanks banks={visibleCloudBanks} />
       <Sparkles count={WORLD_RENDER_CONFIG.sparkles} scale={[42, 10, 78]} position={[0, 2, 0]} size={1.8} speed={0.18} color="#ffffff" opacity={0.58} />
 
       {atlasOpen
@@ -504,18 +504,7 @@ function CloudRim({ world }: { world: CourseWorldDefinition }) {
   return (
     <group>
       <InstancedRocks rocks={rocks} accentDark={world.accentDark} />
-      {Array.from({ length: WORLD_RENDER_CONFIG.underClouds }, (_, index) => {
-        const angle = index * Math.PI * 0.5 + 0.4
-        return (
-          <CloudCluster
-            key={`under-cloud-${index}`}
-            position={[Math.cos(angle) * 4.1, -1.55, Math.sin(angle) * 4.1]}
-            scale={0.58 + (index % 2) * 0.08}
-            opacity={0.8}
-            tint={index % 2 ? '#f7fbff' : world.surface}
-          />
-        )
-      })}
+      <InstancedUnderClouds count={WORLD_RENDER_CONFIG.underClouds} surface={world.surface} />
     </group>
   )
 }
@@ -565,13 +554,6 @@ function InstancedRocks({
 
 function OceanSurface() {
   const material = useRef<THREE.MeshPhysicalMaterial>(null)
-  const currents = useMemo(() => Array.from({ length: WORLD_RENDER_CONFIG.oceanCurrents }, (_, row) => {
-    const z = -42 + row * 7
-    return Array.from({ length: 18 }, (_, index) => {
-      const x = -40 + index * 4.8
-      return new THREE.Vector3(x, -0.435, z + Math.sin(index * 0.72 + row * 0.58) * 0.34)
-    })
-  }), [])
   useFrame((state) => {
     if (!material.current) return
     material.current.clearcoatRoughness = 0.19 + Math.sin(state.clock.elapsedTime * 0.38) * 0.035
@@ -591,23 +573,72 @@ function OceanSurface() {
           opacity={0.92}
         />
       </mesh>
-      {currents.map((points, index) => (
-        <Line
-          key={index}
-          points={points}
-          color={index % 3 === 0 ? '#f1fcff' : '#75b9cb'}
-          lineWidth={index % 3 === 0 ? 0.7 : 0.45}
-          transparent
-          opacity={index % 3 === 0 ? 0.17 : 0.1}
-        />
-      ))}
-      {COURSE_WORLDS.map((world, index) => (
-        <mesh key={world.id} position={[world.position[0], -0.44, world.position[2]]} rotation={[-Math.PI / 2, 0, index * 0.15]}>
-          <ringGeometry args={[5.15, 5.23, 80]} />
-          <meshBasicMaterial color="#b9f4ff" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false} />
-        </mesh>
-      ))}
+      {WORLD_RENDER_CONFIG.oceanCurrents > 0 && <OceanCurrents />}
+      <OceanWorldRings />
     </group>
+  )
+}
+
+function OceanCurrents() {
+  const segments = useMemo(() => {
+    const bright: number[] = []
+    const soft: number[] = []
+    for (let row = 0; row < WORLD_RENDER_CONFIG.oceanCurrents; row += 1) {
+      const target = row % 3 === 0 ? bright : soft
+      const z = -42 + row * 7
+      for (let index = 0; index < 17; index += 1) {
+        if (index % 3 === 2) continue
+        const x = -40 + index * 4.8
+        const nextX = x + 2.6
+        target.push(
+          x, -0.435, z + Math.sin(index * 0.72 + row * 0.58) * 0.34,
+          nextX, -0.435, z + Math.sin((index + 1) * 0.72 + row * 0.58) * 0.34,
+        )
+      }
+    }
+    return {
+      bright: new Float32Array(bright),
+      soft: new Float32Array(soft),
+    }
+  }, [])
+
+  return (
+    <group>
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[segments.bright, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color="#f1fcff" transparent opacity={0.06} />
+      </lineSegments>
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[segments.soft, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color="#75b9cb" transparent opacity={0.025} />
+      </lineSegments>
+    </group>
+  )
+}
+
+function OceanWorldRings() {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    COURSE_WORLDS.forEach((world, index) => {
+      dummy.position.set(world.position[0], -0.44, world.position[2])
+      dummy.rotation.set(-Math.PI / 2, 0, index * 0.15)
+      dummy.updateMatrix()
+      mesh.current!.setMatrixAt(index, dummy.matrix)
+    })
+    mesh.current.instanceMatrix.needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [])
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, COURSE_WORLDS.length]}>
+      <ringGeometry args={[5.15, 5.23, 80]} />
+      <meshBasicMaterial color="#b9f4ff" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false} />
+    </instancedMesh>
   )
 }
 
@@ -1676,16 +1707,32 @@ function ArrivalPortal({ accent, phase }: { accent: string; phase: 'journey' | '
         <circleGeometry args={[0.72, 48]} />
         <meshBasicMaterial ref={inner} color="#dffaff" transparent opacity={0.34} depthWrite={false} toneMapped={false} />
       </mesh>
-      {[0, 1, 2, 3, 4, 5].map((index) => {
-        const angle = (index / 6) * Math.PI * 2
-        return (
-          <mesh key={index} position={[Math.cos(angle) * 1.02, Math.sin(angle) * 1.02, 0]}>
-            <octahedronGeometry args={[0.07, 0]} />
-            <meshBasicMaterial color={index % 2 ? "#ffffff" : accent} transparent opacity={0.86} toneMapped={false} />
-          </mesh>
-        )
-      })}
+      <PortalGems accent={accent} />
     </group>
+  )
+}
+
+function PortalGems({ accent }: { accent: string }) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    for (let index = 0; index < 6; index += 1) {
+        const angle = (index / 6) * Math.PI * 2
+      dummy.position.set(Math.cos(angle) * 1.02, Math.sin(angle) * 1.02, 0)
+      dummy.updateMatrix()
+      mesh.current.setMatrixAt(index, dummy.matrix)
+      mesh.current.setColorAt(index, new THREE.Color(index % 2 ? '#ffffff' : accent))
+    }
+    mesh.current.instanceMatrix.needsUpdate = true
+    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [accent])
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, 6]}>
+      <octahedronGeometry args={[0.07, 0]} />
+      <meshBasicMaterial transparent opacity={0.86} toneMapped={false} />
+    </instancedMesh>
   )
 }
 
@@ -1950,23 +1997,31 @@ function CourseRoute() {
   return (
     <group>
       <Line points={points} color="#79a9b8" lineWidth={2.1} transparent opacity={0.42} dashed dashSize={0.22} gapSize={0.15} />
-      {[0, 0.24, 0.48, 0.72].map((offset) => <RoutePacket key={offset} curve={curve} offset={offset} />)}
+      <RoutePackets curve={curve} />
     </group>
   )
 }
 
-function RoutePacket({ curve, offset }: { curve: THREE.CatmullRomCurve3; offset: number }) {
-  const ref = useRef<THREE.Mesh>(null)
+const ROUTE_PACKET_OFFSETS = [0, 0.24, 0.48, 0.72]
+
+function RoutePackets({ curve }: { curve: THREE.CatmullRomCurve3 }) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
   useFrame((state) => {
-    if (!ref.current) return
-    const t = (state.clock.elapsedTime * 0.025 + offset) % 1
-    ref.current.position.copy(curve.getPointAt(t)).setY(0.25)
+    if (!mesh.current) return
+    ROUTE_PACKET_OFFSETS.forEach((offset, index) => {
+      const t = (state.clock.elapsedTime * 0.025 + offset) % 1
+      dummy.position.copy(curve.getPointAt(t)).setY(0.25)
+      dummy.updateMatrix()
+      mesh.current!.setMatrixAt(index, dummy.matrix)
+    })
+    mesh.current.instanceMatrix.needsUpdate = true
   })
   return (
-    <mesh ref={ref}>
+    <instancedMesh ref={mesh} args={[undefined, undefined, ROUTE_PACKET_OFFSETS.length]}>
       <sphereGeometry args={[0.13, 16, 16]} />
       <meshStandardMaterial color="#ffffff" emissive="#58b9ca" emissiveIntensity={0.8} />
-    </mesh>
+    </instancedMesh>
   )
 }
 
@@ -1998,97 +2053,145 @@ function MoveDestinationMarker({ accent, y }: { accent: string; y: number }) {
   )
 }
 
+const CLOUD_PUFFS = [
+  [-0.58, 0, 0],
+  [0.42, 0.05, 0.02],
+  [-0.02, 0.24, -0.12],
+  [0.08, -0.06, 0.4],
+] as const
+
 function CloudReveal({ worldId }: { worldId: WorldId }) {
   const world = COURSE_WORLD_BY_ID[worldId]
-  return (
-    <group>
-      {Array.from({ length: 12 }, (_, index) => (
-        <PartingCloud key={index} world={world} index={index} />
-      ))}
-    </group>
-  )
-}
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  const progress = useRef<number[]>([])
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+  const cloudPosition = useMemo(() => new THREE.Vector3(), [])
+  const layout = useMemo(() => Array.from({ length: 12 }, (_, index) => {
+    const angle = (index / 12) * Math.PI * 2 + (index % 2) * 0.14
+    return {
+      start: new THREE.Vector3(
+        world.position[0] + Math.cos(angle) * 0.9,
+        4.4 + (index % 3) * 0.24,
+        world.position[2] + Math.sin(angle) * 0.9,
+      ),
+      end: new THREE.Vector3(
+        world.position[0] + Math.cos(angle) * (6.8 + (index % 3) * 0.65),
+        3.2 + (index % 2) * 0.5,
+        world.position[2] + Math.sin(angle) * (6.8 + (index % 3) * 0.65),
+      ),
+    }
+  }), [world])
 
-function PartingCloud({ world, index }: { world: CourseWorldDefinition; index: number }) {
-  const group = useRef<THREE.Group>(null)
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    color: index % 3 === 0 ? world.surface : '#ffffff',
-    transparent: true,
-    opacity: 0.9,
-    roughness: 1,
-    depthWrite: false,
-  }), [index, world])
-  const progress = useRef(-index * 0.025)
-  const angle = (index / 12) * Math.PI * 2 + (index % 2) * 0.14
-  const start = useMemo(() => new THREE.Vector3(
-    world.position[0] + Math.cos(angle) * 0.9,
-    4.4 + (index % 3) * 0.24,
-    world.position[2] + Math.sin(angle) * 0.9,
-  ), [angle, index, world])
-  const end = useMemo(() => new THREE.Vector3(
-    world.position[0] + Math.cos(angle) * (6.8 + (index % 3) * 0.65),
-    3.2 + (index % 2) * 0.5,
-    world.position[2] + Math.sin(angle) * (6.8 + (index % 3) * 0.65),
-  ), [angle, index, world])
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    progress.current = layout.map((_, index) => -index * 0.025)
+    layout.forEach((_, cloudIndex) => {
+      const color = new THREE.Color(cloudIndex % 3 === 0 ? world.surface : '#ffffff')
+      CLOUD_PUFFS.forEach((__, puffIndex) => {
+        mesh.current!.setColorAt(cloudIndex * CLOUD_PUFFS.length + puffIndex, color)
+      })
+    })
+    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
+    mesh.current.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  }, [layout, world])
 
-  useEffect(() => () => material.dispose(), [material])
   useFrame((_, dt) => {
-    if (!group.current) return
-    progress.current = Math.min(1, progress.current + dt * 0.72)
-    const raw = THREE.MathUtils.clamp(progress.current, 0, 1)
-    const eased = 1 - Math.pow(1 - raw, 3)
-    group.current.position.lerpVectors(start, end, eased)
-    group.current.scale.setScalar(1.35 + eased * 0.65)
-    material.opacity = Math.max(0, 0.92 * (1 - eased))
-    group.current.visible = material.opacity > 0.01
+    if (!mesh.current) return
+    let anyVisible = false
+    layout.forEach((cloud, cloudIndex) => {
+      const next = Math.min(1, (progress.current[cloudIndex] ?? 0) + dt * 0.72)
+      progress.current[cloudIndex] = next
+      const raw = THREE.MathUtils.clamp(next, 0, 1)
+      const eased = 1 - Math.pow(1 - raw, 3)
+      const fade = Math.max(0, 1 - eased)
+      const scale = (1.35 + eased * 0.65) * Math.max(0.001, Math.pow(fade, 0.52))
+      cloudPosition.lerpVectors(cloud.start, cloud.end, eased)
+      CLOUD_PUFFS.forEach(([x, y, z], puffIndex) => {
+        dummy.position.set(
+          cloudPosition.x + x * scale,
+          cloudPosition.y + y * scale,
+          cloudPosition.z + z * scale,
+        )
+        dummy.scale.setScalar(scale * ((0.72 - puffIndex * 0.06) / 0.72))
+        dummy.updateMatrix()
+        mesh.current!.setMatrixAt(cloudIndex * CLOUD_PUFFS.length + puffIndex, dummy.matrix)
+      })
+      anyVisible ||= fade > 0.01
+    })
+    mesh.current.instanceMatrix.needsUpdate = true
+    mesh.current.visible = anyVisible
   })
 
   return (
-    <group ref={group} position={start} renderOrder={12}>
-      {[[-0.45, 0, 0], [0.35, 0.08, 0.05], [0, 0.22, -0.18], [0.08, -0.08, 0.34]].map((position, puff) => (
-        <mesh key={puff} position={position as [number, number, number]} material={material}>
-          <sphereGeometry args={[0.72 - puff * 0.06, 18, 14]} />
-        </mesh>
-      ))}
-    </group>
+    <instancedMesh
+      ref={mesh}
+      args={[undefined, undefined, layout.length * CLOUD_PUFFS.length]}
+      frustumCulled={false}
+      renderOrder={12}
+    >
+      <sphereGeometry args={[0.72, 16, 12]} />
+      <meshStandardMaterial transparent opacity={0.9} roughness={1} depthWrite={false} />
+    </instancedMesh>
   )
 }
 
-function CloudCluster({
-  position,
-  scale,
-  opacity,
-  tint = '#ffffff',
-}: {
-  position: [number, number, number]
-  scale: number
-  opacity: number
-  tint?: string
-}) {
+function InstancedCloudBanks({ banks }: { banks: [number, number, number, number][] }) {
   const mesh = useRef<THREE.InstancedMesh>(null)
   useLayoutEffect(() => {
     if (!mesh.current) return
     const dummy = new THREE.Object3D()
-    const puffs: [number, number, number][] = [
-      [-0.58, 0, 0],
-      [0.42, 0.05, 0.02],
-      [-0.02, 0.24, -0.12],
-      [0.08, -0.06, 0.4],
-    ]
-    puffs.forEach((puff, index) => {
-      dummy.position.set(...puff)
-      dummy.scale.setScalar((0.72 - index * 0.06) / 0.72)
-      dummy.updateMatrix()
-      mesh.current!.setMatrixAt(index, dummy.matrix)
+    banks.forEach(([bankX, bankY, bankZ, bankScale], bankIndex) => {
+      CLOUD_PUFFS.forEach(([x, y, z], puffIndex) => {
+        dummy.position.set(
+          bankX + x * bankScale,
+          bankY + y * bankScale,
+          bankZ + z * bankScale,
+        )
+        dummy.scale.setScalar(bankScale * ((0.72 - puffIndex * 0.06) / 0.72))
+        dummy.updateMatrix()
+        mesh.current!.setMatrixAt(bankIndex * CLOUD_PUFFS.length + puffIndex, dummy.matrix)
+      })
     })
     mesh.current.instanceMatrix.needsUpdate = true
     mesh.current.computeBoundingSphere()
-  }, [])
+  }, [banks])
 
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, 4]} position={position} scale={scale} renderOrder={-1}>
+    <instancedMesh ref={mesh} args={[undefined, undefined, banks.length * CLOUD_PUFFS.length]} renderOrder={-1}>
       <sphereGeometry args={[0.72, 16, 12]} />
-      <meshStandardMaterial color={tint} transparent opacity={opacity} roughness={1} depthWrite={false} />
+      <meshStandardMaterial color="#ffffff" transparent opacity={0.88} roughness={1} depthWrite={false} />
+    </instancedMesh>
+  )
+}
+
+function InstancedUnderClouds({ count, surface }: { count: number; surface: string }) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    for (let cloudIndex = 0; cloudIndex < count; cloudIndex += 1) {
+      const angle = cloudIndex * Math.PI * 0.5 + 0.4
+      const bankScale = 0.58 + (cloudIndex % 2) * 0.08
+      const bankX = Math.cos(angle) * 4.1
+      const bankZ = Math.sin(angle) * 4.1
+      const color = new THREE.Color(cloudIndex % 2 ? '#f7fbff' : surface)
+      CLOUD_PUFFS.forEach(([x, y, z], puffIndex) => {
+        dummy.position.set(bankX + x * bankScale, -1.55 + y * bankScale, bankZ + z * bankScale)
+        dummy.scale.setScalar(bankScale * ((0.72 - puffIndex * 0.06) / 0.72))
+        dummy.updateMatrix()
+        const instanceIndex = cloudIndex * CLOUD_PUFFS.length + puffIndex
+        mesh.current!.setMatrixAt(instanceIndex, dummy.matrix)
+        mesh.current!.setColorAt(instanceIndex, color)
+      })
+    }
+    mesh.current.instanceMatrix.needsUpdate = true
+    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
+    mesh.current.computeBoundingSphere()
+  }, [count, surface])
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, count * CLOUD_PUFFS.length]} renderOrder={-1}>
+      <sphereGeometry args={[0.72, 16, 12]} />
+      <meshStandardMaterial transparent opacity={0.8} roughness={1} depthWrite={false} />
     </instancedMesh>
   )
 }

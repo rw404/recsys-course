@@ -70,6 +70,7 @@ for (const scenario of scenarios) {
   const metrics = await page.evaluate(() => {
     const navigation = performance.getEntriesByType('navigation')[0]
     const resources = performance.getEntriesByType('resource')
+    const progress = window.__progress?.getState?.()
     const totals = resources.reduce((acc, entry) => {
       const resource = entry
       const group = resource.initiatorType || 'other'
@@ -84,10 +85,22 @@ for (const scenario of scenarios) {
       domContentLoadedMs: navigation?.domContentLoadedEventEnd ?? 0,
       loadMs: navigation?.loadEventEnd ?? 0,
       heapBytes: performance.memory?.usedJSHeapSize ?? 0,
+      progress: progress ? {
+        currentWorld: progress.currentWorld,
+        atlasOpen: progress.atlasOpen,
+      } : null,
     }
   })
 
   assert.deepEqual(errors, [], scenario.name + ' emitted browser errors')
+  assert.ok(metrics.world.calls <= (scenario.mobile ? 82 : 125), scenario.name + ' exceeded the render-call budget')
+  assert.ok(metrics.world.geometries <= (scenario.mobile ? 95 : 165), scenario.name + ' exceeded the geometry budget')
+  if (scenario.path.includes('world=valley')) {
+    assert.equal(metrics.progress?.currentWorld, 'retrieval-valley', scenario.name + ' ignored its world deep-link')
+    assert.equal(metrics.progress?.atlasOpen, false, scenario.name + ' reopened the journey atlas')
+  } else {
+    assert.equal(metrics.progress?.atlasOpen, true, scenario.name + ' did not open the journey atlas')
+  }
   await page.screenshot({ path: 'artifacts/' + reportName + '-' + scenario.name + '.png' })
   report.push({
     scenario: scenario.name,

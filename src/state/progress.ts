@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { getBrowserStorage } from './browserStorage'
 
 /**
  * ProgressStore is the single source of truth for course progression.
@@ -45,6 +47,18 @@ export type NodeKind = 'lesson' | 'widget' | 'quiz' | 'npc' | 'campfire' | 'brid
 
 /** Explorable regions the player walks between across bridges/gates. */
 export type WorldId = 'foundations-camp' | 'retrieval-valley' | 'sequential-city' | 'policy-tower' | 'ecosystem-garden' | 'final-arena'
+
+export const COURSE_PROGRESS_STORAGE_KEY = 'recsys-odyssey-course-progress'
+export const COURSE_PROGRESS_VERSION = 1
+
+const WORLD_IDS: WorldId[] = [
+  'foundations-camp',
+  'retrieval-valley',
+  'sequential-city',
+  'policy-tower',
+  'ecosystem-garden',
+  'final-arena',
+]
 
 export type ProgressNodeState =
   | 'locked_for_credit' // prerequisite not met — cannot be entered for credit
@@ -597,6 +611,49 @@ const emptyArtifacts = (): Record<ArtifactId, boolean> => ({
   'diversity-seed': false,
 })
 
+export interface CourseProgressSnapshot {
+  completed: Record<NodeId, boolean>
+  artifacts: Record<ArtifactId, boolean>
+  talkedToGuide: boolean
+  currentWorld: WorldId
+  reducedMotion: boolean
+  capstoneScore: number
+  atlasOpen: boolean
+}
+
+export function sanitizeCourseProgressSnapshot(
+  value: unknown,
+  fallbackReducedMotion = false,
+  fallback: Partial<CourseProgressSnapshot> = {},
+): CourseProgressSnapshot {
+  const source = isRecord(value) ? value : {}
+  const storedCompleted = isRecord(source.completed) ? source.completed : fallback.completed ?? {}
+  const storedArtifacts = isRecord(source.artifacts) ? source.artifacts : fallback.artifacts ?? {}
+  const completed = emptyCompleted()
+  const artifacts = emptyArtifacts()
+
+  for (const nodeId of NODE_ORDER) completed[nodeId] = storedCompleted[nodeId] === true
+  for (const artifactId of Object.keys(artifacts) as ArtifactId[]) {
+    artifacts[artifactId] = storedArtifacts[artifactId] === true
+  }
+
+  const currentWorld = WORLD_IDS.includes(source.currentWorld as WorldId)
+    ? source.currentWorld as WorldId
+    : fallback.currentWorld ?? 'foundations-camp'
+
+  return {
+    completed,
+    artifacts,
+    talkedToGuide: typeof source.talkedToGuide === 'boolean' ? source.talkedToGuide : fallback.talkedToGuide ?? false,
+    currentWorld,
+    reducedMotion: typeof source.reducedMotion === 'boolean' ? source.reducedMotion : fallbackReducedMotion,
+    capstoneScore: typeof source.capstoneScore === 'number' && Number.isFinite(source.capstoneScore)
+      ? Math.max(0, source.capstoneScore)
+      : fallback.capstoneScore ?? 0,
+    atlasOpen: typeof source.atlasOpen === 'boolean' ? source.atlasOpen : fallback.atlasOpen ?? true,
+  }
+}
+
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -614,7 +671,7 @@ function initialWorld(): WorldId {
   return 'foundations-camp'
 }
 
-export const useProgress = create<ProgressState>((set, get) => ({
+export const useProgress = create<ProgressState>()(persist((set, get) => ({
   completed: emptyCompleted(),
   artifacts: emptyArtifacts(),
   talkedToGuide: false,
@@ -825,10 +882,36 @@ export const useProgress = create<ProgressState>((set, get) => ({
       mode: 'explore',
       nearbyNodeId: null,
       activeNodeId: null,
+      lessonPage: 0,
       capstoneScore: 0,
       atlasOpen: false,
     }),
+}), {
+  name: COURSE_PROGRESS_STORAGE_KEY,
+  version: COURSE_PROGRESS_VERSION,
+  storage: createJSONStorage(getBrowserStorage),
+  partialize: (state) => ({
+    completed: state.completed,
+    artifacts: state.artifacts,
+    talkedToGuide: state.talkedToGuide,
+    currentWorld: state.currentWorld,
+    reducedMotion: state.reducedMotion,
+    capstoneScore: state.capstoneScore,
+    atlasOpen: state.atlasOpen,
+  }),
+  merge: (persisted, current) => ({
+    ...current,
+    ...sanitizeCourseProgressSnapshot(persisted, current.reducedMotion, current),
+    mode: 'explore',
+    nearbyNodeId: null,
+    activeNodeId: null,
+    lessonPage: 0,
+  }),
 }))
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
 
 function labelForAction(node: CourseNode): string {
   switch (node.action) {

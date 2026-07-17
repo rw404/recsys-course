@@ -9,7 +9,7 @@ import {
   WEEK01_LESSON, WEEK02_LESSON, WEEK03_LESSON, WEEK04_LESSON, WEEK05_LESSON, CAPSTONE_LESSON,
   METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, POLICY_QUIZ, ECOSYSTEM_QUIZ,
 } from './src/data/course'
-import { useProgress, NODES } from './src/state/progress'
+import { useProgress, NODES, sanitizeCourseProgressSnapshot } from './src/state/progress'
 import {
   PLAYER_COLLISION_RADIUS,
   planObstaclePath,
@@ -28,8 +28,15 @@ import {
   theoryStageObstacles,
 } from './src/game/theoryStageLayout'
 import type { WorldId } from './src/state/progress'
-import { createRuntimeDataset } from './src/data/recommenderDataset'
+import { createRuntimeDataset, SANDBOX_DATASET } from './src/data/recommenderDataset'
 import { buildFoundationsExperiment } from './src/logic/foundationsExperiment'
+import {
+  compareExperimentRuns,
+  createExperimentRun,
+  MAX_EXPERIMENT_RUNS,
+  sanitizeExperimentRuns,
+} from './src/state/experimentJournal'
+import type { SimulationResult } from './src/logic/systemSimulator'
 
 let failed = 0
 function assert(name: string, cond: boolean, extra?: unknown) {
@@ -141,6 +148,101 @@ assert('every world contains a full learning arc', lessons.every((lesson) => les
 assert('every concept includes a glossary', lessons.every((lesson) => lesson.sections.every((section) => (section.terms?.length ?? 0) >= 2)))
 const checkpoints = [METRICS_QUIZ, NEGATIVES_QUIZ, ATTENTION_QUIZ, POLICY_QUIZ, ECOSYSTEM_QUIZ]
 assert('every checkpoint contains six applied scenarios', checkpoints.every((quiz) => quiz.length === 6))
+
+console.log('persistent learning record:')
+{
+  const snapshot = sanitizeCourseProgressSnapshot({
+    completed: { 'week01-station': true, 'unknown-future-node': true },
+    artifacts: { 'metric-compass': true, 'unknown-artifact': true },
+    talkedToGuide: true,
+    currentWorld: 'unknown-world',
+    reducedMotion: false,
+    capstoneScore: -20,
+    atlasOpen: false,
+  }, true)
+  assert('known node completion survives migration', snapshot.completed['week01-station'] === true)
+  assert('missing course nodes receive safe defaults', snapshot.completed['ranking-sandbox'] === false)
+  assert('known artifacts survive migration', snapshot.artifacts['metric-compass'] === true)
+  assert('invalid world falls back to foundations', snapshot.currentWorld === 'foundations-camp')
+  assert('invalid negative score is clamped', snapshot.capstoneScore === 0)
+  assert('explicit atlas preference survives migration', snapshot.atlasOpen === false)
+  const bootstrap = sanitizeCourseProgressSnapshot({}, false, {
+    currentWorld: 'retrieval-valley',
+    atlasOpen: false,
+  })
+  assert('empty storage preserves a deep-linked world', bootstrap.currentWorld === 'retrieval-valley')
+  assert('empty storage preserves focused map state', bootstrap.atlasOpen === false)
+
+  const result = (
+    quality: number,
+    diversity: number,
+    latencyMs: number,
+    movieIds: string[],
+  ): SimulationResult => ({
+    recommendations: movieIds.map((movieId, index) => ({
+      movieId,
+      score: 0.9 - index * 0.1,
+      sourceScores: {},
+      reasons: ['Deterministic test evidence'],
+    })),
+    trace: {},
+    metrics: { quality, diversity, coverage: 0.4, novelty: 0.3, latencyMs },
+    visitedNodeIds: ['ratings', 'slate'],
+    error: null,
+    datasetId: SANDBOX_DATASET.meta.id,
+  })
+  const baseline = createExperimentRun({
+    id: 'baseline',
+    now: '2026-07-17T10:00:00.000Z',
+    title: '  Baseline   run  ',
+    hypothesis: 'Popularity should provide a stable reference.',
+    templateId: 'fast',
+    viewerId: 'u104',
+    dataset: SANDBOX_DATASET,
+    nodes: [
+      { id: 'ratings', moduleType: 'ratingsSource' },
+      { id: 'popular', moduleType: 'popularity', config: { limit: 40 } },
+      { id: 'slate', moduleType: 'output', config: { topK: 4 } },
+    ],
+    edges: [
+      { source: 'ratings', target: 'popular' },
+      { source: 'popular', target: 'slate' },
+    ],
+    result: result(0.5, 0.2, 12, ['m1', 'm2']),
+  })
+  const treatment = createExperimentRun({
+    id: 'treatment',
+    now: '2026-07-17T10:05:00.000Z',
+    title: 'Personalized run',
+    hypothesis: 'Adding collaborative retrieval should increase quality.',
+    templateId: 'personalized',
+    viewerId: 'u104',
+    dataset: SANDBOX_DATASET,
+    nodes: [
+      { id: 'ratings', moduleType: 'ratingsSource' },
+      { id: 'popular', moduleType: 'popularity', config: { limit: 80 } },
+      { id: 'collaborative', moduleType: 'collaborative', config: { neighbors: 24 } },
+      { id: 'slate', moduleType: 'output', config: { topK: 4 } },
+    ],
+    edges: [
+      { source: 'ratings', target: 'popular' },
+      { source: 'ratings', target: 'collaborative' },
+      { source: 'popular', target: 'slate' },
+      { source: 'collaborative', target: 'slate' },
+    ],
+    result: result(0.65, 0.28, 20, ['m2', 'm3']),
+  })
+  const comparison = compareExperimentRuns(baseline, treatment)
+  assert('journal normalizes run titles', baseline.title === 'Baseline run')
+  assert('comparison reports quality delta', approx(comparison.metricDeltas.quality, 0.15))
+  assert('comparison reports latency cost', comparison.metricDeltas.latencyMs === 8)
+  assert('comparison finds slate overlap', approx(comparison.slateOverlap, 1 / 3))
+  assert('comparison identifies added modules', comparison.addedModules.includes('collaborative'))
+  assert('comparison identifies changed parameters', comparison.changedModules.includes('popularity'))
+  const oversized = Array.from({ length: MAX_EXPERIMENT_RUNS + 3 }, (_, index) => ({ ...baseline, id: `run-${index}` }))
+  assert('journal bounds local storage growth', sanitizeExperimentRuns(oversized).length === MAX_EXPERIMENT_RUNS)
+  assert('journal rejects malformed entries', sanitizeExperimentRuns([{}, baseline]).length === 1)
+}
 
 console.log('progress state machine:')
 const s = useProgress.getState

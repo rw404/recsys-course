@@ -32,4 +32,30 @@ export default defineConfig({
   plugins: [theoryContentPlugin(), react()],
   server: { host: true, port: 5173 },
   preview: { host: true, port: 4173 },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('vite/preload-helper')) return 'vite-runtime'
+          if (!id.includes('/node_modules/')) return undefined
+          if (id.includes('/@xyflow/')) return 'vendor-flow'
+          if (id.includes('/katex/')) return 'vendor-katex'
+          if (
+            id.includes('/@react-three/')
+            || id.includes('/three/')
+            || id.includes('/three-stdlib/')
+            || id.includes('/maath/')
+            || id.includes('/troika-')
+          ) return 'vendor-three'
+          if (
+            id.includes('/react/')
+            || id.includes('/react-dom/')
+            || id.includes('/scheduler/')
+          ) return 'vendor-react'
+          if (id.includes('/zustand/')) return 'vendor-state'
+          return undefined
+        },
+      },
+    },
+  },
 })

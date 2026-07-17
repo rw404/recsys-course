@@ -28,7 +28,7 @@ const PRESETS: Record<WorldQualityTier, WorldRenderConfig> = {
     islandTrees: 8,
     islandRocks: 10,
     districts: 4,
-    oceanCurrents: 7,
+    oceanCurrents: 0,
   },
   balanced: {
     tier: 'balanced',
